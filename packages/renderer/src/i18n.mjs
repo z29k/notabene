@@ -1,0 +1,145 @@
+// UI string catalog. The renderer is English-first (OSS); `locale` in
+// notabene.config selects the catalog (default "en"). Server components import
+// `t(locale)`; client scripts read the same object injected as JSON by DocLayout
+// (`#notabene-i18n`). Values are plain strings only (must be JSON-serializable).
+//
+// Add a language by adding a top-level key; missing keys fall back to English.
+const MESSAGES = {
+  en: {
+    navComments: "Comments",
+    navJournal: "Journal",
+    searchPlaceholder: "Search all docs…",
+    searchNoResults: "No results",
+    tocTitle: "On this page",
+    sidebarFilter: "Filter…",
+    sidebarOverview: "Overview →",
+    subsections: "+ subsections…",
+
+    discussion: "Discussion",
+    pageCommentPlaceholder: "Comment on this page…",
+    commentPage: "Comment on page",
+    floatComment: "💬 Comment",
+    selectionPlaceholder: "Comment on the selection…",
+    cancel: "Cancel",
+    comment: "Comment",
+
+    annotations: "Annotations",
+    filterOpen: "Open",
+    filterResolved: "Resolved",
+    filterAll: "All",
+    selectToAnnotate: "Select text to annotate.",
+    noPageComments: "No page comments.",
+    scopePage: "📄 page",
+    onHold: "⏸ on hold",
+    replyPlaceholder: "Reply…",
+    send: "Send",
+    save: "Save",
+    openSuffix: "open",
+
+    tEdit: "Edit",
+    tResolve: "Resolve",
+    tReopen: "Reopen",
+    tHold: "Put on hold",
+    tUnhold: "Reactivate",
+    tReply: "Reply",
+    tDelete: "Delete",
+
+    allCommentsTitle: "All comments",
+    allCommentsLede:
+      "Aggregated view of the whole doc, with filters. Click a page → opens the comment in place.",
+    searchCommentsPlaceholder: "Search (text, page, quote)…",
+    stActive: "Active",
+    stOpen: "Open",
+    stResolved: "Resolved",
+    stAll: "All statuses",
+    spAll: "All spaces",
+    holdAll: "Hold: all",
+    holdActive: "Not on hold",
+    holdOnly: "On hold",
+    loading: "Loading…",
+    repliesSuffix: "repl.",
+    noCommentsFilters: "No comments for these filters.",
+
+    journalTitle: "Journal",
+    journalHeading: "Change journal",
+    journalLede:
+      "History of review passes: what changed in the docs, and why (linked to the comments that triggered it).",
+    journalEmpty:
+      "No pass recorded yet. When the agent processes comments, an entry is added here.",
+    journalComments: "comments:",
+
+    homeDocumentation: "documentation",
+    homeLede: "Sourced live from the repo.",
+  },
+  fr: {
+    navComments: "Commentaires",
+    navJournal: "Journal",
+    searchPlaceholder: "Rechercher dans la doc…",
+    searchNoResults: "Aucun résultat",
+    tocTitle: "Sur cette page",
+    sidebarFilter: "Filtrer…",
+    sidebarOverview: "Aperçu →",
+    subsections: "+ sous-sections…",
+
+    discussion: "Discussion",
+    pageCommentPlaceholder: "Commentaire sur cette page…",
+    commentPage: "Commenter la page",
+    floatComment: "💬 Commenter",
+    selectionPlaceholder: "Commentaire sur la sélection…",
+    cancel: "Annuler",
+    comment: "Commenter",
+
+    annotations: "Annotations",
+    filterOpen: "Ouverts",
+    filterResolved: "Résolus",
+    filterAll: "Tous",
+    selectToAnnotate: "Sélectionne du texte pour annoter.",
+    noPageComments: "Aucun commentaire de page.",
+    scopePage: "📄 page",
+    onHold: "⏸ en attente",
+    replyPlaceholder: "Réponse…",
+    send: "Envoyer",
+    save: "Enregistrer",
+    openSuffix: "ouverts",
+
+    tEdit: "Éditer",
+    tResolve: "Résoudre",
+    tReopen: "Rouvrir",
+    tHold: "Mettre en attente",
+    tUnhold: "Réactiver",
+    tReply: "Répondre",
+    tDelete: "Supprimer",
+
+    allCommentsTitle: "Tous les commentaires",
+    allCommentsLede:
+      "Vue agrégée de toute la doc, avec filtres. Clic sur une page → ouvre le commentaire à son emplacement.",
+    searchCommentsPlaceholder: "Rechercher (texte, page, citation)…",
+    stActive: "Actifs",
+    stOpen: "Open",
+    stResolved: "Résolus",
+    stAll: "Tous statuts",
+    spAll: "Tous espaces",
+    holdAll: "Attente : tous",
+    holdActive: "Hors attente",
+    holdOnly: "En attente",
+    loading: "Chargement…",
+    repliesSuffix: "rép.",
+    noCommentsFilters: "Aucun commentaire pour ces filtres.",
+
+    journalTitle: "Journal",
+    journalHeading: "Journal des modifications",
+    journalLede:
+      "Historique des passes de revue : ce qui a changé dans la doc, et pourquoi (lié aux commentaires qui l'ont déclenché).",
+    journalEmpty:
+      "Aucune passe enregistrée. Quand l'agent traite des commentaires, une entrée est ajoutée ici.",
+    journalComments: "commentaires :",
+
+    homeDocumentation: "documentation",
+    homeLede: "Sourcé en direct depuis le repo.",
+  },
+};
+
+/** Message catalog for a locale (falls back to English for unknown locales/keys). */
+export function t(locale) {
+  return { ...MESSAGES.en, ...(MESSAGES[locale] ?? {}) };
+}

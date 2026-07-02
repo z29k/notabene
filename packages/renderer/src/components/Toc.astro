@@ -1,0 +1,33 @@
+---
+import { locale } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Props {
+  headings: Heading[];
+}
+
+const m = t(locale);
+const { headings } = Astro.props;
+const items = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
+---
+
+{
+  items.length > 0 && (
+    <nav class="toc-inner" aria-label={m.tocTitle}>
+      <p class="toc-title">{m.tocTitle}</p>
+      <ul>
+        {items.map((h) => (
+          <li class:list={[`d${h.depth}`]}>
+            <a href={`#${h.slug}`}>{h.text}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  )
+}

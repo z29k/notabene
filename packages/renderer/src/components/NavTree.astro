@@ -1,0 +1,43 @@
+---
+import type { NavNode } from "../lib/nav";
+import NavTree from "./NavTree.astro";
+
+interface Props {
+  nodes: NavNode[];
+  current: string;
+}
+
+const { nodes, current } = Astro.props;
+
+// A group is open if it contains (at any depth) the current page. Works for
+// folder groups and synthetic editorial subgroups alike.
+function containsCurrent(node: NavNode, target: string): boolean {
+  if (node.type === "leaf") return node.href === target;
+  return node.children.some((child) => containsCurrent(child, target));
+}
+---
+
+<ul class="nav-list">
+  {
+    nodes.map((node) =>
+      node.type === "group" ? (
+        <li class="nav-group">
+          <details open={containsCurrent(node, current)}>
+            <summary>{node.label}</summary>
+            <NavTree nodes={node.children} current={current} />
+          </details>
+        </li>
+      ) : (
+        <li class="nav-leaf">
+          <a
+            href={node.href}
+            class:list={["nav-a", { active: node.href === current }]}
+            data-title={node.title}
+          >
+            {node.title}
+          </a>
+        </li>
+      ),
+    )
+  }
+</ul>

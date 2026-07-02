@@ -1,0 +1,160 @@
+---
+import "../styles/global.css";
+import Sidebar from "../components/Sidebar.astro";
+import Toc from "../components/Toc.astro";
+import Comments from "../components/Comments.astro";
+import type { Space } from "../lib/nav";
+import { clientRoots, locale, siteName, tagline } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+const m = t(locale);
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Props {
+  title: string;
+  current?: string;
+  space?: Space;
+  /** Chemin logique repo-relatif (sans extension) — support Phase 2 commentaires. */
+  page?: string;
+  headings?: Heading[];
+  breadcrumb?: Crumb[];
+}
+
+const { title, current = "", space, page, headings = [], breadcrumb = [] } = Astro.props;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · {siteName}</title>
+    <script type="application/json" id="notabene-roots" set:html={JSON.stringify(clientRoots)} />
+    <script type="application/json" id="notabene-i18n" set:html={JSON.stringify(m)} />
+  </head>
+  <body>
+    <header class="topbar">
+      <a href="/" class="brand">{siteName} <span>· {tagline}</span></a>
+      <div class="search">
+        <input id="search-input" type="search" placeholder={m.searchPlaceholder} autocomplete="off" />
+        <div id="search-results" class="search-results" hidden></div>
+      </div>
+      <a href="/comments" class="topbar-link">{m.navComments}</a>
+      <a href="/journal" class="topbar-link">{m.navJournal}</a>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar">
+        <Sidebar current={current} activeSpace={space} />
+      </aside>
+
+      <main class="content">
+        {
+          breadcrumb.length > 0 && (
+            <nav class="breadcrumb" aria-label="Breadcrumb">
+              {breadcrumb.map((b, i) => (
+                <>
+                  {i > 0 && <span class="sep">/</span>}
+                  {b.href ? <a href={b.href}>{b.label}</a> : <span>{b.label}</span>}
+                </>
+              ))}
+            </nav>
+          )
+        }
+        <article id="doc-content" class="prose" data-space={space} data-page={page}>
+          <slot />
+        </article>
+        <Comments page={page} space={space} />
+      </main>
+
+      <aside class="rail">
+        <Toc headings={headings} />
+        <div id="cmt-rail" class="cmt-rail"></div>
+      </aside>
+    </div>
+
+    <script>
+      // Client-side search: JSON index (title + headings + excerpt), scored.
+      const input = document.getElementById("search-input") as HTMLInputElement | null;
+      const box = document.getElementById("search-results");
+
+      interface Doc {
+        space: string;
+        href: string;
+        title: string;
+        headings: string[];
+        text: string;
+      }
+
+      const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
+        document.getElementById("notabene-roots")?.textContent || "[]",
+      );
+      const M: Record<string, string> = JSON.parse(
+        document.getElementById("notabene-i18n")?.textContent || "{}",
+      );
+      const spaceLabel = (key: string): string =>
+        ROOTS.find((r) => r.key === key)?.label ?? key;
+
+      let index: Doc[] | null = null;
+      async function ensureIndex(): Promise<Doc[]> {
+        if (!index) index = await fetch("/search-index.json").then((r) => r.json());
+        return index ?? [];
+      }
+
+      function score(doc: Doc, q: string): number {
+        const t = doc.title.toLowerCase();
+        if (t === q) return 100;
+        if (t.startsWith(q)) return 80;
+        if (t.includes(q)) return 60;
+        if (doc.headings.some((h) => h.toLowerCase().includes(q))) return 30;
+        if (doc.text.toLowerCase().includes(q)) return 10;
+        return 0;
+      }
+
+      function esc(s: string): string {
+        return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
+      }
+
+      if (input && box) {
+        input.addEventListener("input", async () => {
+          const q = input.value.trim().toLowerCase();
+          if (!q) {
+            box.hidden = true;
+            box.innerHTML = "";
+            return;
+          }
+          const data = await ensureIndex();
+          const hits = data
+            .map((doc) => ({ doc, s: score(doc, q) }))
+            .filter((x) => x.s > 0)
+            .sort((a, b) => b.s - a.s)
+            .slice(0, 12);
+          box.innerHTML = hits.length
+            ? hits
+                .map(
+                  ({ doc }) =>
+                    `<a href="${doc.href}"><span class="r-space ${doc.space}">${esc(spaceLabel(doc.space))}</span><span class="r-title">${esc(doc.title)}</span></a>`,
+                )
+                .join("")
+            : `<div class="r-empty">${M.searchNoResults}</div>`;
+          box.hidden = false;
+        });
+
+        document.addEventListener("click", (e) => {
+          const target = e.target as Node;
+          if (!box.contains(target) && target !== input) box.hidden = true;
+        });
+      }
+    </script>
+  </body>
+</html>

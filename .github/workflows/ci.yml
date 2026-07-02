@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - name: Smoke-build a scratch consumer (GFM + MDX)
+        run: |
+          set -e
+          mkdir -p /tmp/consumer/docs
+          printf '# Hello\n\nGFM hostile to MDX: Promise<T>, <a@b.com>, {x}, | a | b |\n' > /tmp/consumer/docs/index.md
+          cd /tmp/consumer
+          node "$GITHUB_WORKSPACE/packages/renderer/bin/notabene.mjs" init
+          node "$GITHUB_WORKSPACE/packages/renderer/bin/notabene.mjs" build

@@ -1,0 +1,43 @@
+{
+  "name": "@z29k/notabene",
+  "version": "0.1.1",
+  "description": "Navigable docs renderer + human↔agent review loop. Comment your docs like Google Docs; an agent reads .notabene/, applies the feedback, and journals it.",
+  "type": "module",
+  "license": "MIT",
+  "author": "z29k",
+  "homepage": "https://github.com/z29k/notabene#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/z29k/notabene.git",
+    "directory": "packages/renderer"
+  },
+  "bugs": {
+    "url": "https://github.com/z29k/notabene/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "notabene": "bin/notabene.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "astro.config.mjs",
+    "tsconfig.json"
+  ],
+  "scripts": {
+    "dev": "node bin/notabene.mjs dev",
+    "build": "node bin/notabene.mjs build"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "5.0.6",
+    "@astrojs/node": "10.0.6",
+    "astro": "^6.0.0"
+  },
+  "keywords": ["docs", "documentation", "review", "comments", "mdx", "markdown", "astro", "ai", "agent"],
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

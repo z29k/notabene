@@ -1,0 +1,11 @@
+{
+  "name": "notabene-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "notabene — navigable docs renderer + human↔agent review loop (monorepo).",
+  "type": "module",
+  "license": "MIT",
+  "workspaces": [
+    "packages/renderer"
+  ]
+}

@@ -1,0 +1,24 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { locale, roots, siteName } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+const m = t(locale);
+---
+
+<DocLayout title="Home">
+  <h1>{siteName} {m.homeDocumentation}</h1>
+  <p class="lede">{m.homeLede}</p>
+
+  <div class="home-cards">
+    {
+      roots.map((root) => (
+        <a class="home-card" href={`/${root.key}`}>
+          <h2>{root.label}</h2>
+          <p><code>{root.subLabel}</code></p>
+          {root.description && <p>{root.description}</p>}
+        </a>
+      ))
+    }
+  </div>
+</DocLayout>

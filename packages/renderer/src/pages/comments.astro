@@ -1,0 +1,152 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { locale, roots } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+const m = t(locale);
+---
+
+<DocLayout title={m.allCommentsTitle}>
+  <h1>{m.allCommentsTitle}</h1>
+  <p class="lede">{m.allCommentsLede}</p>
+
+  <div class="caf-filters">
+    <input id="caf-search" type="search" placeholder={m.searchCommentsPlaceholder} />
+    <select id="caf-status">
+      <option value="active">{m.stActive}</option>
+      <option value="open">{m.stOpen}</option>
+      <option value="resolved">{m.stResolved}</option>
+      <option value="all">{m.stAll}</option>
+    </select>
+    <select id="caf-space">
+      <option value="all">{m.spAll}</option>
+      {roots.map((r) => <option value={r.key}>{r.label}</option>)}
+    </select>
+    <select id="caf-hold">
+      <option value="all">{m.holdAll}</option>
+      <option value="active">{m.holdActive}</option>
+      <option value="hold">{m.holdOnly}</option>
+    </select>
+    <span id="caf-count" class="cmt-count"></span>
+  </div>
+
+  <div id="caf-list" class="caf-list"><p class="cmt-empty">{m.loading}</p></div>
+</DocLayout>
+
+<script>
+  import { ICONS } from "../lib/icons";
+
+  interface Anchor { quote: string; prefix: string; suffix: string; section: string | null }
+  interface Reply { author: string; body: string; ts: string }
+  interface Comment {
+    id: string; space: string; page: string; scope: string;
+    anchor: Anchor | null; thread: Reply[]; status: string; hold: boolean;
+    resolution: { note: string; journalEntryId?: string } | null; createdAt: string; updatedAt: string;
+  }
+
+  const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
+    document.getElementById("notabene-roots")?.textContent || "[]",
+  );
+  const M: Record<string, string> = JSON.parse(
+    document.getElementById("notabene-i18n")?.textContent || "{}",
+  );
+  const spaceLabel = (key: string): string => ROOTS.find((r) => r.key === key)?.label ?? key;
+
+  const listEl = document.getElementById("caf-list")!;
+  const countEl = document.getElementById("caf-count")!;
+  const searchEl = document.getElementById("caf-search") as HTMLInputElement;
+  const statusEl = document.getElementById("caf-status") as HTMLSelectElement;
+  const spaceEl = document.getElementById("caf-space") as HTMLSelectElement;
+  const holdEl = document.getElementById("caf-hold") as HTMLSelectElement;
+
+  let all: Comment[] = [];
+  const esc = (s: string) =>
+    s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
+  const api = (method: string, body?: unknown) =>
+    fetch("/api/comments" + (method === "GET" ? "?all=1" : ""), {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then((r) => r.json());
+  const fmt = (s: string) => s.slice(0, 16).replace("T", " ");
+  // Most specific root (longest path) first — cf. config.routeForPage.
+  const ROUTE_ROOTS = [...ROOTS].sort((a, b) => b.path.length - a.path.length);
+  function routeFor(page: string): string {
+    for (const r of ROUTE_ROOTS) {
+      if (page === r.path) return `/${r.key}`;
+      if (page.startsWith(`${r.path}/`)) return `/${r.key}/${page.slice(r.path.length + 1)}`;
+    }
+    return "#";
+  }
+
+  function render() {
+    const q = searchEl.value.trim().toLowerCase();
+    const fs = statusEl.value;
+    const fsp = spaceEl.value;
+    const fh = holdEl.value;
+    const rows = all
+      .filter((c) => {
+        if (fsp !== "all" && c.space !== fsp) return false;
+        if (fs === "active" && c.status === "resolved") return false;
+        if (fs === "open" && c.status !== "open") return false;
+        if (fs === "resolved" && c.status !== "resolved") return false;
+        if (fh === "active" && c.hold) return false;
+        if (fh === "hold" && !c.hold) return false;
+        if (q) {
+          const hay = (c.page + " " + (c.anchor?.quote || "") + " " + c.thread.map((t) => t.body).join(" ")).toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+
+    countEl.textContent = `${rows.length} / ${all.length}`;
+    listEl.innerHTML = rows.length
+      ? rows
+          .map((c) => {
+            const head = c.thread[0];
+            return `<article class="caf-row ${c.status}${c.hold ? " held" : ""}" data-id="${c.id}" data-page="${esc(c.page)}">
+              <div class="caf-row-top">
+                <span class="cmt-dot ${c.status}"></span>
+                <a class="caf-page" href="${routeFor(c.page)}?c=${c.id}">${esc(c.page)}</a>
+                <span class="r-space ${c.space}">${esc(spaceLabel(c.space))}</span>
+                ${c.scope === "selection" ? `<span class="caf-quote">“${esc((c.anchor?.quote || "").slice(0, 60))}”</span>` : `<span class="cmt-scope">${M.scopePage}</span>`}
+                ${c.hold ? `<span class="cmt-hold-badge">${M.onHold}</span>` : ""}
+                ${c.thread.length > 1 ? `<span class="caf-replies">${c.thread.length - 1} ${M.repliesSuffix}</span>` : ""}
+              </div>
+              <div class="caf-body"><b>${esc(head.author)}</b> ${esc(head.body)}</div>
+              ${c.resolution?.note ? `<div class="cmt-resolution">✔ ${esc(c.resolution.note)}</div>` : ""}
+              <div class="caf-actions">
+                <span class="cmt-ts">${fmt(c.updatedAt)}</span>
+                ${c.status === "resolved" ? `<button data-act="reopen" title="${M.tReopen}" aria-label="${M.tReopen}">${ICONS.reopen}</button>` : `<button data-act="resolve" title="${M.tResolve}" aria-label="${M.tResolve}">${ICONS.check}</button>`}
+                <button data-act="${c.hold ? "unhold" : "hold"}" title="${c.hold ? M.tUnhold : M.tHold}" aria-label="${c.hold ? M.tUnhold : M.tHold}">${c.hold ? ICONS.play : ICONS.pause}</button>
+                <button data-act="delete" class="danger" title="${M.tDelete}" aria-label="${M.tDelete}">${ICONS.trash}</button>
+              </div>
+            </article>`;
+          })
+          .join("")
+      : `<p class="cmt-empty">${M.noCommentsFilters}</p>`;
+  }
+
+  async function load() {
+    all = await api("GET");
+    render();
+  }
+
+  for (const el of [searchEl, statusEl, spaceEl, holdEl]) el.addEventListener("input", render);
+
+  listEl.addEventListener("click", async (e) => {
+    const btn = (e.target as HTMLElement).closest("button[data-act]") as HTMLElement | null;
+    if (!btn) return;
+    const row = btn.closest(".caf-row") as HTMLElement;
+    const id = row.dataset.id!;
+    const page = row.dataset.page!;
+    const act = btn.dataset.act!;
+    if (act === "resolve" || act === "reopen") await api("PATCH", { page, id, status: act === "resolve" ? "resolved" : "open" });
+    else if (act === "hold" || act === "unhold") await api("PATCH", { page, id, hold: act === "hold" });
+    else if (act === "delete") await api("DELETE", { page, id });
+    await load();
+  });
+
+  load();
+</script>

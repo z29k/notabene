@@ -1,0 +1,9 @@
+{
+  "name": "notabene",
+  "version": "0.1.0",
+  "description": "Docs review loop: process browser comments on your docs (the .notabene store), apply the feedback, mark resolved, write the journal, then verify. The renderer companion is the `notabene` npm package.",
+  "author": {
+    "name": "z29k"
+  },
+  "keywords": ["docs", "review", "comments", "notabene"]
+}

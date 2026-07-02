@@ -1,0 +1,465 @@
+---
+// Google-Docs-style comments.
+//  - Anchored (selection) → right rail (#cmt-rail, provided by DocLayout) + highlight.
+//  - Page-wide            → discussion section at the BOTTOM of the page (rendered here).
+// Floating button + popover in position:fixed (viewport coords). Persisted via /api/comments.
+import { locale } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+interface Props {
+  page?: string;
+  space?: string;
+}
+const m = t(locale);
+const { page, space } = Astro.props;
+---
+
+{
+  page && (
+    <section id="cmt-page" class="cmt-page" data-page={page} data-space={space}>
+      <header class="cmt-page-head">
+        <h2>{m.discussion}</h2>
+        <span id="cmt-count" class="cmt-count" />
+      </header>
+      <form id="cmt-composer" class="cmt-composer">
+        <textarea id="cmt-input" rows="3" placeholder={m.pageCommentPlaceholder} />
+        <button type="submit">{m.commentPage}</button>
+      </form>
+      <div id="cmt-page-list" class="cmt-list" />
+    </section>
+
+    <button id="cmt-float" class="cmt-float" hidden type="button">
+      {m.floatComment}
+    </button>
+    <div id="cmt-pop" class="cmt-pop" hidden>
+      <div id="cmt-pop-quote" class="cmt-pop-quote" />
+      <textarea id="cmt-pop-input" rows="3" placeholder={m.selectionPlaceholder} />
+      <div class="cmt-pop-actions">
+        <button type="button" id="cmt-pop-cancel">{m.cancel}</button>
+        <button type="button" id="cmt-pop-save">{m.comment}</button>
+      </div>
+    </div>
+
+    <div id="cmt-view" class="cmt-view" hidden>
+      <div class="cmt-view-list" />
+    </div>
+  )
+}
+
+<script>
+  import { ICONS } from "../lib/icons";
+
+  const pageSection = document.getElementById("cmt-page");
+  const article = document.getElementById("doc-content");
+  if (pageSection && article) {
+    const NB_ROOTS: { key: string }[] = JSON.parse(
+      document.getElementById("notabene-roots")?.textContent || "[]",
+    );
+    const M: Record<string, string> = JSON.parse(
+      document.getElementById("notabene-i18n")?.textContent || "{}",
+    );
+    const page = pageSection.dataset.page!;
+    // data-space is always set by the [space] route; fallback = first space.
+    const space = pageSection.dataset.space || NB_ROOTS[0]?.key || "";
+    const railEl = document.getElementById("cmt-rail");
+    const pageListEl = document.getElementById("cmt-page-list")!;
+    const countEl = document.getElementById("cmt-count")!;
+    const inputEl = document.getElementById("cmt-input") as HTMLTextAreaElement;
+    const floatBtn = document.getElementById("cmt-float")!;
+    const pop = document.getElementById("cmt-pop")!;
+    const popQuote = document.getElementById("cmt-pop-quote")!;
+    const popInput = document.getElementById("cmt-pop-input") as HTMLTextAreaElement;
+    const viewEl = document.getElementById("cmt-view")!;
+
+    interface Anchor { quote: string; prefix: string; suffix: string; section: string | null }
+    interface Reply { author: string; body: string; ts: string }
+    interface Comment {
+      id: string; space: string; page: string; scope: string;
+      anchor: Anchor | null; thread: Reply[]; status: string;
+      resolution: { note: string; journalEntryId?: string } | null; createdAt: string; updatedAt: string;
+    }
+
+    let comments: Comment[] = [];
+    let railFilter = "open";
+    let pendingAnchor: Anchor | null = null;
+    let viewIds: string[] = [];
+    const ranges = new Map<string, Range>();
+
+    const esc = (s: string) =>
+      s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
+    const api = (method: string, body?: unknown) =>
+      fetch("/api/comments" + (method === "GET" ? `?page=${encodeURIComponent(page)}` : ""), {
+        method,
+        headers: { "content-type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+      }).then((r) => r.json());
+
+    // ── flat text mapping (offset ⇄ DOM) ──────────────────────────────────
+    function buildFlat() {
+      const walker = document.createTreeWalker(article!, NodeFilter.SHOW_TEXT);
+      let text = "";
+      const map: { node: Node; start: number; end: number }[] = [];
+      let n: Node | null;
+      while ((n = walker.nextNode())) {
+        const start = text.length;
+        text += n.nodeValue || "";
+        map.push({ node: n, start, end: text.length });
+      }
+      return { text, map };
+    }
+    function pointToOffset(map: { node: Node; start: number }[], node: Node, off: number) {
+      for (const m of map) if (m.node === node) return m.start + off;
+      return -1;
+    }
+    function offsetToPoint(map: { node: Node; start: number; end: number }[], offset: number) {
+      for (const m of map) if (offset <= m.end) return { node: m.node, offset: offset - m.start };
+      const last = map[map.length - 1];
+      return { node: last.node, offset: last.end - last.start };
+    }
+    function nearestSection(node: Node): string | null {
+      const heads = [...article!.querySelectorAll("h1,h2,h3,h4")];
+      let best: Element | null = null;
+      for (const h of heads)
+        if (h.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) best = h;
+      return best ? best.textContent!.trim() : null;
+    }
+    function computeAnchor(range: Range): Anchor {
+      const { text, map } = buildFlat();
+      const start = pointToOffset(map, range.startContainer, range.startOffset);
+      const end = pointToOffset(map, range.endContainer, range.endOffset);
+      return {
+        quote: text.slice(start, end),
+        prefix: text.slice(Math.max(0, start - 40), start),
+        suffix: text.slice(end, end + 40),
+        section: nearestSection(range.startContainer),
+      };
+    }
+    function findRange(anchor: Anchor): Range | null {
+      const { text, map } = buildFlat();
+      if (!anchor.quote) return null;
+      let idx = text.indexOf(anchor.prefix + anchor.quote + anchor.suffix);
+      idx = idx >= 0 ? idx + anchor.prefix.length : text.indexOf(anchor.quote);
+      if (idx < 0) return null;
+      const s = offsetToPoint(map, idx);
+      const e = offsetToPoint(map, idx + anchor.quote.length);
+      const r = document.createRange();
+      try {
+        r.setStart(s.node, s.offset);
+        r.setEnd(e.node, e.offset);
+      } catch {
+        return null;
+      }
+      return r;
+    }
+    function applyHighlights() {
+      ranges.clear();
+      const C = window.CSS as any;
+      if (!C || !C.highlights) return;
+      const hl = new (window as any).Highlight();
+      for (const c of comments) {
+        if (c.scope !== "selection" || !c.anchor || c.status === "resolved") continue;
+        const r = findRange(c.anchor);
+        if (r) {
+          ranges.set(c.id, r);
+          hl.add(r);
+        }
+      }
+      C.highlights.set("cmt", hl);
+    }
+
+    // ── card rendering (shared) ────────────────────────────────────────────
+    const fmt = (s: string) => s.slice(0, 16).replace("T", " ");
+    function card(c: Comment): string {
+      const head = c.thread[0];
+      const replies = c.thread.slice(1);
+      const orphan = c.scope === "selection" && c.anchor && !findRange(c.anchor);
+      return `<article class="cmt-card ${c.status}${c.hold ? " held" : ""}" data-id="${c.id}">
+        <div class="cmt-meta"><span class="cmt-dot ${c.status}"></span>
+          ${
+            c.scope === "selection"
+              ? `<span class="cmt-quote${orphan ? " orphan" : ""}" data-jump="${c.id}">${orphan ? "⚠ " : ""}“${esc((c.anchor?.quote || "").slice(0, 70))}”</span>`
+              : `<span class="cmt-scope">${M.scopePage}</span>`
+          }
+          ${c.hold ? `<span class="cmt-hold-badge">${M.onHold}</span>` : ""}
+        </div>
+        <div class="cmt-body"><b>${esc(head.author)}</b> ${esc(head.body)}</div>
+        ${replies.map((r) => `<div class="cmt-reply"><b>${esc(r.author)}</b> ${esc(r.body)}</div>`).join("")}
+        ${c.resolution?.note ? `<div class="cmt-resolution">✔ ${esc(c.resolution.note)}</div>` : ""}
+        <div class="cmt-actions">
+          <span class="cmt-ts">${fmt(head.ts)}</span>
+          ${c.status === "open" && c.thread.length === 1 ? `<button data-act="edit" data-id="${c.id}" title="${M.tEdit}" aria-label="${M.tEdit}">${ICONS.edit}</button>` : ""}
+          ${
+            c.status === "resolved"
+              ? `<button data-act="reopen" data-id="${c.id}" title="${M.tReopen}" aria-label="${M.tReopen}">${ICONS.reopen}</button>`
+              : `<button data-act="resolve" data-id="${c.id}" title="${M.tResolve}" aria-label="${M.tResolve}">${ICONS.check}</button>`
+          }
+          <button data-act="${c.hold ? "unhold" : "hold"}" data-id="${c.id}" title="${c.hold ? M.tUnhold : M.tHold}" aria-label="${c.hold ? M.tUnhold : M.tHold}">${c.hold ? ICONS.play : ICONS.pause}</button>
+          <button data-act="reply" data-id="${c.id}" title="${M.tReply}" aria-label="${M.tReply}">${ICONS.reply}</button>
+          <button data-act="delete" data-id="${c.id}" class="danger" title="${M.tDelete}" aria-label="${M.tDelete}">${ICONS.trash}</button>
+        </div>
+        <form class="cmt-reply-form" data-id="${c.id}" hidden>
+          <textarea rows="2" placeholder="${M.replyPlaceholder}"></textarea><button type="submit">${M.send}</button>
+        </form>
+        <form class="cmt-edit-form" data-id="${c.id}" hidden>
+          <textarea rows="2">${esc(head.body)}</textarea><button type="submit">${M.save}</button>
+        </form>
+      </article>`;
+    }
+
+    function render() {
+      const anchored = comments.filter((c) => c.scope === "selection");
+      const pageWide = comments.filter((c) => c.scope === "page");
+      const openCount = comments.filter((c) => c.status !== "resolved").length;
+      countEl.textContent = openCount ? `${openCount} ${M.openSuffix}` : `${comments.length}`;
+
+      // right rail: anchored comments
+      if (railEl) {
+        const shown = anchored.filter((c) =>
+          railFilter === "all" ? true : railFilter === "resolved" ? c.status === "resolved" : c.status !== "resolved",
+        );
+        railEl.innerHTML = `<div class="cmt-rail-head">
+            <span class="cmt-rail-title">${M.annotations}</span>
+            <span class="cmt-rail-count">${anchored.length}</span>
+          </div>
+          <div class="cmt-filter" id="cmt-filter">
+            <button data-f="open"${railFilter === "open" ? ' class="active"' : ""}>${M.filterOpen}</button>
+            <button data-f="resolved"${railFilter === "resolved" ? ' class="active"' : ""}>${M.filterResolved}</button>
+            <button data-f="all"${railFilter === "all" ? ' class="active"' : ""}>${M.filterAll}</button>
+          </div>
+          <div class="cmt-list">${
+            shown.length ? shown.map(card).join("") : `<p class="cmt-empty">${M.selectToAnnotate}</p>`
+          }</div>`;
+      }
+      // page bottom: page-wide comments
+      pageListEl.innerHTML = pageWide.length
+        ? pageWide.map(card).join("")
+        : `<p class="cmt-empty">${M.noPageComments}</p>`;
+      applyHighlights();
+    }
+
+    async function load() {
+      comments = await api("GET");
+      render();
+      renderView();
+    }
+
+    // ── click on highlighted text → reading popover at the text ─────────────
+    function pointAt(x: number, y: number): { node: Node; offset: number } | null {
+      const d = document as any;
+      if (d.caretRangeFromPoint) {
+        const r = d.caretRangeFromPoint(x, y);
+        return r ? { node: r.startContainer, offset: r.startOffset } : null;
+      }
+      if (d.caretPositionFromPoint) {
+        const p = d.caretPositionFromPoint(x, y);
+        return p ? { node: p.offsetNode, offset: p.offset } : null;
+      }
+      return null;
+    }
+    function renderView() {
+      const cs = comments.filter((c) => viewIds.includes(c.id));
+      if (!cs.length) {
+        viewEl.hidden = true;
+        return;
+      }
+      (viewEl.querySelector(".cmt-view-list") as HTMLElement).innerHTML = cs.map(card).join("");
+      viewEl.hidden = false;
+    }
+    article.addEventListener("click", (e) => {
+      const me = e as MouseEvent;
+      if ((e.target as HTMLElement).closest("a")) return;
+      if (window.getSelection()?.toString().trim()) return;
+      const pt = pointAt(me.clientX, me.clientY);
+      if (!pt) return;
+      const hit: string[] = [];
+      for (const [cid, r] of ranges) if (r.isPointInRange(pt.node, pt.offset)) hit.push(cid);
+      viewIds = hit;
+      if (!hit.length) {
+        viewEl.hidden = true;
+        return;
+      }
+      viewEl.style.top = `${Math.min(window.innerHeight - 80, me.clientY + 10)}px`;
+      viewEl.style.left = `${Math.min(window.innerWidth - 340, me.clientX)}px`;
+      renderView();
+    });
+
+    // ── selection → floating button → popover ──────────────────────────────
+    let savedRange: Range | null = null;
+    document.addEventListener("mouseup", (e) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("#cmt-float,#cmt-pop,#cmt-page,#cmt-rail")) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !sel.toString().trim()) {
+        floatBtn.hidden = true;
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      if (!article!.contains(range.commonAncestorContainer)) {
+        floatBtn.hidden = true;
+        return;
+      }
+      savedRange = range.cloneRange();
+      const rect = range.getBoundingClientRect();
+      floatBtn.style.top = `${Math.max(8, rect.top - 40)}px`;
+      floatBtn.style.left = `${rect.left}px`;
+      floatBtn.hidden = false;
+    });
+    floatBtn.addEventListener("mousedown", (e) => e.preventDefault());
+    floatBtn.addEventListener("click", () => {
+      if (!savedRange) return;
+      pendingAnchor = computeAnchor(savedRange);
+      const rect = savedRange.getBoundingClientRect();
+      pop.style.top = `${Math.min(window.innerHeight - 180, rect.bottom + 8)}px`;
+      pop.style.left = `${Math.min(window.innerWidth - 320, rect.left)}px`;
+      popQuote.textContent = `“${pendingAnchor.quote.slice(0, 120)}”`;
+      pop.hidden = false;
+      floatBtn.hidden = true;
+      popInput.value = "";
+      popInput.focus();
+    });
+    document.getElementById("cmt-pop-cancel")!.addEventListener("click", () => {
+      pop.hidden = true;
+      pendingAnchor = null;
+    });
+    document.getElementById("cmt-pop-save")!.addEventListener("click", async () => {
+      const body = popInput.value.trim();
+      if (!body || !pendingAnchor) return;
+      await api("POST", { page, space, scope: "selection", anchor: pendingAnchor, body });
+      pop.hidden = true;
+      pendingAnchor = null;
+      window.getSelection()?.removeAllRanges();
+      await load();
+    });
+    document.addEventListener("mousedown", (e) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest("#cmt-pop,#cmt-float")) {
+        pop.hidden = true;
+        if (!window.getSelection()?.toString().trim()) floatBtn.hidden = true;
+      }
+      // Close the reading popover unless the click is inside it or back in the
+      // content (the content click handler reopens it when hitting a highlight).
+      if (!t.closest("#cmt-view") && !article!.contains(t)) {
+        viewIds = [];
+        viewEl.hidden = true;
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        pop.hidden = true;
+        viewEl.hidden = true;
+        viewIds = [];
+      }
+    });
+
+    // ── page composer ──────────────────────────────────────────────────────
+    document.getElementById("cmt-composer")!.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const body = inputEl.value.trim();
+      if (!body) return;
+      await api("POST", { page, space, scope: "page", anchor: null, body });
+      inputEl.value = "";
+      await load();
+    });
+
+    // ── actions (delegation on both regions) ───────────────────────────────
+    async function onActionClick(e: Event) {
+      const t = e.target as HTMLElement;
+      const jump = t.closest("[data-jump]") as HTMLElement | null;
+      if (jump) {
+        const r = ranges.get(jump.dataset.jump!);
+        if (r) {
+          (r.startContainer.parentElement || article)!.scrollIntoView({ behavior: "smooth", block: "center" });
+          const C = window.CSS as any;
+          if (C?.highlights) {
+            C.highlights.set("cmt-active", new (window as any).Highlight(r));
+            setTimeout(() => C.highlights.delete("cmt-active"), 1500);
+          }
+        }
+        return;
+      }
+      const btn = t.closest("button[data-act]") as HTMLElement | null;
+      if (!btn) return;
+      const id = btn.dataset.id!;
+      const act = btn.dataset.act!;
+      if (act === "resolve" || act === "reopen") {
+        await api("PATCH", { page, id, status: act === "resolve" ? "resolved" : "open" });
+        await load();
+      } else if (act === "hold" || act === "unhold") {
+        await api("PATCH", { page, id, hold: act === "hold" });
+        await load();
+      } else if (act === "delete") {
+        await api("DELETE", { page, id });
+        await load();
+      } else if (act === "reply") {
+        const form = (btn.closest(".cmt-card") as HTMLElement).querySelector(".cmt-reply-form") as HTMLElement;
+        form.hidden = !form.hidden;
+        if (!form.hidden) (form.querySelector("textarea") as HTMLTextAreaElement).focus();
+      } else if (act === "edit") {
+        const form = (btn.closest(".cmt-card") as HTMLElement).querySelector(".cmt-edit-form") as HTMLElement;
+        form.hidden = !form.hidden;
+        if (!form.hidden) {
+          const ta = form.querySelector("textarea") as HTMLTextAreaElement;
+          ta.focus();
+          ta.setSelectionRange(ta.value.length, ta.value.length);
+        }
+      }
+    }
+    async function onFormSubmit(e: Event) {
+      const t = e.target as HTMLElement;
+      const editForm = t.closest(".cmt-edit-form") as HTMLElement | null;
+      if (editForm) {
+        e.preventDefault();
+        const ta = editForm.querySelector("textarea") as HTMLTextAreaElement;
+        if (!ta.value.trim()) return;
+        await api("PATCH", { page, id: editForm.dataset.id, edit: { body: ta.value.trim() } });
+        await load();
+        return;
+      }
+      const form = t.closest(".cmt-reply-form") as HTMLElement | null;
+      if (!form) return;
+      e.preventDefault();
+      const ta = form.querySelector("textarea") as HTMLTextAreaElement;
+      if (!ta.value.trim()) return;
+      await api("PATCH", { page, id: form.dataset.id, reply: { body: ta.value.trim() } });
+      await load();
+    }
+    for (const region of [railEl, pageListEl, viewEl]) {
+      if (!region) continue;
+      region.addEventListener("click", onActionClick);
+      region.addEventListener("submit", onFormSubmit);
+    }
+    // rail filter — delegated because re-rendered
+    railEl?.addEventListener("click", (e) => {
+      const b = (e.target as HTMLElement).closest("#cmt-filter button");
+      if (!b) return;
+      railFilter = (b as HTMLElement).dataset.f!;
+      render();
+    });
+
+    // Focus a comment targeted from the global page (?c=<id>).
+    function focusFromUrl() {
+      const cid = new URLSearchParams(location.search).get("c");
+      if (!cid) return;
+      const c = comments.find((x) => x.id === cid);
+      if (!c) return;
+      const r = ranges.get(cid);
+      if (c.scope === "selection" && r) {
+        (r.startContainer.parentElement || article)!.scrollIntoView({ behavior: "smooth", block: "center" });
+        const C = window.CSS as any;
+        if (C?.highlights) {
+          C.highlights.set("cmt-active", new (window as any).Highlight(r));
+          setTimeout(() => C.highlights.delete("cmt-active"), 2500);
+        }
+        viewIds = [cid];
+        const rect = r.getBoundingClientRect();
+        viewEl.style.top = `${Math.min(window.innerHeight - 80, rect.bottom + 10)}px`;
+        viewEl.style.left = `${Math.min(window.innerWidth - 340, rect.left)}px`;
+        renderView();
+      } else {
+        document.getElementById("cmt-page")?.scrollIntoView({ behavior: "smooth" });
+      }
+    }
+
+    load().then(focusFromUrl);
+  }
+</script>

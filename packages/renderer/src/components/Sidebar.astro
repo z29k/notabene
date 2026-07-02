@@ -1,0 +1,59 @@
+---
+import { buildNav, type Space } from "../lib/nav";
+import NavTree from "./NavTree.astro";
+import { locale, roots } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+interface Props {
+  current?: string;
+  activeSpace?: Space;
+}
+
+const m = t(locale);
+const { current = "", activeSpace } = Astro.props;
+// One nav tree per space declared in notabene.config (no fixed duo).
+const spaces = await Promise.all(
+  roots.map(async (root) => ({ root, nodes: await buildNav(root.key) })),
+);
+---
+
+<div class="nav-filter">
+  <input id="nav-filter" type="search" placeholder={m.sidebarFilter} autocomplete="off" />
+</div>
+
+<nav class="nav">
+  {
+    spaces.map(({ root, nodes }) => (
+      <details class="space" open={!activeSpace || activeSpace === root.key}>
+        <summary class="space-title">
+          <span class="space-name">{root.label}</span>
+          <span class="space-sub">{root.subLabel}</span>
+        </summary>
+        <p class="space-link"><a href={`/${root.key}`}>{m.sidebarOverview}</a></p>
+        <NavTree nodes={nodes} current={current} />
+      </details>
+    ))
+  }
+</nav>
+
+<script>
+  // Client-side filter: hide leaves whose title doesn't match, and expand all
+  // groups while searching.
+  const input = document.getElementById("nav-filter") as HTMLInputElement | null;
+  if (input) {
+    input.addEventListener("input", () => {
+      const q = input.value.trim().toLowerCase();
+      for (const a of document.querySelectorAll<HTMLElement>(".nav a[data-title]")) {
+        const li = a.closest("li");
+        if (!li) continue;
+        const hit = !q || (a.dataset.title ?? "").toLowerCase().includes(q);
+        li.style.display = hit ? "" : "none";
+      }
+      if (q) {
+        for (const d of document.querySelectorAll<HTMLDetailsElement>(".nav details")) {
+          d.open = true;
+        }
+      }
+    });
+  }
+</script>

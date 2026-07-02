@@ -1,0 +1,17 @@
+{
+  "name": "z29k",
+  "owner": {
+    "name": "z29k"
+  },
+  "metadata": {
+    "description": "z29k Claude Code plugins.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "notabene",
+      "source": "./packages/plugin",
+      "description": "Docs review loop: process browser comments on your docs (the .notabene store), apply the feedback, mark resolved, write the journal, then verify. Companion to the `notabene` npm renderer."
+    }
+  ]
+}

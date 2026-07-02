@@ -1,0 +1,47 @@
+---
+export const prerender = false;
+import DocLayout from "../layouts/DocLayout.astro";
+import { readJournal } from "../lib/journal";
+import { locale, routeForPage as routeFor } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+const m = t(locale);
+const entries = (await readJournal()).slice().reverse(); // most recent first
+---
+
+<DocLayout title={m.journalTitle}>
+  <h1>{m.journalHeading}</h1>
+  <p class="lede">{m.journalLede}</p>
+
+  {
+    entries.length === 0 ? (
+      <p class="cmt-empty">{m.journalEmpty}</p>
+    ) : (
+      <div class="journal">
+        {entries.map((e) => (
+          <section class="journal-entry">
+            <header class="journal-head">
+              <span class="journal-date">{e.date}</span>
+              <h2>{e.title}</h2>
+            </header>
+            <p class="journal-summary">{e.summary}</p>
+            <ul class="journal-changes">
+              {e.changes.map((c) => (
+                <li>
+                  <a href={routeFor(c.page)} class="journal-page">
+                    {c.page}
+                  </a>
+                  <span class="journal-what"> — {c.what}</span>
+                  <div class="journal-why">{c.why}</div>
+                  {c.commentIds.length > 0 && (
+                    <div class="journal-cids">{m.journalComments} {c.commentIds.join(", ")}</div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    )
+  }
+</DocLayout>
