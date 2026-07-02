@@ -95,7 +95,8 @@ Treat its shape as a public API:
   client capture side lives in `src/components/Comments.astro`. Browser-side comment
   helpers shared across the two comment UIs live in `src/lib/client/comments-client.ts`.
 - A comment has `status: open|addressed|resolved` and `hold: boolean`. The agent
-  processes only `open` **and not on hold**; held comments are the user's WIP.
+  processes only `open` **and not on hold**; held comments are the user's WIP. `addressed`
+  is the two-phase-review state (see below): agent-proposed, awaiting human validation.
 
 ## Architecture: the review loop (the product)
 
@@ -107,6 +108,18 @@ locate source page via `roots[]` → resolve the text anchor tolerantly → edit
 → mark resolved + append a journal entry (linking `resolution.journalEntryId`) → verify
 (**always** run the renderer build; then the consumer's `verify[]` checks) → report as a
 table and **ask before committing**. Never bulk-delete the store; never commit unasked.
+
+**Two-phase review** (`review: "approve"` in config; default `"auto"`). Instead of
+resolving directly, the agent marks each comment `addressed` and a human validates at
+`/review` (or the *To validate* filter on `/comments`) — both mount the shared
+`src/lib/client/review-card.ts`. The card shows the **real git diff** of everything a
+comment changed: `GET /api/diff?page=…` (dev-only, loopback-guarded, `git diff HEAD` via
+`execFile`) diffs the page files, resolved by `src/lib/page-file.ts`; the comment→pages
+mapping is the **inversion of the journal** (`GET /api/journal`), so a single comment can
+surface a multi-page cascade. Approve → `resolved`; reject → `open` + the reason as a
+reply (the agent re-reads it next pass). Diff renders unified/side-by-side
+(`src/lib/client/diff.ts`, mode persisted in `localStorage`). `reviewMode` is exported
+from `config.mjs` and injected to the client via `DocLayout` (`#notabene-review`).
 
 ## Safety model (keep it intact)
 

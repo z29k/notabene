@@ -54,3 +54,4 @@ desktop.ini
 
 # ── Project-local (not part of the published repo) ───────────
 plans/
+.demo/

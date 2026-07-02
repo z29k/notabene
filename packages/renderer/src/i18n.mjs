@@ -71,6 +71,23 @@ const MESSAGES = {
 
     noHighlightSupport:
       "This browser can't paint comment highlights — clicking a marked passage still works. Use a recent Chrome, Edge, Safari, or Firefox.",
+
+    navReview: "Review",
+    reviewTitle: "To validate",
+    reviewLede: "Agent-addressed comments awaiting your validation. Review the diff, then approve or reject.",
+    reviewEmpty: "Nothing to validate ✓",
+    filterToValidate: "To validate",
+    proposedByAgent: "Proposed by the agent",
+    alsoAffects: "This page also carries:",
+    approve: "Approve",
+    reject: "Reject",
+    rejectReasonPlaceholder: "Reason for rejection…",
+    viewInPage: "View in page",
+    diffUnified: "Unified",
+    diffSplit: "Side by side",
+    diffUnavailable: "Diff unavailable (not a git repo?)",
+    newFileUncommitted: "New file — not committed yet",
+    noChangesRecorded: "No recorded changes",
   },
   fr: {
     navComments: "Commentaires",
@@ -139,6 +156,24 @@ const MESSAGES = {
 
     noHighlightSupport:
       "Ce navigateur ne peut pas afficher le surlignage des commentaires — cliquer sur un passage annoté fonctionne toujours. Utilise un Chrome, Edge, Safari ou Firefox récent.",
+
+    navReview: "Revue",
+    reviewTitle: "À valider",
+    reviewLede:
+      "Commentaires traités par l'agent, en attente de ta validation. Vérifie le diff, puis valide ou rejette.",
+    reviewEmpty: "Rien à valider ✓",
+    filterToValidate: "À valider",
+    proposedByAgent: "Proposé par l'agent",
+    alsoAffects: "Cette page porte aussi :",
+    approve: "Valider",
+    reject: "Rejeter",
+    rejectReasonPlaceholder: "Motif du rejet…",
+    viewInPage: "Voir dans la page",
+    diffUnified: "Unifié",
+    diffSplit: "Côte à côte",
+    diffUnavailable: "Diff indisponible (pas un dépôt git ?)",
+    newFileUncommitted: "Nouveau fichier — pas encore commité",
+    noChangesRecorded: "Aucune modification enregistrée",
   },
 };
 

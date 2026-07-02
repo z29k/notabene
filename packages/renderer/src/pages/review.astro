@@ -1,0 +1,30 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { locale } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+// Dedicated review queue. The route always exists (even in "auto" mode) so no `addressed`
+// comment ever gets stuck; only its prominence (the top-bar badge) depends on the mode.
+const m = t(locale);
+---
+
+<DocLayout title={m.reviewTitle}>
+  <h1>{m.reviewTitle}</h1>
+  <p class="lede">{m.reviewLede}</p>
+
+  <div class="rev-toolbar">
+    <div id="rev-toggle" class="diff-toggle"></div>
+  </div>
+  <div id="rev-list" class="rev-list"><p class="cmt-empty">{m.loading}</p></div>
+</DocLayout>
+
+<script>
+  import { makeRouteFor } from "../lib/client/comments-client";
+  import { mountReviewList } from "../lib/client/review-card";
+
+  const ROOTS = JSON.parse(document.getElementById("notabene-roots")?.textContent || "[]");
+  const M: Record<string, string> = JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}");
+  const listEl = document.getElementById("rev-list");
+  const toggleEl = document.getElementById("rev-toggle");
+  if (listEl) mountReviewList(listEl, toggleEl, M, makeRouteFor(ROOTS));
+</script>

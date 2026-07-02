@@ -75,6 +75,12 @@ export const port = userConfig.port ?? 3009;
 export const host = process.env.NOTABENE_HOST ? true : (userConfig.host ?? false);
 export const verify = Array.isArray(userConfig.verify) ? userConfig.verify : [];
 
+// Review loop mode (§ two-phase review):
+//   "auto"    (default): the agent resolves comments directly (open → resolved).
+//   "approve"          : the agent proposes (open → addressed); a human validates
+//                        (addressed → resolved) or rejects (→ open) after seeing the diff.
+export const reviewMode = String(userConfig.review ?? "auto").toLowerCase() === "approve" ? "approve" : "auto";
+
 /**
  * @typedef {Object} Root
  * @property {string} key
@@ -128,6 +134,7 @@ export default {
   port,
   host,
   verify,
+  reviewMode,
   roots,
   storeRel,
   storeAbs,

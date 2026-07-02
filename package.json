@@ -5,6 +5,10 @@
   "description": "notabene — navigable docs renderer + human↔agent review loop (monorepo).",
   "type": "module",
   "license": "MIT",
+  "scripts": {
+    "demo": "node scripts/gen-fixture.mjs --git && node packages/renderer/bin/notabene.mjs dev --root .demo",
+    "gen:fixture": "node scripts/gen-fixture.mjs"
+  },
   "workspaces": [
     "packages/renderer"
   ]

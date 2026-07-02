@@ -121,6 +121,7 @@ export default {
   port: 3009,
   host: false,               // loopback only — the write API edits your git
   verify: [],                // consumer checks your agent runs after editing
+  review: "auto",            // "auto" (agent resolves) | "approve" (you validate — see below)
 };
 ```
 
@@ -134,6 +135,18 @@ export default {
 | `port` | `3009` | `astro dev` port |
 | `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` exposes the write API to the LAN |
 | `verify[]` | `[]` | Post-edit checks the agent runs (the renderer build always runs) |
+| `review` | `"auto"` | `"auto"` = agent resolves comments; `"approve"` = agent proposes (`addressed`), you validate each at `/review` with a diff |
+
+## Two-phase review (optional)
+
+By default the agent resolves comments directly. Set `review: "approve"` for a
+**human-in-the-loop** loop: the agent edits and marks each comment **`addressed`** instead
+of resolved, then you validate at **`/review`** (or the *To validate* filter on
+`/comments`). You see the **real git diff** of everything that changed for a comment —
+**cascades included** (one comment can touch several pages) — and **approve** (→ resolved)
+or **reject** (→ reopened, with your reason, which the agent reads on its next pass). The
+diff renders **unified or side-by-side**, and a **Review** badge in the header counts
+what's waiting.
 
 ## MDX and CommonMark/GFM
 

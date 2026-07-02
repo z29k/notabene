@@ -212,7 +212,9 @@ const { page, space } = Astro.props;
           ${
             c.status === "resolved"
               ? `<button data-act="reopen" data-id="${c.id}" title="${M.tReopen}" aria-label="${M.tReopen}">${ICONS.reopen}</button>`
-              : `<button data-act="resolve" data-id="${c.id}" title="${M.tResolve}" aria-label="${M.tResolve}">${ICONS.check}</button>`
+              : c.status === "addressed"
+                ? `<a class="cmt-tovalidate" href="/review" title="${M.filterToValidate}" aria-label="${M.filterToValidate}">${M.filterToValidate} →</a>`
+                : `<button data-act="resolve" data-id="${c.id}" title="${M.tResolve}" aria-label="${M.tResolve}">${ICONS.check}</button>`
           }
           <button data-act="${c.hold ? "unhold" : "hold"}" data-id="${c.id}" title="${c.hold ? M.tUnhold : M.tHold}" aria-label="${c.hold ? M.tUnhold : M.tHold}">${c.hold ? ICONS.play : ICONS.pause}</button>
           <button data-act="reply" data-id="${c.id}" title="${M.tReply}" aria-label="${M.tReply}">${ICONS.reply}</button>
@@ -236,7 +238,13 @@ const { page, space } = Astro.props;
       // right rail: anchored comments
       if (railEl) {
         const shown = anchored.filter((c) =>
-          railFilter === "all" ? true : railFilter === "resolved" ? c.status === "resolved" : c.status !== "resolved",
+          railFilter === "all"
+            ? true
+            : railFilter === "resolved"
+              ? c.status === "resolved"
+              : railFilter === "addressed"
+                ? c.status === "addressed"
+                : c.status !== "resolved",
         );
         railEl.innerHTML = `<div class="cmt-rail-head">
             <span class="cmt-rail-title">${M.annotations}</span>
@@ -244,6 +252,7 @@ const { page, space } = Astro.props;
           </div>
           <div class="cmt-filter" id="cmt-filter">
             <button data-f="open"${railFilter === "open" ? ' class="active"' : ""}>${M.filterOpen}</button>
+            <button data-f="addressed"${railFilter === "addressed" ? ' class="active"' : ""}>${M.filterToValidate}</button>
             <button data-f="resolved"${railFilter === "resolved" ? ' class="active"' : ""}>${M.filterResolved}</button>
             <button data-f="all"${railFilter === "all" ? ' class="active"' : ""}>${M.filterAll}</button>
           </div>

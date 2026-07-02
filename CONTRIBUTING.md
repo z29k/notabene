@@ -26,6 +26,21 @@ node ~/…/notabene/packages/renderer/bin/notabene.mjs init
 node ~/…/notabene/packages/renderer/bin/notabene.mjs dev
 ```
 
+For a **realistic corpus** — a multi-space tree, comments in every state
+(open/addressed/resolved/hold, selection + page), a journal with a cascade and a shared
+page, and (with `--git`) uncommitted "agent edits" so `/review` shows real diffs — use the
+deterministic generator instead of hand-rolling a scratch:
+
+```bash
+npm run demo    # generate ./.demo (gitignored, git-backed, approve mode) + start dev
+# or customize (deterministic per --seed; default out is ./.demo):
+node scripts/gen-fixture.mjs --format mdx --locale fr --review approve \
+  --spaces 3 --pages 6 --seed 7 --git
+```
+
+The demo lands in a gitignored `.demo/` at the repo root (a nested git repo when `--git`),
+so it's easy to browse and never gets committed.
+
 ## Conventions
 
 - **Node, not Bun** — the OSS target is npm/pnpm/Node. Don't add Bun assumptions.

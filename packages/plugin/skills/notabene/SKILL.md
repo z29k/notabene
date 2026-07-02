@@ -28,6 +28,9 @@ Read **`notabene.config.mjs`** at the repo root to learn:
   field is prefixed by a root's `path` (e.g. root `docs/plans` → `page:
   "docs/plans/services/x"`).
 - **`verify[]`** — project-specific checks to run after editing.
+- **`review`** — `"auto"` (default) or `"approve"`. In **approve** mode you don't resolve
+  comments yourself: you edit, mark them **`addressed`**, and a human validates them (with
+  a diff) at `/review`. See Step 5.
 
 Assume **no** path, port or label. Do not require a live server or a port.
 
@@ -51,7 +54,9 @@ Assume **no** path, port or label. Do not require a live server or a port.
 
 Read each `<store>/**/*.json` (except `journal.json` and `meta.json`) and keep the
 comments with `status == "open"` **and** `hold != true`. Use your file tools
-directly. Optional (Node, if available — **no `python3` dependency**):
+directly. A comment reopened after a **rejection** (approve mode) carries the human's
+reason as later `thread` replies — **read them** and adjust accordingly before editing.
+Optional (Node, if available — **no `python3` dependency**):
 
 ```bash
 node -e '
@@ -93,13 +98,22 @@ Apply each piece of feedback **faithfully** at the right spot. A comment is a us
 decision. If the change touches public behavior documented elsewhere, update it (see
 project hooks below).
 
-## Step 5 — Mark resolved + write the journal
+## Step 5 — Mark the comment + write the journal
 
-For each processed comment, in its `<store>/<page>.json`: `status = "resolved"`,
-`resolution = { note, journalEntryId }`. Then **append** a `<store>/journal.json`
-entry: `{ id, date (YYYY-MM-DD), title, summary, changes[] { page, commentIds[], what,
-why } }`. Each resolution's `journalEntryId` = the journal entry's `id`. Edit the JSON
-directly (keep 2-space indent + trailing newline).
+Set the status by `review` mode (from the config):
+- **`auto`** (default): `status = "resolved"`.
+- **`approve`**: `status = "addressed"` — you propose; the human validates at `/review`.
+  Do **not** resolve it yourself.
+
+In both cases set `resolution = { note, journalEntryId }` and **append** a
+`<store>/journal.json` entry: `{ id, date (YYYY-MM-DD), title, summary, changes[] { page,
+commentIds[], what, why } }`. Each resolution's `journalEntryId` = the journal entry's
+`id`. Edit the JSON directly (keep 2-space indent + trailing newline).
+
+**Cascade (load-bearing for the review UI):** if fixing a comment touched **several
+pages** (a cross-ref, behavior documented elsewhere), emit **one `changes[]` entry per
+page actually touched**, each listing that `commentId`. The reviewer's diff is built by
+inverting the journal — a page you don't record there won't be shown.
 
 ## Step 6 — Verify
 
@@ -117,5 +131,7 @@ directly (keep 2-space indent + trailing newline).
 ## Step 7 — Report (without committing)
 
 Summarize as a **table**: per comment → the change made (section) + the why. Point to
-`/journal`. Then **ask** whether to commit, and **what** (doc edits only / + resolved
-store + journal / + project artifacts). Wait for an explicit go-ahead.
+`/journal` (and, in **approve** mode, to **`/review`** — the human validates each edit
+against its diff there, then approves → resolved or rejects → reopened). Then **ask**
+whether to commit, and **what** (doc edits only / + resolved store + journal / + project
+artifacts). Wait for an explicit go-ahead.

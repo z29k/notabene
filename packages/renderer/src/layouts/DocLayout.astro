@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import Comments from "../components/Comments.astro";
 import type { Space } from "../lib/nav";
-import { clientRoots, locale, siteName, tagline } from "../config.mjs";
+import { clientRoots, locale, reviewMode, siteName, tagline } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -41,6 +41,7 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
     <title>{title} · {siteName}</title>
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
+    <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
   </head>
   <body>
     <header class="topbar">
@@ -50,6 +51,9 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
         <div id="search-results" class="search-results" hidden></div>
       </div>
       <a href="/comments" class="topbar-link">{m.navComments}</a>
+      <a href="/review" id="nav-review" class="topbar-link" hidden>
+        {m.navReview} <span id="nav-review-badge" class="review-badge"></span>
+      </a>
       <a href="/journal" class="topbar-link">{m.navJournal}</a>
     </header>
 
@@ -82,6 +86,28 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
         <div id="cmt-rail" class="cmt-rail"></div>
       </aside>
     </div>
+
+    <script>
+      // Review badge: reveal the "Review" link + a count of `addressed` comments when in
+      // approve mode, OR whenever any addressed comment exists (so none get stuck if the
+      // mode is flipped back to auto). One tiny fetch per page load; dev-only tool.
+      const reviewCfg = JSON.parse(document.getElementById("notabene-review")?.textContent || "{}");
+      const reviewLink = document.getElementById("nav-review");
+      const reviewBadge = document.getElementById("nav-review-badge");
+      if (reviewLink && reviewBadge) {
+        fetch("/api/comments?all=1")
+          .then((r) => r.json())
+          .then((all: { status: string }[]) => {
+            const n = Array.isArray(all) ? all.filter((c) => c.status === "addressed").length : 0;
+            if (reviewCfg.mode === "approve" || n > 0) {
+              reviewLink.hidden = false;
+              reviewBadge.textContent = n ? String(n) : "";
+              reviewBadge.hidden = !n;
+            }
+          })
+          .catch(() => {});
+      }
+    </script>
 
     <script>
       import { esc } from "../lib/client/comments-client";

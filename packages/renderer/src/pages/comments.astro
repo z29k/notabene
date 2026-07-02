@@ -15,6 +15,7 @@ const m = t(locale);
     <select id="caf-status">
       <option value="active">{m.stActive}</option>
       <option value="open">{m.stOpen}</option>
+      <option value="addressed">{m.filterToValidate}</option>
       <option value="resolved">{m.stResolved}</option>
       <option value="all">{m.stAll}</option>
     </select>
@@ -31,11 +32,15 @@ const m = t(locale);
   </div>
 
   <div id="caf-list" class="caf-list"><p class="cmt-empty">{m.loading}</p></div>
+
+  <div id="caf-review-toolbar" class="rev-toolbar" hidden><div id="caf-diff-toggle" class="diff-toggle"></div></div>
+  <div id="caf-review" class="rev-list" hidden></div>
 </DocLayout>
 
 <script>
   import { ICONS } from "../lib/icons";
   import { createApi, esc, fmt, makeRouteFor, type Comment } from "../lib/client/comments-client";
+  import { mountReviewList } from "../lib/client/review-card";
 
   const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
     document.getElementById("notabene-roots")?.textContent || "[]",
@@ -105,12 +110,34 @@ const m = t(locale);
       : `<p class="cmt-empty">${M.noCommentsFilters}</p>`;
   }
 
-  async function load() {
-    all = await api("GET");
-    render();
+  let reviewMounted = false;
+  const reviewEl = document.getElementById("caf-review")!;
+  const reviewToolbar = document.getElementById("caf-review-toolbar")!;
+  const reviewToggle = document.getElementById("caf-diff-toggle");
+
+  // The "to validate" (addressed) filter swaps the compact list for the shared review
+  // cards (diff + approve/reject); every other filter keeps the normal list.
+  function update() {
+    const reviewing = statusEl.value === "addressed";
+    listEl.hidden = reviewing;
+    reviewEl.hidden = !reviewing;
+    reviewToolbar.hidden = !reviewing;
+    if (reviewing) {
+      if (!reviewMounted) {
+        reviewMounted = true;
+        mountReviewList(reviewEl, reviewToggle, M, routeFor);
+      }
+    } else {
+      render();
+    }
   }
 
-  for (const el of [searchEl, statusEl, spaceEl, holdEl]) el.addEventListener("input", render);
+  async function load() {
+    all = await api("GET");
+    update();
+  }
+
+  for (const el of [searchEl, statusEl, spaceEl, holdEl]) el.addEventListener("input", update);
 
   listEl.addEventListener("click", async (e) => {
     const btn = (e.target as HTMLElement).closest("button[data-act]") as HTMLElement | null;

@@ -33,4 +33,9 @@ export default {
   // Consumer post-edit checks the agent runs after applying comments (build/lint/
   // memory update). The renderer build is ALWAYS run by the loop — don't duplicate it.
   verify: [],
+
+  // Review loop. "auto" (default): the agent resolves comments directly. "approve":
+  // the agent proposes edits (status "addressed"); you validate them (with a diff) at
+  // /review or via the "to validate" filter on /comments, then resolve or reject.
+  review: "auto",
 };
