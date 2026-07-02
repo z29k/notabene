@@ -8,6 +8,8 @@
 //   notabene build         build the site (Node standalone; no write API in the artifact)
 //   notabene preview       serve the built site
 //   notabene migrate       convert the store to one file per comment (schema v2)
+//   notabene comments ls   list comments [--open] [--json] [--page <p>]
+//   notabene journal add   append a JSON journal entry read from stdin
 //
 // Flags: --config <path> (default <cwd>/notabene.config.mjs), --root <path>
 // (consumer repo root, default cwd), --host (expose on the LAN — trusted only).
@@ -122,6 +124,83 @@ function doMigrate() {
   console.log(`notabene: migrated ${pages} page file(s) → ${moved} comment file(s) (store schemaVersion 2).`);
 }
 
+// Read every comment from the store (both v2 per-comment files and legacy v1 arrays).
+function readAllComments(store) {
+  const reserved = new Set(["journal.json", "meta.json"]);
+  const out = [];
+  (function walk(dir) {
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const e of entries) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!e.name.endsWith(".json") || (dir === store && reserved.has(e.name))) continue;
+      let data;
+      try {
+        data = JSON.parse(fs.readFileSync(full, "utf8"));
+      } catch {
+        continue;
+      }
+      if (Array.isArray(data)) out.push(...data);
+      else if (data?.id) out.push(data);
+    }
+  })(store);
+  return out;
+}
+
+// `notabene comments ls [--open] [--json] [--page <p>]` — a first-class primitive so any
+// agent can shell out instead of re-implementing the store parsing (which is what the
+// review protocol tells it to do). --open = the actionable set (open AND not on hold).
+function doCommentsLs() {
+  const store = path.resolve(repoRoot, readStore(configPath));
+  const pageArg = flag("--page");
+  let list = readAllComments(store);
+  if (pageArg && pageArg !== true) list = list.filter((c) => c.page === pageArg);
+  if (argv.includes("--open")) list = list.filter((c) => c.status === "open" && !c.hold);
+  if (argv.includes("--json")) {
+    process.stdout.write(`${JSON.stringify(list, null, 2)}\n`);
+    return;
+  }
+  if (!list.length) return console.log("notabene: no comments.");
+  for (const c of list) {
+    console.log(`\n[${c.id}] ${c.status}${c.hold ? " ⏸" : ""} ${c.scope} page=${c.page}`);
+    if (c.anchor) console.log(`  §${c.anchor.section}: «${(c.anchor.quote || "").slice(0, 100)}»`);
+    (c.thread || []).forEach((t, i) => {
+      console.log(`  ${i ? "↳" : "•"} ${t.author}: ${t.body}`);
+    });
+  }
+}
+
+// `notabene journal add` — append a JSON journal entry read from stdin. Lets an agent
+// record a review pass without hand-editing journal.json.
+function doJournalAdd() {
+  const store = path.resolve(repoRoot, readStore(configPath));
+  let entry;
+  try {
+    entry = JSON.parse(fs.readFileSync(0, "utf8"));
+  } catch {
+    fail("journal add: expected a JSON entry on stdin");
+  }
+  const journalPath = path.join(store, "journal.json");
+  let journal = [];
+  try {
+    journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
+  } catch {
+    /* no journal yet */
+  }
+  if (!Array.isArray(journal)) journal = [];
+  journal.push(entry);
+  fs.writeFileSync(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
+  console.log(`notabene: appended journal entry ${entry.id || "(no id)"}.`);
+}
+
 function runAstro(astroCmd) {
   if (!fs.existsSync(configPath)) {
     fail(`no config at ${configPath}. Run \`notabene init\` first (or pass --config).`);
@@ -189,14 +268,30 @@ switch (cmd) {
   case "migrate":
     doMigrate();
     break;
+  case "comments":
+    if (argv[1] === "ls") doCommentsLs();
+    else {
+      console.error("usage: notabene comments ls [--open] [--json] [--page <p>]");
+      process.exit(1);
+    }
+    break;
+  case "journal":
+    if (argv[1] === "add") doJournalAdd();
+    else {
+      console.error("usage: notabene journal add   (reads a JSON entry on stdin)");
+      process.exit(1);
+    }
+    break;
   default:
     console.log(
       "notabene — docs review tool\n\n" +
-        "  notabene init       write notabene.config.mjs + create the store\n" +
-        "  notabene dev        start the review server over this repo's docs\n" +
-        "  notabene build      build the site (Node standalone)\n" +
-        "  notabene preview    serve the built site\n" +
-        "  notabene migrate    convert the store to one file per comment (v2)\n\n" +
+        "  notabene init            write notabene.config.mjs + create the store\n" +
+        "  notabene dev             start the review server over this repo's docs\n" +
+        "  notabene build           build the site (Node standalone)\n" +
+        "  notabene preview         serve the built site\n" +
+        "  notabene migrate         convert the store to one file per comment (v2)\n" +
+        "  notabene comments ls     list comments  [--open] [--json] [--page <p>]\n" +
+        "  notabene journal add     append a JSON journal entry from stdin\n\n" +
         "Flags: --config <path>  --root <path>  --host",
     );
     process.exit(cmd ? 1 : 0);

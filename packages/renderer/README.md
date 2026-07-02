@@ -75,6 +75,9 @@ CLI:
 | `notabene dev` | Start the review server over this repo's docs (live-reload) |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
+| `notabene migrate` | Convert the store to one file per comment (schema v2) |
+| `notabene comments ls` | List comments — `--open` `--json` `--page <p>` (for agents/scripts) |
+| `notabene journal add` | Append a JSON journal entry read from stdin |
 
 Flags: `--port <n>` · `--config <path>` · `--root <path>` · `--host` (expose on the
 LAN — trusted networks only).

@@ -54,31 +54,20 @@ Assume **no** path, port or label. Do not require a live server or a port.
 
 ## Step 1 — Read the comments to process
 
-Read each `<store>/**/*.json` (except `journal.json` and `meta.json`) and keep the
-comments with `status == "open"` **and** `hold != true`. Use your file tools
-directly. A comment reopened after a **rejection** (approve mode) carries the human's
-reason as later `thread` replies — **read them** and adjust accordingly before editing.
-Optional (Node, if available — **no `python3` dependency**):
+List the actionable set with the CLI (any agent can shell out — no store-parsing to
+reimplement, no `python3`):
 
 ```bash
-node -e '
-const fs=require("fs"),p=require("path");
-const store=process.argv[1];
-const reserved=new Set(["journal.json","meta.json"]);
-(function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){
-  const f=p.join(d,e.name);
-  if(e.isDirectory())walk(f);
-  else if(e.name.endsWith(".json")&&!(d===store&&reserved.has(e.name))){
-    const j=JSON.parse(fs.readFileSync(f,"utf8"));
-    for(const c of Array.isArray(j)?j:[j]){   // v2 = one comment per file; v1 = array
-      if(c.status!=="open"||c.hold)continue;
-      console.log(`\n[${c.id}] ${c.scope} page=${c.page}`);
-      if(c.anchor)console.log(`  §${c.anchor.section}: «${(c.anchor.quote||"").slice(0,100)}»`);
-      c.thread.forEach((t,i)=>console.log(`  ${i?"↳":"•"} ${t.author}: ${t.body}`));
-    }
-}}})(store);
-' "$(node -e 'console.log(require("./notabene.config.mjs").default.store)')"
+npx notabene comments ls --open --json    # open AND not-on-hold, machine-readable
+npx notabene comments ls --open           # …or human-readable
 ```
+
+A comment reopened after a **rejection** (approve mode) carries the human's reason as
+later `thread` replies — **read them** and adjust accordingly before editing.
+
+If the CLI isn't available, read the store with your file tools directly: each
+`<store>/**/*.json` (except `journal.json`/`meta.json`) is **one comment** (v2) or a
+**legacy array** (v1); keep those with `status == "open"` **and** `hold != true`.
 
 ## Step 2 — Locate the source page
 
@@ -111,7 +100,8 @@ Set the status by `review` mode (from the config):
 In both cases set `resolution = { note, journalEntryId }` and **append** a
 `<store>/journal.json` entry: `{ id, date (YYYY-MM-DD), title, summary, changes[] { page,
 commentIds[], what, why } }`. Each resolution's `journalEntryId` = the journal entry's
-`id`. Edit the JSON directly (keep 2-space indent + trailing newline).
+`id`. Append it with `notabene journal add` (reads the entry on stdin) or edit
+`journal.json` directly (2-space indent + trailing newline).
 
 **Cascade (load-bearing for the review UI):** if fixing a comment touched **several
 pages** (a cross-ref, behavior documented elsewhere), emit **one `changes[]` entry per
