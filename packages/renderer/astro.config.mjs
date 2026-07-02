@@ -16,6 +16,11 @@ export default defineConfig({
   // the LAN. Explicit opt-in only (config `host: true` or NOTABENE_HOST=1), trusted
   // networks only.
   server: { host, port },
+  // outDir/cacheDir default under the app root (= the installed package), which may
+  // be read-only. The CLI (bin/notabene.mjs) points these at a writable per-consumer
+  // temp dir. Absolute paths are used as-is; undefined = Astro's default.
+  ...(process.env.NOTABENE_OUT_DIR ? { outDir: process.env.NOTABENE_OUT_DIR } : {}),
+  ...(process.env.NOTABENE_CACHE_DIR ? { cacheDir: process.env.NOTABENE_CACHE_DIR } : {}),
   // Doc pages are static (prerendered); /api/comments is `prerender = false`
   // (on-demand) → the Node adapter serves the write API. Dev-only.
   adapter: node({ mode: "standalone" }),

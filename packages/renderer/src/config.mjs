@@ -12,9 +12,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-export const REPO_ROOT = process.env.NOTABENE_ROOT
-  ? path.resolve(process.env.NOTABENE_ROOT)
-  : process.cwd();
+export const REPO_ROOT = process.env.NOTABENE_ROOT ? path.resolve(process.env.NOTABENE_ROOT) : process.cwd();
 
 const CONFIG_PATH = process.env.NOTABENE_CONFIG
   ? path.resolve(process.env.NOTABENE_CONFIG)
@@ -77,14 +75,25 @@ export const port = userConfig.port ?? 3009;
 export const host = process.env.NOTABENE_HOST ? true : (userConfig.host ?? false);
 export const verify = Array.isArray(userConfig.verify) ? userConfig.verify : [];
 
-export const roots = (userConfig.roots ?? [{ label: "Docs", path: "docs" }]).map(
-  normalizeRoot,
-);
+/**
+ * @typedef {Object} Root
+ * @property {string} key
+ * @property {string} label
+ * @property {string} description
+ * @property {string} path
+ * @property {string} subLabel
+ * @property {string[]} exclude
+ * @property {string} abs
+ * @property {URL} baseUrl
+ * @property {string[]} pattern
+ */
+
+/** @type {Root[]} — `userConfig` is untyped (loaded dynamically), so annotate the
+ *  resolved shape here; importers (nav, pages, remark) rely on this being typed. */
+export const roots = (userConfig.roots ?? [{ label: "Docs", path: "docs" }]).map(normalizeRoot);
 
 // Store (comments + journal), resolved to absolute. Default: docs/.notabene.
-export const storeRel = (userConfig.store ?? "docs/.notabene")
-  .replace(/\\/g, "/")
-  .replace(/\/+$/, "");
+export const storeRel = (userConfig.store ?? "docs/.notabene").replace(/\\/g, "/").replace(/\/+$/, "");
 export const storeAbs = path.resolve(REPO_ROOT, storeRel);
 
 // Serializable roots for client scripts (no absolute paths / node:* leak).

@@ -24,15 +24,77 @@ export type NavNode = NavLeaf | NavGroup;
 // Words to uppercase (acronyms), and small words kept lowercase. The small-word
 // set is intentionally EN + FR so path segments in either language title-case well.
 const ACRONYMS = new Set([
-  "api", "iam", "dns", "ip", "ips", "url", "ssl", "tls", "ocr", "qr", "mac", "http",
-  "https", "sse", "ws", "id", "ttl", "ssrf", "mx", "smtp", "dnsbl", "dbl", "dnswl",
-  "fcrdns", "csv", "pdf", "svg", "png", "json", "mdx", "wasm", "cli", "vnc", "ha",
-  "db", "s3", "ui", "ux", "seo", "jwt", "mfa", "totp", "rgpd", "gdpr", "ai", "llm",
-  "waf", "ecs", "doh", "do53", "svcb",
+  "api",
+  "iam",
+  "dns",
+  "ip",
+  "ips",
+  "url",
+  "ssl",
+  "tls",
+  "ocr",
+  "qr",
+  "mac",
+  "http",
+  "https",
+  "sse",
+  "ws",
+  "id",
+  "ttl",
+  "ssrf",
+  "mx",
+  "smtp",
+  "dnsbl",
+  "dbl",
+  "dnswl",
+  "fcrdns",
+  "csv",
+  "pdf",
+  "svg",
+  "png",
+  "json",
+  "mdx",
+  "wasm",
+  "cli",
+  "vnc",
+  "ha",
+  "db",
+  "s3",
+  "ui",
+  "ux",
+  "seo",
+  "jwt",
+  "mfa",
+  "totp",
+  "rgpd",
+  "gdpr",
+  "ai",
+  "llm",
+  "waf",
+  "ecs",
+  "doh",
+  "do53",
+  "svcb",
 ]);
 const SMALL_WORDS = new Set([
-  "and", "or", "of", "the", "a", "an", "de", "du", "des", "la", "le", "les", "et",
-  "à", "pour", "par", "sur", "in",
+  "and",
+  "or",
+  "of",
+  "the",
+  "a",
+  "an",
+  "de",
+  "du",
+  "des",
+  "la",
+  "le",
+  "les",
+  "et",
+  "à",
+  "pour",
+  "par",
+  "sur",
+  "in",
 ]);
 
 export function humanize(seg: string): string {
@@ -67,9 +129,11 @@ export function pageTitle(body: string | undefined, id: string): string {
   return navLabel(id);
 }
 
-async function entriesOf(space: Space) {
-  // Collection name = the space key (cf. content.config.ts). Dynamic.
-  return getCollection(space as never);
+// Collections are declared dynamically (name = space key, cf. content.config.ts), so
+// `getCollection` can't be statically typed here — assert the minimal entry shape we use.
+type Entry = { id: string; body?: string };
+async function entriesOf(space: Space): Promise<Entry[]> {
+  return getCollection(space as never) as unknown as Promise<Entry[]>;
 }
 
 /** Builds a space's navigation tree from the slash-separated ids. */
@@ -85,9 +149,7 @@ export async function buildNav(space: Space): Promise<NavNode[]> {
 
     for (let i = 0; i < parts.length - 1; i++) {
       const seg = parts[i];
-      let group = children.find(
-        (c): c is NavGroup => c.type === "group" && c.segment === seg,
-      );
+      let group = children.find((c): c is NavGroup => c.type === "group" && c.segment === seg);
       if (!group) {
         group = {
           type: "group",

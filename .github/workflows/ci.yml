@@ -17,11 +17,31 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
-      - name: Smoke-build a scratch consumer (GFM + MDX)
+
+      - name: Lint + format (Biome)
+        run: npm run lint
+        working-directory: packages/renderer
+
+      - name: Unit tests (Vitest)
+        run: npm test
+        working-directory: packages/renderer
+
+      # A scratch consumer whose index.md is deliberately GFM-hostile-to-MDX, used by
+      # both the type-check and the smoke build (the renderer runs against a repo, so
+      # both need one). --root points the run-from-package CLI at it.
+      - name: Prepare a scratch consumer
         run: |
           set -e
           mkdir -p /tmp/consumer/docs
           printf '# Hello\n\nGFM hostile to MDX: Promise<T>, <a@b.com>, {x}, | a | b |\n' > /tmp/consumer/docs/index.md
-          cd /tmp/consumer
-          node "$GITHUB_WORKSPACE/packages/renderer/bin/notabene.mjs" init
-          node "$GITHUB_WORKSPACE/packages/renderer/bin/notabene.mjs" build
+          node packages/renderer/bin/notabene.mjs init --root /tmp/consumer
+
+      - name: Type-check (astro check)
+        run: npm run check
+        working-directory: packages/renderer
+        env:
+          NOTABENE_ROOT: /tmp/consumer
+          NOTABENE_CONFIG: /tmp/consumer/notabene.config.mjs
+
+      - name: Smoke-build the scratch consumer
+        run: node packages/renderer/bin/notabene.mjs build --root /tmp/consumer

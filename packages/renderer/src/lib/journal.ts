@@ -4,6 +4,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { storeAbs } from "../config.mjs";
+import { assertStoreCompatible } from "./store-meta";
 
 export interface JournalChange {
   /** Logical path of the changed page (= data-page), e.g. docs/architecture/billing. */
@@ -31,6 +32,7 @@ export interface JournalEntry {
 const JOURNAL_FILE = path.join(storeAbs, "journal.json");
 
 export async function readJournal(): Promise<JournalEntry[]> {
+  assertStoreCompatible();
   try {
     return JSON.parse(await fs.readFile(JOURNAL_FILE, "utf8")) as JournalEntry[];
   } catch {

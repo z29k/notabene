@@ -26,13 +26,12 @@ export const GET: APIRoute = async () => {
 
   for (const root of roots) {
     const space = root.key;
-    const entries = await getCollection(space as never);
+    // Dynamic collection (name = space key) → assert the entry shape we read.
+    const entries = (await getCollection(space as never)) as unknown as Array<{ id: string; body?: string }>;
     for (const entry of entries) {
       const body = entry.body ?? "";
       const titleMatch = body.match(/^#\s+(.+?)\s*$/m);
-      const headings = [...body.matchAll(/^#{2,4}\s+(.+?)\s*$/gm)].map((m) =>
-        m[1].replace(/[*_`]/g, "").trim(),
-      );
+      const headings = [...body.matchAll(/^#{2,4}\s+(.+?)\s*$/gm)].map((m) => m[1].replace(/[*_`]/g, "").trim());
       out.push({
         space,
         href: `/${space}/${entry.id}`,

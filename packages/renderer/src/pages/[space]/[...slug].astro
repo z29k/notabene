@@ -9,7 +9,10 @@ export async function getStaticPaths() {
   const groups = await Promise.all(
     roots.map(async (root) => {
       const entries = await getCollection(root.key as never);
-      const docs = entries.map((entry: { id: string }) => ({
+      // Dynamic collection (name = space key) → entries aren't statically typed;
+      // `entry` flows into props and is consumed via render()/entry.body downstream.
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entry.
+      const docs = entries.map((entry: any) => ({
         params: { space: root.key, slug: entry.id },
         props: { spaceKey: root.key, entry },
       }));
@@ -47,10 +50,12 @@ if (entry) {
   const readme = all.find((e: { id: string }) => /^(readme|index)$/i.test(e.id));
   if (readme) {
     const rendered = await render(readme);
+    // Dynamic collection → `readme` is untyped; read the fields we need via an alias.
+    const meta = readme as unknown as { id: string; body?: string };
     Content = rendered.Content;
     headings = rendered.headings;
-    title = pageTitle(readme.body, readme.id);
-    page = `${baseDir}/${readme.id}`;
+    title = pageTitle(meta.body, meta.id);
+    page = `${baseDir}/${meta.id}`;
   } else {
     nodes = await buildNav(spaceKey);
   }

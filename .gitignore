@@ -49,5 +49,8 @@ Thumbs.db
 ehthumbs.db
 desktop.ini
 
+# ── Tooling artifacts ────────────────────────────────────────
+.playwright-mcp/
+
 # ── Project-local (not part of the published repo) ───────────
 plans/

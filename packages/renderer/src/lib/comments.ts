@@ -5,6 +5,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { storeAbs } from "../config.mjs";
+import { assertStoreCompatible } from "./store-meta";
+import { resolveStorePath } from "./store-path";
 import type { Comment, CommentAnchor, CommentScope, CommentSpace, CommentStatus } from "./comment-types";
 
 const STORE_ROOT = storeAbs;
@@ -12,12 +14,11 @@ const STORE_ROOT = storeAbs;
 const RESERVED = new Set(["journal.json", "meta.json"]);
 
 function fileFor(page: string): string {
-  // Anti-traversal: no `..`, no leading slash.
-  const safe = page.replace(/\\/g, "/").replace(/\.\.+/g, "").replace(/^\/+/, "");
-  return path.join(STORE_ROOT, `${safe}.json`);
+  return resolveStorePath(STORE_ROOT, page);
 }
 
 async function read(page: string): Promise<Comment[]> {
+  assertStoreCompatible();
   try {
     return JSON.parse(await fs.readFile(fileFor(page), "utf8")) as Comment[];
   } catch {
@@ -32,7 +33,20 @@ async function write(page: string, comments: Comment[]): Promise<void> {
     await fs.rm(f, { force: true });
     return;
   }
-  await fs.writeFile(f, `${JSON.stringify(comments, null, 2)}\n`, "utf8");
+  // Atomic write (tmp + rename). These files are read directly by the agent while
+  // the dev server may be writing them → a reader must never observe a truncated
+  // JSON. rename() is atomic within the same directory/filesystem. (Note: this
+  // guarantees integrity, not last-writer-wins — concurrent read-modify-write on the
+  // same page can still lose an update; a solo dev loop won't hit it in practice.)
+  // The `.tmp` suffix keeps stray temp files out of the `*.json` store walkers.
+  const tmp = `${f}.${process.pid}.${newId()}.tmp`;
+  try {
+    await fs.writeFile(tmp, `${JSON.stringify(comments, null, 2)}\n`, "utf8");
+    await fs.rename(tmp, f);
+  } catch (err) {
+    await fs.rm(tmp, { force: true }).catch(() => {});
+    throw err;
+  }
 }
 
 function newId(): string {
@@ -45,6 +59,7 @@ export async function listComments(page: string): Promise<Comment[]> {
 
 /** All comments, all pages (for the global /comments view). */
 export async function listAllComments(): Promise<Comment[]> {
+  assertStoreCompatible();
   const out: Comment[] = [];
   async function walk(dir: string) {
     let entries: import("node:fs").Dirent[];

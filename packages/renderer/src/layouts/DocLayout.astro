@@ -39,8 +39,8 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} · {siteName}</title>
-    <script type="application/json" id="notabene-roots" set:html={JSON.stringify(clientRoots)} />
-    <script type="application/json" id="notabene-i18n" set:html={JSON.stringify(m)} />
+    <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
+    <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
   </head>
   <body>
     <header class="topbar">
@@ -84,6 +84,8 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
     </div>
 
     <script>
+      import { esc } from "../lib/client/comments-client";
+
       // Client-side search: JSON index (title + headings + excerpt), scored.
       const input = document.getElementById("search-input") as HTMLInputElement | null;
       const box = document.getElementById("search-results");
@@ -119,10 +121,6 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
         if (doc.headings.some((h) => h.toLowerCase().includes(q))) return 30;
         if (doc.text.toLowerCase().includes(q)) return 10;
         return 0;
-      }
-
-      function esc(s: string): string {
-        return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] ?? c);
       }
 
       if (input && box) {

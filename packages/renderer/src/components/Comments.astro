@@ -48,6 +48,8 @@ const { page, space } = Astro.props;
 
 <script>
   import { ICONS } from "../lib/icons";
+  import { createApi, esc, fmt, type Comment, type CommentAnchor } from "../lib/client/comments-client";
+  type Anchor = CommentAnchor;
 
   const pageSection = document.getElementById("cmt-page");
   const article = document.getElementById("doc-content");
@@ -71,31 +73,22 @@ const { page, space } = Astro.props;
     const popInput = document.getElementById("cmt-pop-input") as HTMLTextAreaElement;
     const viewEl = document.getElementById("cmt-view")!;
 
-    interface Anchor { quote: string; prefix: string; suffix: string; section: string | null }
-    interface Reply { author: string; body: string; ts: string }
-    interface Comment {
-      id: string; space: string; page: string; scope: string;
-      anchor: Anchor | null; thread: Reply[]; status: string;
-      resolution: { note: string; journalEntryId?: string } | null; createdAt: string; updatedAt: string;
-    }
-
     let comments: Comment[] = [];
     let railFilter = "open";
     let pendingAnchor: Anchor | null = null;
     let viewIds: string[] = [];
     const ranges = new Map<string, Range>();
 
-    const esc = (s: string) =>
-      s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
-    const api = (method: string, body?: unknown) =>
-      fetch("/api/comments" + (method === "GET" ? `?page=${encodeURIComponent(page)}` : ""), {
-        method,
-        headers: { "content-type": "application/json" },
-        body: body ? JSON.stringify(body) : undefined,
-      }).then((r) => r.json());
+    const api = createApi(page);
 
     // ── flat text mapping (offset ⇄ DOM) ──────────────────────────────────
+    // Built ONCE and reused. The article's text is immutable after render — comment
+    // highlights use the CSS Custom Highlight API (no DOM mutation), and the fallback
+    // doesn't wrap either — so re-walking all text nodes per comment per render (the
+    // old cost: ~2·N walks per pass) is pure waste.
+    let flat: { text: string; map: { node: Node; start: number; end: number }[] } | null = null;
     function buildFlat() {
+      if (flat) return flat;
       const walker = document.createTreeWalker(article!, NodeFilter.SHOW_TEXT);
       let text = "";
       const map: { node: Node; start: number; end: number }[] = [];
@@ -105,7 +98,8 @@ const { page, space } = Astro.props;
         text += n.nodeValue || "";
         map.push({ node: n, start, end: text.length });
       }
-      return { text, map };
+      flat = { text, map };
+      return flat;
     }
     function pointToOffset(map: { node: Node; start: number }[], node: Node, off: number) {
       for (const m of map) if (m.node === node) return m.start + off;
@@ -153,22 +147,49 @@ const { page, space } = Astro.props;
     }
     function applyHighlights() {
       ranges.clear();
-      const C = window.CSS as any;
-      if (!C || !C.highlights) return;
-      const hl = new (window as any).Highlight();
+      // Re-anchor every visible selection comment into a live Range ALWAYS: the
+      // `ranges` map powers click-to-open and jump-to-comment, which must keep
+      // working even where the browser can't paint highlights.
+      const found: Range[] = [];
       for (const c of comments) {
         if (c.scope !== "selection" || !c.anchor || c.status === "resolved") continue;
         const r = findRange(c.anchor);
         if (r) {
           ranges.set(c.id, r);
-          hl.add(r);
+          found.push(r);
         }
       }
-      C.highlights.set("cmt", hl);
+      // Paint via the CSS Custom Highlight API when available; otherwise degrade
+      // gracefully (interactions above still work) and warn once.
+      const C = window.CSS as any;
+      if (C?.highlights && typeof (window as any).Highlight === "function") {
+        const hl = new (window as any).Highlight();
+        for (const r of found) hl.add(r);
+        C.highlights.set("cmt", hl);
+      } else if (found.length) {
+        warnNoHighlightSupport();
+      }
+    }
+
+    // Non-blocking, dismissible banner shown once when the Highlight API is missing
+    // (older Firefox/Safari). Appended to <body>, not the article, so it doesn't
+    // perturb the flat text map. Styles inline to avoid touching global.css.
+    let noHlWarned = false;
+    function warnNoHighlightSupport() {
+      if (noHlWarned) return;
+      noHlWarned = true;
+      const bar = document.createElement("div");
+      bar.textContent = M.noHighlightSupport || "This browser can't paint comment highlights — clicking still works.";
+      bar.style.cssText =
+        "position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:9999;" +
+        "background:#7a1f1f;color:#fff;padding:8px 14px;border-radius:8px;cursor:pointer;" +
+        "font:13px system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);max-width:90vw";
+      bar.title = "Dismiss";
+      bar.addEventListener("click", () => bar.remove());
+      document.body.appendChild(bar);
     }
 
     // ── card rendering (shared) ────────────────────────────────────────────
-    const fmt = (s: string) => s.slice(0, 16).replace("T", " ");
     function card(c: Comment): string {
       const head = c.thread[0];
       const replies = c.thread.slice(1);

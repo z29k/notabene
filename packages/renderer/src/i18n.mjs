@@ -45,8 +45,7 @@ const MESSAGES = {
     tDelete: "Delete",
 
     allCommentsTitle: "All comments",
-    allCommentsLede:
-      "Aggregated view of the whole doc, with filters. Click a page → opens the comment in place.",
+    allCommentsLede: "Aggregated view of the whole doc, with filters. Click a page → opens the comment in place.",
     searchCommentsPlaceholder: "Search (text, page, quote)…",
     stActive: "Active",
     stOpen: "Open",
@@ -64,12 +63,14 @@ const MESSAGES = {
     journalHeading: "Change journal",
     journalLede:
       "History of review passes: what changed in the docs, and why (linked to the comments that triggered it).",
-    journalEmpty:
-      "No pass recorded yet. When the agent processes comments, an entry is added here.",
+    journalEmpty: "No pass recorded yet. When the agent processes comments, an entry is added here.",
     journalComments: "comments:",
 
     homeDocumentation: "documentation",
     homeLede: "Sourced live from the repo.",
+
+    noHighlightSupport:
+      "This browser can't paint comment highlights — clicking a marked passage still works. Use a recent Chrome, Edge, Safari, or Firefox.",
   },
   fr: {
     navComments: "Commentaires",
@@ -115,7 +116,7 @@ const MESSAGES = {
       "Vue agrégée de toute la doc, avec filtres. Clic sur une page → ouvre le commentaire à son emplacement.",
     searchCommentsPlaceholder: "Rechercher (texte, page, citation)…",
     stActive: "Actifs",
-    stOpen: "Open",
+    stOpen: "Ouverts",
     stResolved: "Résolus",
     stAll: "Tous statuts",
     spAll: "Tous espaces",
@@ -130,12 +131,14 @@ const MESSAGES = {
     journalHeading: "Journal des modifications",
     journalLede:
       "Historique des passes de revue : ce qui a changé dans la doc, et pourquoi (lié aux commentaires qui l'ont déclenché).",
-    journalEmpty:
-      "Aucune passe enregistrée. Quand l'agent traite des commentaires, une entrée est ajoutée ici.",
+    journalEmpty: "Aucune passe enregistrée. Quand l'agent traite des commentaires, une entrée est ajoutée ici.",
     journalComments: "commentaires :",
 
     homeDocumentation: "documentation",
     homeLede: "Sourcé en direct depuis le repo.",
+
+    noHighlightSupport:
+      "Ce navigateur ne peut pas afficher le surlignage des commentaires — cliquer sur un passage annoté fonctionne toujours. Utilise un Chrome, Edge, Safari ou Firefox récent.",
   },
 };
 

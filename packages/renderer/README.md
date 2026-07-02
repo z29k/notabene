@@ -73,7 +73,7 @@ CLI:
 | --- | --- |
 | `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present) |
 | `notabene dev` | Start the review server over this repo's docs (live-reload) |
-| `notabene build` | Build the static site (no write API in the artifact) |
+| `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
 
 Flags: `--port <n>` · `--config <path>` · `--root <path>` · `--host` (expose on the
@@ -147,6 +147,9 @@ The renderer picks the processor **by file extension**:
 `format: "mdx"` (default) enables both, mixable in one repo. `format: "commonmark"`
 drops the MDX dependency entirely — best for a plain-Markdown repo.
 
+> Note: the config **default** is `"mdx"` (omit the key to get it), but `notabene init`
+> scaffolds `"commonmark"` — the safe, zero-dependency, most-lenient starting point.
+
 ## The `.notabene` contract
 
 The store is a **versioned contract** (`<store>/meta.json` → `schemaVersion`), so
@@ -181,6 +184,10 @@ The comments API writes into your git. So:
   (writes return `403` outside dev).
 - It **binds loopback by default** — not reachable from your network unless you opt
   in with `--host` / `NOTABENE_HOST=1` on a trusted network.
+- **Every write is gated** beyond the bind: cross-origin requests are refused
+  (anti-CSRF), a non-loopback `Host` is refused in loopback mode (anti-DNS-rebinding),
+  and — when you set `NOTABENE_TOKEN` — each write must carry a matching
+  `x-notabene-token`. Setting a token is **recommended when you use `--host`**.
 - The agent skill **never commits without asking** and **never bulk-deletes** the
   store.
 

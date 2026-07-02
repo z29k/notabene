@@ -35,14 +35,7 @@ const m = t(locale);
 
 <script>
   import { ICONS } from "../lib/icons";
-
-  interface Anchor { quote: string; prefix: string; suffix: string; section: string | null }
-  interface Reply { author: string; body: string; ts: string }
-  interface Comment {
-    id: string; space: string; page: string; scope: string;
-    anchor: Anchor | null; thread: Reply[]; status: string; hold: boolean;
-    resolution: { note: string; journalEntryId?: string } | null; createdAt: string; updatedAt: string;
-  }
+  import { createApi, esc, fmt, makeRouteFor, type Comment } from "../lib/client/comments-client";
 
   const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
     document.getElementById("notabene-roots")?.textContent || "[]",
@@ -60,24 +53,8 @@ const m = t(locale);
   const holdEl = document.getElementById("caf-hold") as HTMLSelectElement;
 
   let all: Comment[] = [];
-  const esc = (s: string) =>
-    s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
-  const api = (method: string, body?: unknown) =>
-    fetch("/api/comments" + (method === "GET" ? "?all=1" : ""), {
-      method,
-      headers: { "content-type": "application/json" },
-      body: body ? JSON.stringify(body) : undefined,
-    }).then((r) => r.json());
-  const fmt = (s: string) => s.slice(0, 16).replace("T", " ");
-  // Most specific root (longest path) first — cf. config.routeForPage.
-  const ROUTE_ROOTS = [...ROOTS].sort((a, b) => b.path.length - a.path.length);
-  function routeFor(page: string): string {
-    for (const r of ROUTE_ROOTS) {
-      if (page === r.path) return `/${r.key}`;
-      if (page.startsWith(`${r.path}/`)) return `/${r.key}/${page.slice(r.path.length + 1)}`;
-    }
-    return "#";
-  }
+  const api = createApi(); // no page → global (?all=1)
+  const routeFor = makeRouteFor(ROOTS);
 
   function render() {
     const q = searchEl.value.trim().toLowerCase();

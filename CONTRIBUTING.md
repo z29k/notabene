@@ -42,14 +42,32 @@ node ~/…/notabene/packages/renderer/bin/notabene.mjs dev
 
 ## Validate a change
 
-The renderer has no unit tests yet; validate by building against a scratch consumer:
+Quality gates (run in `packages/renderer` — these are what CI enforces on Node 22 + 24):
 
 ```bash
-cd /tmp/nb-scratch && node …/bin/notabene.mjs build   # must complete with 0 errors
+cd packages/renderer
+npm test          # Vitest — pure-logic unit tests (test/*.test.ts)
+npm run lint      # Biome — lint + format check (JS/TS; .astro/.css excluded)
+npm run format    # Biome — apply formatting
+npm run check     # astro check — type-checks .astro + .ts (needs a consumer, see below)
 ```
 
-Test both formats (`format: "mdx"` and `"commonmark"`) and both a fresh EN config and
-a `locale: "fr"` config when touching UI strings.
+`astro check` and the build run *against* a consumer repo, so point them at a scratch one
+via `--root` / the `NOTABENE_ROOT`+`NOTABENE_CONFIG` env:
+
+```bash
+mkdir -p /tmp/nb-scratch/docs && echo "# Hi" > /tmp/nb-scratch/docs/index.md
+node packages/renderer/bin/notabene.mjs init  --root /tmp/nb-scratch
+node packages/renderer/bin/notabene.mjs build --root /tmp/nb-scratch   # must complete with 0 errors
+NOTABENE_ROOT=/tmp/nb-scratch NOTABENE_CONFIG=/tmp/nb-scratch/notabene.config.mjs \
+  npm --prefix packages/renderer run check
+```
+
+Tests are pure-logic only (anchoring, route/link rewriting, the write-API guard, store
+paths, the schema-version guard, nav humanization); `.astro`/config-dependent code is
+covered by `astro check` + the smoke build. Test both formats (`format: "mdx"` and
+`"commonmark"`) and both a fresh EN config and a `locale: "fr"` config when touching UI
+strings.
 
 ## Pull requests
 
