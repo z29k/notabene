@@ -113,6 +113,27 @@ a:hover {
   color: var(--accent);
   text-decoration: none;
 }
+.topbar-me {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+.topbar-me input {
+  width: 8ch;
+  padding: 2px 6px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.topbar-me input:focus {
+  width: 12ch;
+  border-color: var(--accent);
+  outline: none;
+}
 .search input {
   width: 100%;
   height: 34px;

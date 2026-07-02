@@ -97,6 +97,10 @@ Treat its shape as a public API:
 - A comment has `status: open|addressed|resolved` and `hold: boolean`. The agent
   processes only `open` **and not on hold**; held comments are the user's WIP. `addressed`
   is the two-phase-review state (see below): agent-proposed, awaiting human validation.
+- Comment/reply **author** resolves as: per-device `localStorage` name (set via the header
+  field, sent with each write) → config `author` → the repo's `git config user.name` (the
+  CLI passes it as `NOTABENE_AUTHOR`) → `"you"`. So it's never a bare "you" out of the box,
+  and a `--host` deployment attributes per person. Fallback lives in `config.mjs` (`author`).
 
 ## Architecture: the review loop (the product)
 

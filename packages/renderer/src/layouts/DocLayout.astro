@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import Comments from "../components/Comments.astro";
 import type { Space } from "../lib/nav";
-import { clientRoots, locale, reviewMode, siteName, tagline } from "../config.mjs";
+import { author, clientRoots, locale, reviewMode, siteName, tagline } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -42,6 +42,7 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
     <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
+    <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author })} />
   </head>
   <body>
     <header class="topbar">
@@ -55,6 +56,10 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
         {m.navReview} <span id="nav-review-badge" class="review-badge"></span>
       </a>
       <a href="/journal" class="topbar-link">{m.navJournal}</a>
+      <label class="topbar-me" title={m.yourNameHint}>
+        <span aria-hidden="true">👤</span>
+        <input id="me-input" type="text" placeholder={m.yourName} autocomplete="off" aria-label={m.yourName} />
+      </label>
     </header>
 
     <div class="shell">
@@ -88,6 +93,17 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
     </div>
 
     <script>
+      import { getAuthor, setAuthor } from "../lib/client/comments-client";
+
+      // Identity: the top-bar name input is the per-device comment author (localStorage),
+      // pre-filled with the server default (config author / git user.name / "you").
+      const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
+      const meInput = document.getElementById("me-input") as HTMLInputElement | null;
+      if (meInput) {
+        meInput.value = getAuthor(meCfg.author || "you");
+        meInput.addEventListener("change", () => setAuthor(meInput.value));
+      }
+
       // Review badge: reveal the "Review" link + a count of `addressed` comments when in
       // approve mode, OR whenever any addressed comment exists (so none get stuck if the
       // mode is flipped back to auto). One tiny fetch per page load; dev-only tool.

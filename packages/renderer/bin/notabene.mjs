@@ -10,7 +10,7 @@
 //
 // Flags: --config <path> (default <cwd>/notabene.config.mjs), --root <path>
 // (consumer repo root, default cwd), --host (expose on the LAN — trusted only).
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
@@ -36,6 +36,21 @@ const exposeHost = argv.includes("--host");
 function fail(msg) {
   console.error(`notabene: ${msg}`);
   process.exit(1);
+}
+
+// Best-effort default comment author from the consumer repo's git identity (overridden
+// by config `author`, and per-device by the browser's localStorage). Never throws.
+function gitUserName(cwd) {
+  try {
+    return (
+      execFileSync("git", ["-C", cwd, "config", "user.name"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() || null
+    );
+  } catch {
+    return null;
+  }
 }
 
 const TEMPLATE_CONFIG = path.join(APP_DIR, "templates", "notabene.config.mjs");
@@ -104,6 +119,7 @@ function runAstro(astroCmd) {
   const port = flag("--port");
   if (port && port !== true) args.push("--port", String(port));
   if (exposeHost) args.push("--host");
+  const gitAuthor = process.env.NOTABENE_AUTHOR || gitUserName(repoRoot);
   const child = spawn(process.execPath, args, {
     stdio: "inherit",
     cwd: repoRoot,
@@ -113,6 +129,7 @@ function runAstro(astroCmd) {
       NOTABENE_CONFIG: configPath,
       NOTABENE_OUT_DIR: path.join(workDir, "dist"),
       NOTABENE_CACHE_DIR: path.join(workDir, "cache"),
+      ...(gitAuthor ? { NOTABENE_AUTHOR: gitAuthor } : {}),
       ...(exposeHost ? { NOTABENE_HOST: "1" } : {}),
     },
   });

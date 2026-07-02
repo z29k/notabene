@@ -3,7 +3,7 @@
 // "to validate" filter). Browser-side. Data flow:
 //   comments (?all=1) + journal (/api/journal) → for each `addressed` comment, invert the
 //   journal to its changed pages (cascade included) → diffs (/api/diff, one batched call).
-import { createApi, esc, type Comment } from "./comments-client";
+import { createApi, esc, getAuthor, type Comment } from "./comments-client";
 import { type DiffMode, getDiffMode, renderDiff, setDiffMode } from "./diff";
 
 interface JournalChange {
@@ -129,6 +129,7 @@ export async function mountReviewList(
   let byId = new Map<string, Comment>();
   let diffs = new Map<string, DiffResult>();
   const api = createApi(); // PATCH carries the token from localStorage
+  const authorDefault = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}").author || "you";
 
   function render(): void {
     const addressed = comments
@@ -198,7 +199,12 @@ export async function mountReviewList(
     const body = ta.value.trim();
     if (!body) return;
     const page = (form.closest(".rev-card") as HTMLElement).dataset.page as string;
-    await api("PATCH", { page, id: form.dataset.id, status: "open", reply: { body } });
+    await api("PATCH", {
+      page,
+      id: form.dataset.id,
+      status: "open",
+      reply: { author: getAuthor(authorDefault), body },
+    });
     await reload();
   });
 

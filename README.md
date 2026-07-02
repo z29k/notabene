@@ -136,6 +136,7 @@ export default {
 | `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` exposes the write API to the LAN |
 | `verify[]` | `[]` | Post-edit checks the agent runs (the renderer build always runs) |
 | `review` | `"auto"` | `"auto"` = agent resolves comments; `"approve"` = agent proposes (`addressed`), you validate each at `/review` with a diff |
+| `author` | git `user.name` | Default comment author; each browser overrides it per-device via the header name field |
 
 ## Two-phase review (optional)
 

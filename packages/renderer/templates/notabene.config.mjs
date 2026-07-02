@@ -38,4 +38,8 @@ export default {
   // the agent proposes edits (status "addressed"); you validate them (with a diff) at
   // /review or via the "to validate" filter on /comments, then resolve or reject.
   review: "auto",
+
+  // Default comment author. Omit → the CLI uses this repo's `git config user.name`
+  // (else "you"). Each browser overrides it per-device via the name field in the header.
+  // author: "Alex",
 };

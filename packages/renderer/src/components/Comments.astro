@@ -48,7 +48,7 @@ const { page, space } = Astro.props;
 
 <script>
   import { ICONS } from "../lib/icons";
-  import { createApi, esc, fmt, type Comment, type CommentAnchor } from "../lib/client/comments-client";
+  import { createApi, esc, fmt, getAuthor, type Comment, type CommentAnchor } from "../lib/client/comments-client";
   type Anchor = CommentAnchor;
 
   const pageSection = document.getElementById("cmt-page");
@@ -80,6 +80,9 @@ const { page, space } = Astro.props;
     const ranges = new Map<string, Range>();
 
     const api = createApi(page);
+    // Comment author: per-device localStorage name, else the injected server default.
+    const AUTHOR_DEFAULT = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}").author || "you";
+    const me = () => getAuthor(AUTHOR_DEFAULT);
 
     // ── flat text mapping (offset ⇄ DOM) ──────────────────────────────────
     // Built ONCE and reused. The article's text is immutable after render — comment
@@ -354,7 +357,7 @@ const { page, space } = Astro.props;
     document.getElementById("cmt-pop-save")!.addEventListener("click", async () => {
       const body = popInput.value.trim();
       if (!body || !pendingAnchor) return;
-      await api("POST", { page, space, scope: "selection", anchor: pendingAnchor, body });
+      await api("POST", { page, space, scope: "selection", anchor: pendingAnchor, author: me(), body });
       pop.hidden = true;
       pendingAnchor = null;
       window.getSelection()?.removeAllRanges();
@@ -386,7 +389,7 @@ const { page, space } = Astro.props;
       e.preventDefault();
       const body = inputEl.value.trim();
       if (!body) return;
-      await api("POST", { page, space, scope: "page", anchor: null, body });
+      await api("POST", { page, space, scope: "page", anchor: null, author: me(), body });
       inputEl.value = "";
       await load();
     });
@@ -450,7 +453,7 @@ const { page, space } = Astro.props;
       e.preventDefault();
       const ta = form.querySelector("textarea") as HTMLTextAreaElement;
       if (!ta.value.trim()) return;
-      await api("PATCH", { page, id: form.dataset.id, reply: { body: ta.value.trim() } });
+      await api("PATCH", { page, id: form.dataset.id, reply: { author: me(), body: ta.value.trim() } });
       await load();
     }
     for (const region of [railEl, pageListEl, viewEl]) {

@@ -54,3 +54,26 @@ export function makeRouteFor(roots: { key: string; path: string }[]): (page: str
     return "#";
   };
 }
+
+/**
+ * The comment author for this browser: the per-device name set in localStorage
+ * (`notabene:author`), else the server default (`fallback` = config `author` / git
+ * user.name / "you", injected via `#notabene-me`). Sent with every create/reply so a
+ * `--host` deployment attributes comments per person instead of all "you".
+ */
+export function getAuthor(fallback = "you"): string {
+  try {
+    return localStorage.getItem("notabene:author")?.trim() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+export function setAuthor(name: string): void {
+  try {
+    const v = name.trim();
+    if (v) localStorage.setItem("notabene:author", v);
+    else localStorage.removeItem("notabene:author");
+  } catch {
+    /* localStorage unavailable */
+  }
+}

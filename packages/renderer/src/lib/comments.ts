@@ -4,7 +4,7 @@
 // excludes the store → it's never interpreted as content.
 import fs from "node:fs/promises";
 import path from "node:path";
-import { storeAbs } from "../config.mjs";
+import { author as defaultAuthor, storeAbs } from "../config.mjs";
 import { assertStoreCompatible } from "./store-meta";
 import { resolveStorePath } from "./store-path";
 import type { Comment, CommentAnchor, CommentScope, CommentSpace, CommentStatus } from "./comment-types";
@@ -101,7 +101,7 @@ export async function createComment(input: {
     page: input.page,
     scope: input.scope,
     anchor: input.scope === "selection" ? input.anchor : null,
-    thread: [{ author: input.author || "you", body: input.body, ts: now }],
+    thread: [{ author: input.author || defaultAuthor, body: input.body, ts: now }],
     status: "open",
     hold: false,
     resolution: null,
@@ -137,7 +137,7 @@ export async function patchComment(
   if (patch.resolution !== undefined) c.resolution = patch.resolution;
   if (patch.reply?.body) {
     c.thread.push({
-      author: patch.reply.author || "you",
+      author: patch.reply.author || defaultAuthor,
       body: patch.reply.body,
       ts: new Date().toISOString(),
     });

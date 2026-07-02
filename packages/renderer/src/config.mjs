@@ -81,6 +81,11 @@ export const verify = Array.isArray(userConfig.verify) ? userConfig.verify : [];
 //                        (addressed → resolved) or rejects (→ open) after seeing the diff.
 export const reviewMode = String(userConfig.review ?? "auto").toLowerCase() === "approve" ? "approve" : "auto";
 
+// Default comment author. Config `author` wins; otherwise the CLI passes the repo's
+// `git config user.name` via NOTABENE_AUTHOR; else "you". The browser overrides this
+// per-device via localStorage (see the identity chip) — this is only the fallback.
+export const author = userConfig.author ?? process.env.NOTABENE_AUTHOR ?? "you";
+
 /**
  * @typedef {Object} Root
  * @property {string} key
@@ -135,6 +140,7 @@ export default {
   host,
   verify,
   reviewMode,
+  author,
   roots,
   storeRel,
   storeAbs,

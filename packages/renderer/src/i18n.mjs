@@ -88,6 +88,8 @@ const MESSAGES = {
     diffUnavailable: "Diff unavailable (not a git repo?)",
     newFileUncommitted: "New file — not committed yet",
     noChangesRecorded: "No recorded changes",
+    yourName: "Your name",
+    yourNameHint: "Your name — shown on the comments you leave (saved on this device)",
   },
   fr: {
     navComments: "Commentaires",
@@ -174,6 +176,8 @@ const MESSAGES = {
     diffUnavailable: "Diff indisponible (pas un dépôt git ?)",
     newFileUncommitted: "Nouveau fichier — pas encore commité",
     noChangesRecorded: "Aucune modification enregistrée",
+    yourName: "Ton nom",
+    yourNameHint: "Ton nom — affiché sur les commentaires que tu laisses (enregistré sur cet appareil)",
   },
 };
 
