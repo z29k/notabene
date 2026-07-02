@@ -28,12 +28,12 @@ const { page, space } = Astro.props;
       <div id="cmt-page-list" class="cmt-list" />
     </section>
 
-    <button id="cmt-float" class="cmt-float" hidden type="button">
+    <button id="cmt-float" class="cmt-float" hidden type="button" aria-haspopup="dialog" aria-label={m.floatComment}>
       {m.floatComment}
     </button>
-    <div id="cmt-pop" class="cmt-pop" hidden>
+    <div id="cmt-pop" class="cmt-pop" hidden role="dialog" aria-label={m.selectionPlaceholder}>
       <div id="cmt-pop-quote" class="cmt-pop-quote" />
-      <textarea id="cmt-pop-input" rows="3" placeholder={m.selectionPlaceholder} />
+      <textarea id="cmt-pop-input" rows="3" placeholder={m.selectionPlaceholder} aria-label={m.selectionPlaceholder} />
       <div class="cmt-pop-actions">
         <button type="button" id="cmt-pop-cancel">{m.cancel}</button>
         <button type="button" id="cmt-pop-save">{m.comment}</button>
@@ -316,11 +316,15 @@ const { page, space } = Astro.props;
       renderView();
     });
 
-    // ── selection → floating button → popover ──────────────────────────────
+    // ── selection → floating button → popover (mouse, keyboard AND touch) ───
     let savedRange: Range | null = null;
-    document.addEventListener("mouseup", (e) => {
-      const t = e.target as HTMLElement;
-      if (t.closest("#cmt-float,#cmt-pop,#cmt-page,#cmt-rail")) return;
+    let pointerDown = false;
+    let selTimer: ReturnType<typeof setTimeout>;
+
+    // Show the comment button for any non-collapsed selection inside the article,
+    // regardless of how it was made (this is what enables keyboard + touch, not just
+    // the old mouseup path).
+    function updateFloatFromSelection() {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !sel.toString().trim()) {
         floatBtn.hidden = true;
@@ -336,6 +340,27 @@ const { page, space } = Astro.props;
       floatBtn.style.top = `${Math.max(8, rect.top - 40)}px`;
       floatBtn.style.left = `${rect.left}px`;
       floatBtn.hidden = false;
+    }
+
+    document.addEventListener("pointerdown", () => {
+      pointerDown = true;
+    });
+    // pointerup covers mouse, touch AND pen (was mouseup = mouse only).
+    document.addEventListener("pointerup", (e) => {
+      pointerDown = false;
+      if ((e.target as HTMLElement).closest("#cmt-float,#cmt-pop,#cmt-page,#cmt-rail")) return;
+      updateFloatFromSelection();
+    });
+    // Keyboard selection (Shift+arrows / Home / End) fires no pointer event.
+    document.addEventListener("keyup", (e) => {
+      const ke = e as KeyboardEvent;
+      if (ke.shiftKey || ke.key === "Home" || ke.key === "End") updateFloatFromSelection();
+    });
+    // Touch handles / AT adjust the selection without a pointerup — debounced fallback.
+    document.addEventListener("selectionchange", () => {
+      if (pointerDown) return; // a drag is in progress → handled on pointerup
+      clearTimeout(selTimer);
+      selTimer = setTimeout(updateFloatFromSelection, 120);
     });
     floatBtn.addEventListener("mousedown", (e) => e.preventDefault());
     floatBtn.addEventListener("click", () => {
@@ -362,6 +387,19 @@ const { page, space } = Astro.props;
       pendingAnchor = null;
       window.getSelection()?.removeAllRanges();
       await load();
+    });
+    // Keyboard: Ctrl/Cmd+Enter saves the selection comment without reaching for the mouse.
+    popInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        (document.getElementById("cmt-pop-save") as HTMLButtonElement).click();
+      }
+    });
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        (document.getElementById("cmt-composer") as HTMLFormElement).requestSubmit();
+      }
     });
     document.addEventListener("mousedown", (e) => {
       const t = e.target as HTMLElement;

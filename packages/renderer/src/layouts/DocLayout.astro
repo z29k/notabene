@@ -88,7 +88,7 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
 
       <aside class="rail">
         <Toc headings={headings} />
-        <div id="cmt-rail" class="cmt-rail"></div>
+        <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations}></div>
       </aside>
     </div>
 
