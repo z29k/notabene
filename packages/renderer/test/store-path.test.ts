@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { resolveStorePath } from "../src/lib/store-path";
+import { resolveStoreDir, resolveStorePath } from "../src/lib/store-path";
 
 const ROOT = "/tmp/store";
 const base = path.resolve(ROOT);
@@ -24,5 +24,18 @@ describe("resolveStorePath", () => {
   });
   it("neutralizes backslash separators", () => {
     expect(inside(resolveStorePath(ROOT, "a\\..\\..\\b"))).toBe(true);
+  });
+});
+
+describe("resolveStoreDir (v2 per-page directory)", () => {
+  it("maps a page to <root>/<page> (no extension)", () => {
+    expect(resolveStoreDir(ROOT, "docs/guide/nested")).toBe(path.resolve(ROOT, "docs/guide/nested"));
+  });
+  it("is the legacy path minus .json", () => {
+    const page = "docs/x";
+    expect(`${resolveStoreDir(ROOT, page)}.json`).toBe(resolveStorePath(ROOT, page));
+  });
+  it("stays inside the store on traversal", () => {
+    expect(inside(resolveStoreDir(ROOT, "../../etc/passwd"))).toBe(true);
   });
 });

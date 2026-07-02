@@ -79,17 +79,21 @@ the consumer: `notabene.config.mjs` + the `.notabene/` store + the docs themselv
 
 ## Architecture: the `.notabene` store is a public data contract
 
-The store (comments + journal, one JSON file per page at `<store>/<page>.json`, plus
-`journal.json` and `meta.json`) is **committed in consumer repos and read by agents**.
-Treat its shape as a public API:
+The store (comments + journal, **one file per comment** at `<store>/<page>/<id>.json`
+— v2 — plus `journal.json` and `meta.json`) is **committed in consumer repos and read by
+agents**. Treat its shape as a public API:
 
-- Versioned by a sidecar `<store>/meta.json` (`{ "schemaVersion": n }`). **Any shape
-  change bumps `schemaVersion` and ships a migrator — never a silent mutation.** Types
-  and `SCHEMA_VERSION` live in `src/lib/comment-types.ts`; the guard that refuses a store
-  newer than the renderer is `src/lib/store-meta.ts` (called on every store read).
+- Versioned by a sidecar `<store>/meta.json` (`{ "schemaVersion": n }`, currently **2**).
+  **Any shape change bumps `schemaVersion` and ships a migrator — never a silent
+  mutation.** Types and `SCHEMA_VERSION` live in `src/lib/comment-types.ts`; the guard that
+  refuses a store *newer* than the renderer is `src/lib/store-meta.ts` (called on every read).
+- **v2 = one file per comment** (`<store>/<page>/<id>.json`) → conflict-free git merges.
+  Readers stay **backward-compatible** with v1 (one array per page, `<store>/<page>.json`);
+  any write migrates that page to v2, and `notabene migrate` converts a whole store eagerly.
+  `write()` never recurses into sub-page dirs when clearing a page.
 - `src/lib/comments.ts` is the server-only I/O layer (dev-only). Writes are **atomic**
-  (temp file + `rename`) so the agent never reads a truncated JSON; the store path is
-  resolved + traversal-guarded by `src/lib/store-path.ts`. Anchors use a W3C
+  (temp file + `rename`) so the agent never reads a truncated JSON; page paths/dirs are
+  resolved + traversal-guarded by `src/lib/store-path.ts` (`resolveStorePath`/`resolveStoreDir`). Anchors use a W3C
   TextQuoteSelector (`quote` + `prefix`/`suffix` context + nearest `section` heading) —
   the prefix/suffix are load-bearing for re-anchoring rendered text back to source; the
   client capture side lives in `src/components/Comments.astro`. Browser-side comment

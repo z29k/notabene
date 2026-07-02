@@ -17,3 +17,18 @@ export function resolveStorePath(root: string, page: string): string {
   }
   return abs;
 }
+
+/**
+ * Same sanitize/containment, but resolves to the page's **directory**
+ * `<root>/<page>` (the v2 store holds one comment file per page there:
+ * `<root>/<page>/<id>.json`). Refuses paths that escape the store.
+ */
+export function resolveStoreDir(root: string, page: string): string {
+  const safe = page.replace(/\\/g, "/").replace(/\.\.+/g, "").replace(/^\/+/, "");
+  const base = path.resolve(root);
+  const abs = path.resolve(base, safe);
+  if (abs !== base && !abs.startsWith(base + path.sep)) {
+    throw new Error(`notabene: refusing page path outside the store: ${page}`);
+  }
+  return abs;
+}

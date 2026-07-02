@@ -7,6 +7,7 @@
 //   notabene dev           start the review server (astro dev) over the current repo
 //   notabene build         build the site (Node standalone; no write API in the artifact)
 //   notabene preview       serve the built site
+//   notabene migrate       convert the store to one file per comment (schema v2)
 //
 // Flags: --config <path> (default <cwd>/notabene.config.mjs), --root <path>
 // (consumer repo root, default cwd), --host (expose on the LAN — trusted only).
@@ -76,9 +77,49 @@ function doInit() {
   const store = path.resolve(repoRoot, readStore(configPath));
   fs.mkdirSync(store, { recursive: true });
   const meta = path.join(store, "meta.json");
-  if (!fs.existsSync(meta)) fs.writeFileSync(meta, `${JSON.stringify({ schemaVersion: 1 }, null, 2)}\n`);
+  if (!fs.existsSync(meta)) fs.writeFileSync(meta, `${JSON.stringify({ schemaVersion: 2 }, null, 2)}\n`);
   console.log(`notabene: store ready at ${path.relative(repoRoot, store)}/`);
   console.log("notabene: run `notabene dev` to start reviewing.");
+}
+
+// Convert a v1 store (one JSON array per page, `<page>.json`) to v2 (one file per comment,
+// `<page>/<id>.json`) — conflict-free git merges. Readers already accept both; this just
+// converts eagerly so the change shows up as one reviewable diff. Idempotent.
+function doMigrate() {
+  const store = path.resolve(repoRoot, readStore(configPath));
+  if (!fs.existsSync(store)) fail(`no store at ${store}. Run \`notabene init\` first.`);
+  const reserved = new Set(["journal.json", "meta.json"]);
+  let pages = 0;
+  let moved = 0;
+  (function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        walk(full);
+        continue;
+      }
+      if (!e.name.endsWith(".json") || (dir === store && reserved.has(e.name))) continue;
+      let data;
+      try {
+        data = JSON.parse(fs.readFileSync(full, "utf8"));
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(data)) continue; // already v2 (a single comment object)
+      const pageDir = full.replace(/\.json$/, "");
+      fs.mkdirSync(pageDir, { recursive: true });
+      for (const c of data) {
+        if (!c?.id) continue;
+        const safeId = String(c.id).replace(/[^a-zA-Z0-9_-]/g, "");
+        fs.writeFileSync(path.join(pageDir, `${safeId}.json`), `${JSON.stringify(c, null, 2)}\n`);
+        moved++;
+      }
+      fs.rmSync(full, { force: true });
+      pages++;
+    }
+  })(store);
+  fs.writeFileSync(path.join(store, "meta.json"), `${JSON.stringify({ schemaVersion: 2 }, null, 2)}\n`);
+  console.log(`notabene: migrated ${pages} page file(s) → ${moved} comment file(s) (store schemaVersion 2).`);
 }
 
 function runAstro(astroCmd) {
@@ -145,13 +186,17 @@ switch (cmd) {
   case "preview":
     runAstro(cmd);
     break;
+  case "migrate":
+    doMigrate();
+    break;
   default:
     console.log(
       "notabene — docs review tool\n\n" +
         "  notabene init       write notabene.config.mjs + create the store\n" +
         "  notabene dev        start the review server over this repo's docs\n" +
         "  notabene build      build the site (Node standalone)\n" +
-        "  notabene preview    serve the built site\n\n" +
+        "  notabene preview    serve the built site\n" +
+        "  notabene migrate    convert the store to one file per comment (v2)\n\n" +
         "Flags: --config <path>  --root <path>  --host",
     );
     process.exit(cmd ? 1 : 0);

@@ -367,11 +367,12 @@ for (const pg of [...pagesBySpace.values()].flat()) {
 // store
 const STORE = path.join(OUT, "docs", ".notabene");
 fs.mkdirSync(STORE, { recursive: true });
-fs.writeFileSync(path.join(STORE, "meta.json"), `${JSON.stringify({ schemaVersion: 1 }, null, 2)}\n`);
+fs.writeFileSync(path.join(STORE, "meta.json"), `${JSON.stringify({ schemaVersion: 2 }, null, 2)}\n`);
+// v2 store: one file per comment at <store>/<page>/<id>.json (conflict-free git merges).
 for (const [page, list] of commentsByPage) {
-  const f = path.join(STORE, `${page}.json`);
-  fs.mkdirSync(path.dirname(f), { recursive: true });
-  fs.writeFileSync(f, `${JSON.stringify(list, null, 2)}\n`);
+  const dir = path.join(STORE, page);
+  fs.mkdirSync(dir, { recursive: true });
+  for (const c of list) fs.writeFileSync(path.join(dir, `${c.id}.json`), `${JSON.stringify(c, null, 2)}\n`);
 }
 fs.writeFileSync(path.join(STORE, "journal.json"), `${JSON.stringify(journal, null, 2)}\n`);
 

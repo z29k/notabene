@@ -5,8 +5,11 @@
 // `<store>/meta.json` (`{ "schemaVersion": <n> }`, cf. SCHEMA_VERSION). Any shape
 // change bumps `schemaVersion` + a migrator, never a silent mutation.
 
-/** Store schema version (sidecar `<store>/meta.json`). */
-export const SCHEMA_VERSION = 1;
+/** Store schema version (sidecar `<store>/meta.json`).
+ *  v1: one JSON array per page, `<store>/<page>.json`.
+ *  v2: one file per comment, `<store>/<page>/<id>.json` (conflict-free git merges).
+ *  Readers are backward-compatible (v1 arrays are still read); writers emit v2. */
+export const SCHEMA_VERSION = 2;
 
 export interface CommentAnchor {
   /** Exact selected text (W3C TextQuoteSelector). */

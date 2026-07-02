@@ -21,9 +21,11 @@ is **file-I/O-first** and does not require the server to be running.
 
 Read **`notabene.config.mjs`** at the repo root to learn:
 
-- **`store`** — comments + journal folder (e.g. `docs/.notabene`). One JSON file per
-  page: `<store>/<page>.json`. Journal: `<store>/journal.json`. Schema version:
-  `<store>/meta.json` (`{ "schemaVersion": <n> }`).
+- **`store`** — comments + journal folder (e.g. `docs/.notabene`). **One file per
+  comment**: `<store>/<page>/<id>.json` (v2, so branches don't conflict on merge).
+  Journal: `<store>/journal.json`. Schema version: `<store>/meta.json`
+  (`{ "schemaVersion": <n> }`). Older stores keep one array per page
+  (`<store>/<page>.json`) — both are read; `notabene migrate` converts v1 → v2.
 - **`roots[]`** — the doc spaces: `{ key, label, path, exclude }`. A comment's `page`
   field is prefixed by a root's `path` (e.g. root `docs/plans` → `page:
   "docs/plans/services/x"`).
@@ -66,14 +68,15 @@ const reserved=new Set(["journal.json","meta.json"]);
 (function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){
   const f=p.join(d,e.name);
   if(e.isDirectory())walk(f);
-  else if(e.name.endsWith(".json")&&!(d===store&&reserved.has(e.name)))
-    for(const c of JSON.parse(fs.readFileSync(f,"utf8"))){
+  else if(e.name.endsWith(".json")&&!(d===store&&reserved.has(e.name))){
+    const j=JSON.parse(fs.readFileSync(f,"utf8"));
+    for(const c of Array.isArray(j)?j:[j]){   // v2 = one comment per file; v1 = array
       if(c.status!=="open"||c.hold)continue;
       console.log(`\n[${c.id}] ${c.scope} page=${c.page}`);
       if(c.anchor)console.log(`  §${c.anchor.section}: «${(c.anchor.quote||"").slice(0,100)}»`);
       c.thread.forEach((t,i)=>console.log(`  ${i?"↳":"•"} ${t.author}: ${t.body}`));
     }
-}})(store);
+}}})(store);
 ' "$(node -e 'console.log(require("./notabene.config.mjs").default.store)')"
 ```
 

@@ -1,52 +1,90 @@
-// Comment store (server, dev-only). One JSON file per page at `<store>/<page>.json`
-// (committed to git, readable by the agent). The store path comes from
-// notabene.config (`store`, cf. src/config.mjs) — never hardcoded. The content glob
-// excludes the store → it's never interpreted as content.
+// Comment store (server, dev-only). v2 layout: ONE FILE PER COMMENT at
+// `<store>/<page>/<id>.json` — so two branches adding a comment to the same page touch
+// different files and never conflict on merge. Readers stay backward-compatible with the
+// v1 layout (one JSON array per page, `<store>/<page>.json`); any write migrates that page
+// to v2 (`notabene migrate` converts eagerly). Store path from notabene.config (`store`,
+// cf. src/config.mjs) — never hardcoded; the content glob excludes the store.
 import fs from "node:fs/promises";
 import path from "node:path";
 import { author as defaultAuthor, storeAbs } from "../config.mjs";
 import { assertStoreCompatible } from "./store-meta";
-import { resolveStorePath } from "./store-path";
+import { resolveStoreDir, resolveStorePath } from "./store-path";
 import type { Comment, CommentAnchor, CommentScope, CommentSpace, CommentStatus } from "./comment-types";
 
 const STORE_ROOT = storeAbs;
 // Reserved store files (never comment pages).
 const RESERVED = new Set(["journal.json", "meta.json"]);
 
-function fileFor(page: string): string {
-  return resolveStorePath(STORE_ROOT, page);
-}
+const legacyFileFor = (page: string): string => resolveStorePath(STORE_ROOT, page); // v1 array
+const pageDirFor = (page: string): string => resolveStoreDir(STORE_ROOT, page); // v2 dir
+const commentFileFor = (page: string, id: string): string =>
+  path.join(pageDirFor(page), `${id.replace(/[^a-zA-Z0-9_-]/g, "")}.json`);
 
 async function read(page: string): Promise<Comment[]> {
   assertStoreCompatible();
+  const out: Comment[] = [];
+  // v2: one file per comment under <store>/<page>/ (skip sub-page dirs and non-json).
   try {
-    return JSON.parse(await fs.readFile(fileFor(page), "utf8")) as Comment[];
+    const dir = pageDirFor(page);
+    for (const name of await fs.readdir(dir)) {
+      if (!name.endsWith(".json")) continue;
+      try {
+        const c = JSON.parse(await fs.readFile(path.join(dir, name), "utf8"));
+        if (c && !Array.isArray(c) && c.id) out.push(c as Comment);
+      } catch {
+        /* skip unreadable file */
+      }
+    }
   } catch {
-    return [];
+    /* no v2 directory */
   }
+  // v1 (legacy): the page-array file, if still present.
+  try {
+    const arr = JSON.parse(await fs.readFile(legacyFileFor(page), "utf8"));
+    if (Array.isArray(arr)) out.push(...(arr as Comment[]));
+  } catch {
+    /* no v1 file */
+  }
+  return out;
 }
 
+// Write the page as v2 (one file per comment), atomically (tmp + rename so a reader —
+// the agent — never sees a truncated file), and migrate away from any v1 array file.
 async function write(page: string, comments: Comment[]): Promise<void> {
-  const f = fileFor(page);
-  await fs.mkdir(path.dirname(f), { recursive: true });
+  const dir = pageDirFor(page);
+  const legacy = legacyFileFor(page);
+  const rmOwnCommentFiles = async (except?: Set<string>) => {
+    try {
+      for (const name of await fs.readdir(dir)) {
+        // Only this page's own comment files — NEVER sub-page directories.
+        if (name.endsWith(".json") && !except?.has(name)) await fs.rm(path.join(dir, name), { force: true });
+      }
+    } catch {
+      /* no dir yet */
+    }
+  };
   if (comments.length === 0) {
-    await fs.rm(f, { force: true });
+    await rmOwnCommentFiles();
+    await fs.rm(legacy, { force: true });
+    await fs.rmdir(dir).catch(() => {}); // remove the dir only if now empty (no sub-pages)
     return;
   }
-  // Atomic write (tmp + rename). These files are read directly by the agent while
-  // the dev server may be writing them → a reader must never observe a truncated
-  // JSON. rename() is atomic within the same directory/filesystem. (Note: this
-  // guarantees integrity, not last-writer-wins — concurrent read-modify-write on the
-  // same page can still lose an update; a solo dev loop won't hit it in practice.)
-  // The `.tmp` suffix keeps stray temp files out of the `*.json` store walkers.
-  const tmp = `${f}.${process.pid}.${newId()}.tmp`;
-  try {
-    await fs.writeFile(tmp, `${JSON.stringify(comments, null, 2)}\n`, "utf8");
-    await fs.rename(tmp, f);
-  } catch (err) {
-    await fs.rm(tmp, { force: true }).catch(() => {});
-    throw err;
+  await fs.mkdir(dir, { recursive: true });
+  const keep = new Set<string>();
+  for (const c of comments) {
+    const f = commentFileFor(page, c.id);
+    keep.add(path.basename(f));
+    const tmp = `${f}.${process.pid}.${newId()}.tmp`;
+    try {
+      await fs.writeFile(tmp, `${JSON.stringify(c, null, 2)}\n`, "utf8");
+      await fs.rename(tmp, f);
+    } catch (err) {
+      await fs.rm(tmp, { force: true }).catch(() => {});
+      throw err;
+    }
   }
+  await rmOwnCommentFiles(keep); // drop deleted comments
+  await fs.rm(legacy, { force: true }); // the page is v2 now
 }
 
 function newId(): string {
@@ -74,7 +112,10 @@ export async function listAllComments(): Promise<Comment[]> {
       // Reserved files (journal/meta) at the store root → skipped.
       else if (e.name.endsWith(".json") && !(dir === STORE_ROOT && RESERVED.has(e.name))) {
         try {
-          out.push(...(JSON.parse(await fs.readFile(full, "utf8")) as Comment[]));
+          const parsed = JSON.parse(await fs.readFile(full, "utf8"));
+          if (Array.isArray(parsed))
+            out.push(...(parsed as Comment[])); // v1 page array
+          else if (parsed?.id) out.push(parsed as Comment); // v2 comment file
         } catch {
           /* ignore unreadable file */
         }
