@@ -16,6 +16,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: production # GitHub Environment (add protection rules in repo Settings)
     permissions:
       contents: write # create the GitHub Release
       id-token: write # OIDC for npm trusted publishing + provenance

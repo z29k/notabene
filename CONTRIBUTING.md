@@ -91,24 +91,37 @@ Keep PRs focused. Describe what changed and why. For anything touching the
 
 ## Releasing
 
-Publishing `@z29k/notabene` to npm **and** cutting a GitHub Release are automated
-(`.github/workflows/publish.yml`): pushing a **`vX.Y.Z` tag** runs the gates, publishes
-(npm **trusted publishing** via OIDC — no token — with provenance), and creates a GitHub
-Release with generated notes. To cut a release:
+Two channels, two branches, two GitHub Environments — all auto-published to npm via
+**trusted publishing** (OIDC, no stored secret, provenance on):
 
-```bash
-# bump all three to the same version, then sync the lockfile
-#   packages/renderer/package.json · packages/plugin/.claude-plugin/plugin.json
-#   .claude-plugin/marketplace.json (metadata.version)
-npm install
-git commit -am "chore: release vX.Y.Z"
-git tag -a vX.Y.Z -m "notabene vX.Y.Z"   # tag MUST match the renderer package version
-git push origin main --follow-tags
-```
+| Branch | Environment | npm dist-tag | Workflow | Install |
+| --- | --- | --- | --- | --- |
+| `develop` | `staging` | `next` (prerelease `X.Y.Z-dev.N`) | `staging.yml` | `npm i @z29k/notabene@next` |
+| `main` + `vX.Y.Z` tag | `production` | `latest` (stable) + GitHub Release | `publish.yml` | `npm i @z29k/notabene` |
 
-CI verifies the tag matches `packages/renderer/package.json` and skips if that version is
-already on npm. **One-time setup** (owner), on npmjs.com → the `@z29k/notabene` package →
-Settings → **Trusted Publisher**: add a GitHub Actions publisher with repository
-`z29k/notabene` and workflow `publish.yml`. No secret is stored. You can also publish the
-current committed version by hand via the *Publish* workflow's **Run workflow** button
-(`workflow_dispatch`). The plugin/marketplace ship via the Claude Code marketplace, not npm.
+- **Staging**: every push to `develop` runs the gates and publishes a prerelease to `next`.
+  Keep `packages/renderer/package.json` at the **in-progress next version** on develop so
+  prereleases read e.g. `0.4.0-dev.N`.
+- **Production**: bump all three files to the same version, sync the lockfile, commit, tag,
+  push the tag — CI verifies tag == version, publishes to `latest`, and cuts a GitHub
+  Release with generated notes:
+
+  ```bash
+  # bump: packages/renderer/package.json · packages/plugin/.claude-plugin/plugin.json
+  #       .claude-plugin/marketplace.json (metadata.version)
+  npm install
+  git commit -am "chore: release vX.Y.Z"
+  git tag -a vX.Y.Z -m "notabene vX.Y.Z"
+  git push origin main --follow-tags
+  ```
+
+**One-time setup** (owner):
+
+1. Create the `develop` branch, and (optionally) protect the `production` GitHub
+   Environment with a required reviewer (repo Settings → Environments → production).
+2. On npmjs.com → `@z29k/notabene` → Settings → **Trusted Publisher**, add **two** GitHub
+   Actions publishers (repo `z29k/notabene`): workflow `publish.yml` / env `production`,
+   and workflow `staging.yml` / env `staging`.
+
+Either workflow can also be run by hand (**Run workflow** / `workflow_dispatch`). The
+plugin/marketplace ship via the Claude Code marketplace, not npm.

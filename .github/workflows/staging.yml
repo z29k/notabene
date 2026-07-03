@@ -1,0 +1,65 @@
+name: Staging
+
+# Publishes a PRERELEASE of @z29k/notabene to the `next` dist-tag on every push to
+# `develop` (staging channel — `npm i @z29k/notabene@next`). Stable releases go through
+# publish.yml on vX.Y.Z tags (the `latest` tag). Auth is npm trusted publishing (OIDC).
+#
+# One-time setup (owner), npmjs.com → @z29k/notabene → Settings → Trusted Publisher:
+# add a second GitHub Actions publisher with repo `z29k/notabene`, workflow `staging.yml`,
+# environment `staging`.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch: {}
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      id-token: write # OIDC for npm trusted publishing + provenance
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: Use latest npm (trusted publishing needs npm >= 11.5)
+        run: npm install -g npm@latest
+      - run: npm ci
+
+      # Same gates as CI.
+      - name: Lint
+        run: npm run lint
+        working-directory: packages/renderer
+      - name: Test
+        run: npm test
+        working-directory: packages/renderer
+      - name: Prepare a scratch consumer
+        run: |
+          set -e
+          mkdir -p /tmp/consumer/docs
+          printf '# Hello\n\nGFM hostile to MDX: Promise<T>, <a@b.com>, {x}, | a | b |\n' > /tmp/consumer/docs/index.md
+          node packages/renderer/bin/notabene.mjs init --root /tmp/consumer
+      - name: Type-check
+        run: npm run check
+        working-directory: packages/renderer
+        env:
+          NOTABENE_ROOT: /tmp/consumer
+          NOTABENE_CONFIG: /tmp/consumer/notabene.config.mjs
+      - name: Smoke build
+        run: node packages/renderer/bin/notabene.mjs build --root /tmp/consumer
+
+      # Unique prerelease version per run: <base>-dev.<run>. Keep packages/renderer's
+      # version at the in-progress NEXT release on develop so these read e.g. 0.4.0-dev.N.
+      - name: Set prerelease version
+        run: |
+          BASE=$(node -p "require('./packages/renderer/package.json').version")
+          BASE="${BASE%%-*}"
+          VER="${BASE}-dev.${GITHUB_RUN_NUMBER}"
+          echo "publishing $VER to @next"
+          (cd packages/renderer && npm version "$VER" --no-git-tag-version)
+
+      - name: Publish prerelease to npm (@next)
+        run: npm publish --tag next --access public
+        working-directory: packages/renderer
