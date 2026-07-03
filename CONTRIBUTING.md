@@ -91,8 +91,10 @@ Keep PRs focused. Describe what changed and why. For anything touching the
 
 ## Releasing
 
-Publishing `@z29k/notabene` to npm is automated (`.github/workflows/publish.yml`): pushing
-a **`vX.Y.Z` tag** runs the gates and publishes (with npm provenance). To cut a release:
+Publishing `@z29k/notabene` to npm **and** cutting a GitHub Release are automated
+(`.github/workflows/publish.yml`): pushing a **`vX.Y.Z` tag** runs the gates, publishes
+(npm **trusted publishing** via OIDC — no token — with provenance), and creates a GitHub
+Release with generated notes. To cut a release:
 
 ```bash
 # bump all three to the same version, then sync the lockfile
@@ -104,9 +106,9 @@ git tag -a vX.Y.Z -m "notabene vX.Y.Z"   # tag MUST match the renderer package v
 git push origin main --follow-tags
 ```
 
-CI verifies the tag matches `packages/renderer/package.json`, skips if that version is
-already on npm, and otherwise publishes. **One-time setup** (owner): add an npm
-**automation** token as the repo secret `NPM_TOKEN` (Settings → Secrets and variables →
-Actions). You can also publish the current committed version by hand via the *Publish*
-workflow's **Run workflow** button (`workflow_dispatch`). The plugin/marketplace ship via
-the Claude Code marketplace, not npm.
+CI verifies the tag matches `packages/renderer/package.json` and skips if that version is
+already on npm. **One-time setup** (owner), on npmjs.com → the `@z29k/notabene` package →
+Settings → **Trusted Publisher**: add a GitHub Actions publisher with repository
+`z29k/notabene` and workflow `publish.yml`. No secret is stored. You can also publish the
+current committed version by hand via the *Publish* workflow's **Run workflow** button
+(`workflow_dispatch`). The plugin/marketplace ship via the Claude Code marketplace, not npm.

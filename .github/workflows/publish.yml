@@ -1,12 +1,13 @@
 name: Publish
 
-# Publishes @z29k/notabene to npm when a version tag (vX.Y.Z) is pushed. The tag must
-# match packages/renderer/package.json's version. `workflow_dispatch` lets you publish the
-# current committed version by hand from the Actions tab (e.g. the very first run).
+# Publishes @z29k/notabene to npm and cuts a GitHub Release when a version tag (vX.Y.Z)
+# is pushed. Auth is npm **trusted publishing** (OIDC) — no long-lived token. The tag must
+# match packages/renderer/package.json's version. `workflow_dispatch` publishes the current
+# committed version by hand from the Actions tab (e.g. the first run).
 #
-# One-time setup (repo owner): create an npm **automation** token
-# (npmjs.com → Access Tokens → Generate → Automation) and add it as a repository secret
-# named `NPM_TOKEN` (Settings → Secrets and variables → Actions).
+# One-time setup (owner), on npmjs.com → the @z29k/notabene package → Settings → Trusted
+# Publisher: add a GitHub Actions publisher with repository `z29k/notabene` and workflow
+# `publish.yml`. That authorizes this workflow to publish without a token.
 on:
   push:
     tags: ["v*"]
@@ -16,14 +17,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      id-token: write # npm provenance (public repo → signed build attestation)
+      contents: write # create the GitHub Release
+      id-token: write # OIDC for npm trusted publishing + provenance
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      - name: Use latest npm (trusted publishing needs npm >= 11.5)
+        run: npm install -g npm@latest
       - run: npm ci
 
       # Same gates as CI — never publish something that doesn't pass.
@@ -67,9 +70,19 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Trusted publishing: OIDC auth (id-token) + automatic provenance. No NODE_AUTH_TOKEN.
       - name: Publish to npm
         if: steps.pub.outputs.skip != 'true'
-        run: npm publish --provenance --access public
+        run: npm publish --access public
         working-directory: packages/renderer
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists — leaving it."
+          else
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          fi
