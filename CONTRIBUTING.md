@@ -84,10 +84,30 @@ covered by `astro check` + the smoke build. Test both formats (`format: "mdx"` a
 `"commonmark"`) and both a fresh EN config and a `locale: "fr"` config when touching UI
 strings.
 
+## Branching model
+
+- **`main`** — stable / production. Only release commits and `vX.Y.Z` tags land here;
+  never push feature work directly to it.
+- **`develop`** — integration + staging. Every push auto-publishes a prerelease to the
+  `@dev` npm channel (see Releasing). Kept at the in-progress next version.
+- **`feature/<name>`** and **`fix/<name>`** — branch **from `develop`** for each change,
+  then open a PR back into `develop`. Naming: `feature/…` for new work, `fix/…` for bug
+  fixes. When `develop` is ready to ship, bump the version and promote it to `main`, then
+  tag `vX.Y.Z`.
+
+```
+main ──●────────────────────────●─(tag vX.Y.Z)──▶  stable @latest
+        \                      /
+develop  ●───●───●───●───●────●  ─────────────────▶ prereleases @dev
+          \     /   \       /
+    feature/…  ●   fix/… ●          (PRs into develop)
+```
+
 ## Pull requests
 
-Keep PRs focused. Describe what changed and why. For anything touching the
-`.notabene` contract or the CLI surface, call it out explicitly.
+Keep PRs focused. Describe what changed and why. Branch from `develop` as `feature/…` or
+`fix/…` and PR back into `develop`. For anything touching the `.notabene` contract or the
+CLI surface, call it out explicitly.
 
 ## Releasing
 
