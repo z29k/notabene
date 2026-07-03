@@ -98,10 +98,10 @@ GitHub Environment. The channel is chosen by what you push:
 
 | Push | npm dist-tag | Install | Extra |
 | --- | --- | --- | --- |
-| a commit to `develop` | `next` (prerelease `X.Y.Z-dev.N`) | `npm i @z29k/notabene@next` | staging |
+| a commit to `develop` | `dev` (prerelease `X.Y.Z-dev.N`) | `npm i @z29k/notabene@dev` | staging |
 | a `vX.Y.Z` tag (on `main`) | `latest` (stable) | `npm i @z29k/notabene` | + a GitHub Release |
 
-- **Staging** (`develop`): each push runs the gates and publishes a prerelease to `next`.
+- **Staging** (`develop`): each push runs the gates and publishes a prerelease to `dev`.
   Keep `packages/renderer/package.json` at the **in-progress next version** on develop so
   prereleases read e.g. `0.4.0-dev.N`.
 - **Production** (tag): bump all three files to the same version, sync the lockfile, commit,

@@ -2,7 +2,7 @@ name: Publish
 
 # One workflow, two channels (npm allows a single Trusted Publisher per package, so both
 # must run from this file — the one registered on npmjs.com):
-#   • push to `develop`      → prerelease `X.Y.Z-dev.N` on the `next` dist-tag  (staging)
+#   • push to `develop`      → prerelease `X.Y.Z-dev.N` on the `dev` dist-tag   (staging)
 #   • push a `vX.Y.Z` tag    → stable `X.Y.Z` on `latest` + a GitHub Release    (production)
 # Auth is npm trusted publishing (OIDC) — no stored token, provenance automatic. The job
 # runs in the `production` GitHub Environment to match the Trusted Publisher config.
@@ -83,14 +83,14 @@ jobs:
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
           fi
 
-      # ── staging: push to develop → prerelease @next ──────────────────────────
-      - name: Publish prerelease to npm (@next)
+      # ── staging: push to develop → prerelease @dev ───────────────────────────
+      - name: Publish prerelease to npm (@dev)
         if: github.ref_type == 'branch' && github.ref_name == 'develop'
         working-directory: packages/renderer
         run: |
           BASE=$(node -p "require('./package.json').version")
           BASE="${BASE%%-*}"
           VER="${BASE}-dev.${GITHUB_RUN_NUMBER}"
-          echo "publishing $VER to @next"
+          echo "publishing $VER to @dev"
           npm version "$VER" --no-git-tag-version
-          npm publish --tag next --access public
+          npm publish --tag dev --access public
