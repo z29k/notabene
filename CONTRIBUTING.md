@@ -88,3 +88,25 @@ strings.
 
 Keep PRs focused. Describe what changed and why. For anything touching the
 `.notabene` contract or the CLI surface, call it out explicitly.
+
+## Releasing
+
+Publishing `@z29k/notabene` to npm is automated (`.github/workflows/publish.yml`): pushing
+a **`vX.Y.Z` tag** runs the gates and publishes (with npm provenance). To cut a release:
+
+```bash
+# bump all three to the same version, then sync the lockfile
+#   packages/renderer/package.json · packages/plugin/.claude-plugin/plugin.json
+#   .claude-plugin/marketplace.json (metadata.version)
+npm install
+git commit -am "chore: release vX.Y.Z"
+git tag -a vX.Y.Z -m "notabene vX.Y.Z"   # tag MUST match the renderer package version
+git push origin main --follow-tags
+```
+
+CI verifies the tag matches `packages/renderer/package.json`, skips if that version is
+already on npm, and otherwise publishes. **One-time setup** (owner): add an npm
+**automation** token as the repo secret `NPM_TOKEN` (Settings → Secrets and variables →
+Actions). You can also publish the current committed version by hand via the *Publish*
+workflow's **Run workflow** button (`workflow_dispatch`). The plugin/marketplace ship via
+the Claude Code marketplace, not npm.
