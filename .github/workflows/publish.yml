@@ -1,22 +1,24 @@
 name: Publish
 
-# Publishes @z29k/notabene to npm and cuts a GitHub Release when a version tag (vX.Y.Z)
-# is pushed. Auth is npm **trusted publishing** (OIDC) — no long-lived token. The tag must
-# match packages/renderer/package.json's version. `workflow_dispatch` publishes the current
-# committed version by hand from the Actions tab (e.g. the first run).
+# One workflow, two channels (npm allows a single Trusted Publisher per package, so both
+# must run from this file — the one registered on npmjs.com):
+#   • push to `develop`      → prerelease `X.Y.Z-dev.N` on the `next` dist-tag  (staging)
+#   • push a `vX.Y.Z` tag    → stable `X.Y.Z` on `latest` + a GitHub Release    (production)
+# Auth is npm trusted publishing (OIDC) — no stored token, provenance automatic. The job
+# runs in the `production` GitHub Environment to match the Trusted Publisher config.
 #
-# One-time setup (owner), on npmjs.com → the @z29k/notabene package → Settings → Trusted
-# Publisher: add a GitHub Actions publisher with repository `z29k/notabene` and workflow
-# `publish.yml`. That authorizes this workflow to publish without a token.
+# One-time setup (owner): npmjs.com → @z29k/notabene → Settings → Trusted Publisher →
+# repo `z29k/notabene`, workflow `publish.yml`, environment `production`.
 on:
   push:
+    branches: [develop]
     tags: ["v*"]
   workflow_dispatch: {}
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: production # GitHub Environment (add protection rules in repo Settings)
+    environment: production
     permissions:
       contents: write # create the GitHub Release
       id-token: write # OIDC for npm trusted publishing + provenance
@@ -52,6 +54,7 @@ jobs:
       - name: Smoke build
         run: node packages/renderer/bin/notabene.mjs build --root /tmp/consumer
 
+      # ── production: vX.Y.Z tag → stable @latest + GitHub Release ──────────────
       - name: Verify the tag matches the package version
         if: github.ref_type == 'tag'
         run: |
@@ -59,24 +62,16 @@ jobs:
           PKG=$(node -p "require('./packages/renderer/package.json').version")
           echo "tag=$TAG package=$PKG"
           [ "$TAG" = "$PKG" ] || { echo "::error::tag v$TAG != package.json $PKG"; exit 1; }
-
-      - name: Skip if this version is already on npm
-        id: pub
+      - name: Publish stable to npm (@latest)
+        if: github.ref_type == 'tag'
+        working-directory: packages/renderer
         run: |
-          PKG=$(node -p "require('./packages/renderer/package.json').version")
+          PKG=$(node -p "require('./package.json').version")
           if npm view "@z29k/notabene@$PKG" version >/dev/null 2>&1; then
             echo "@z29k/notabene@$PKG is already published — skipping."
-            echo "skip=true" >> "$GITHUB_OUTPUT"
           else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
+            npm publish --access public
           fi
-
-      # Trusted publishing: OIDC auth (id-token) + automatic provenance. No NODE_AUTH_TOKEN.
-      - name: Publish to npm
-        if: steps.pub.outputs.skip != 'true'
-        run: npm publish --access public
-        working-directory: packages/renderer
-
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
         env:
@@ -87,3 +82,15 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
           fi
+
+      # ── staging: push to develop → prerelease @next ──────────────────────────
+      - name: Publish prerelease to npm (@next)
+        if: github.ref_type == 'branch' && github.ref_name == 'develop'
+        working-directory: packages/renderer
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          BASE="${BASE%%-*}"
+          VER="${BASE}-dev.${GITHUB_RUN_NUMBER}"
+          echo "publishing $VER to @next"
+          npm version "$VER" --no-git-tag-version
+          npm publish --tag next --access public

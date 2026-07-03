@@ -91,20 +91,21 @@ Keep PRs focused. Describe what changed and why. For anything touching the
 
 ## Releasing
 
-Two channels, two branches, two GitHub Environments — all auto-published to npm via
-**trusted publishing** (OIDC, no stored secret, provenance on):
+npm allows a **single Trusted Publisher per package**, so both channels run from one
+workflow (`.github/workflows/publish.yml`, the one registered on npm). Auth is **trusted
+publishing** (OIDC — no stored secret, provenance on); the job runs in the `production`
+GitHub Environment. The channel is chosen by what you push:
 
-| Branch | Environment | npm dist-tag | Workflow | Install |
-| --- | --- | --- | --- | --- |
-| `develop` | `staging` | `next` (prerelease `X.Y.Z-dev.N`) | `staging.yml` | `npm i @z29k/notabene@next` |
-| `main` + `vX.Y.Z` tag | `production` | `latest` (stable) + GitHub Release | `publish.yml` | `npm i @z29k/notabene` |
+| Push | npm dist-tag | Install | Extra |
+| --- | --- | --- | --- |
+| a commit to `develop` | `next` (prerelease `X.Y.Z-dev.N`) | `npm i @z29k/notabene@next` | staging |
+| a `vX.Y.Z` tag (on `main`) | `latest` (stable) | `npm i @z29k/notabene` | + a GitHub Release |
 
-- **Staging**: every push to `develop` runs the gates and publishes a prerelease to `next`.
+- **Staging** (`develop`): each push runs the gates and publishes a prerelease to `next`.
   Keep `packages/renderer/package.json` at the **in-progress next version** on develop so
   prereleases read e.g. `0.4.0-dev.N`.
-- **Production**: bump all three files to the same version, sync the lockfile, commit, tag,
-  push the tag — CI verifies tag == version, publishes to `latest`, and cuts a GitHub
-  Release with generated notes:
+- **Production** (tag): bump all three files to the same version, sync the lockfile, commit,
+  tag, push — CI verifies tag == version, publishes stable, and cuts a GitHub Release:
 
   ```bash
   # bump: packages/renderer/package.json · packages/plugin/.claude-plugin/plugin.json
@@ -115,13 +116,9 @@ Two channels, two branches, two GitHub Environments — all auto-published to np
   git push origin main --follow-tags
   ```
 
-**One-time setup** (owner):
-
-1. Create the `develop` branch, and (optionally) protect the `production` GitHub
-   Environment with a required reviewer (repo Settings → Environments → production).
-2. On npmjs.com → `@z29k/notabene` → Settings → **Trusted Publisher**, add **two** GitHub
-   Actions publishers (repo `z29k/notabene`): workflow `publish.yml` / env `production`,
-   and workflow `staging.yml` / env `staging`.
-
-Either workflow can also be run by hand (**Run workflow** / `workflow_dispatch`). The
-plugin/marketplace ship via the Claude Code marketplace, not npm.
+**One-time setup** (owner): on npmjs.com → `@z29k/notabene` → Settings → **Trusted
+Publisher**, set repo `z29k/notabene`, workflow `publish.yml`, environment `production`
+(this matches what the workflow uses). Then create a `develop` branch. You can also run the
+workflow by hand (**Run workflow** / `workflow_dispatch`) — pick the `vX.Y.Z` tag to publish
+a stable version, or `develop` for a prerelease. The plugin/marketplace ship via the Claude
+Code marketplace, not npm.
