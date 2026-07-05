@@ -207,6 +207,13 @@ a:hover {
   height: calc(100vh - var(--topbar-h));
   overflow-y: auto;
 }
+/* `dvh` tracks the mobile URL-bar; keep `vh` as the fallback for old engines. */
+@supports (height: 100dvh) {
+  .sidebar,
+  .rail {
+    height: calc(100dvh - var(--topbar-h));
+  }
+}
 .sidebar {
   border-right: 1px solid var(--border);
   padding: 0.75rem 0.5rem 3rem;
@@ -551,31 +558,310 @@ a:hover {
   color: var(--text-soft);
 }
 
-/* ── Responsive ───────────────────────────────────────────────────────── */
-@media (max-width: 1100px) {
+/* ── Responsive shell ─────────────────────────────────────────────────────
+   Desktop ≥1024: the 3-col grid above, unchanged.
+   Compact  <1024: nav → off-canvas drawer, TOC → inline collapsible,
+                   anchored comments → bottom sheet (the .rail / #cmt-pop /
+                   #cmt-view surfaces re-anchored to the bottom).
+   Phone    <560:  extra condensing.
+   Shared scrim + mobile-only chrome are declared here and hidden on desktop. */
+
+/* Mobile-only chrome — hidden on desktop. */
+.nb-nav-toggle,
+.nb-cmt-sheet-btn,
+.toc-inline,
+.drawer-util {
+  display: none;
+}
+
+/* Shared backdrop behind the drawer and the bottom sheets. */
+.nb-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+}
+
+@media (max-width: 1024px) {
+  /* Single reading column; the rail leaves the grid (it becomes a bottom sheet). */
   .shell {
-    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
   }
   .rail {
     display: none;
   }
-}
-@media (max-width: 760px) {
-  .shell {
-    grid-template-columns: 1fr;
+
+  /* Topbar: hamburger + 💬 in; utility links + name move into the drawer. */
+  .nb-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    margin-left: -4px;
+    background: none;
+    border: none;
+    border-radius: var(--radius);
+    color: var(--text);
+    cursor: pointer;
   }
+  .nb-nav-toggle:hover {
+    background: var(--accent-soft);
+  }
+  .topbar-util {
+    display: none;
+  }
+  .nb-cmt-sheet-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 5px 11px;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--text-soft);
+    font-size: 13px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .nb-cmt-sheet-count:empty {
+    display: none;
+  }
+
+  /* Off-canvas nav drawer (the existing .sidebar, re-anchored + slid off-screen). */
   .sidebar {
-    position: static;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(84vw, 320px);
+    height: 100dvh;
+    z-index: 110;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    border-right: 1px solid var(--border);
+    padding-top: calc(env(safe-area-inset-top) + 0.75rem);
+    will-change: transform;
+  }
+  .sidebar.nb-open {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+  }
+  .drawer-util {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .drawer-link {
+    padding: 10px 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-soft);
+    border-radius: 6px;
+  }
+  .drawer-link:hover {
+    background: var(--accent-soft);
+    text-decoration: none;
+  }
+  .drawer-me {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 6px 8px;
+  }
+  .drawer-me input {
+    flex: 1;
+    min-height: 40px;
+    padding: 6px 10px;
+    font-size: 16px;
+    color: var(--text);
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  /* Inline "On this page" collapsible, above the article. */
+  .toc-inline {
+    display: block;
+    max-width: var(--content-max);
+    margin: 0 auto 1.25rem;
+    padding: 0 0.9rem;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .toc-inline > summary {
+    padding: 0.6rem 0;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-faint);
+    list-style: none;
+    cursor: pointer;
+  }
+  .toc-inline > summary::-webkit-details-marker {
+    display: none;
+  }
+  .toc-inline .toc-title {
+    display: none;
+  }
+  .toc-inline .toc-inner {
+    padding-bottom: 0.6rem;
+  }
+
+  /* ── Bottom sheets: the existing fixed surfaces, re-anchored to the bottom ──
+     --nb-kb (set by shell.ts from VisualViewport) lifts the sheet above the
+     on-screen keyboard. Show/hide is the elements' own `hidden`/`.nb-sheet`. */
+  .rail.nb-sheet,
+  #cmt-pop:not([hidden]),
+  #cmt-view:not([hidden]) {
+    position: fixed;
+    inset: auto 0 var(--nb-kb, 0px) 0;
+    width: auto;
+    max-width: none;
+    max-height: 85svh;
+    z-index: 110;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.28);
+    padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+  .rail.nb-sheet {
+    display: block;
+    padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px);
+  }
+  .rail .toc-inner {
+    display: none; /* the TOC lives inline on compact, not in the sheet */
+  }
+  /* Drag-handle affordance atop each sheet (visual only; drag deferred). */
+  .rail.nb-sheet::before,
+  #cmt-pop:not([hidden])::before,
+  #cmt-view:not([hidden])::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 2px auto 10px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  #cmt-pop textarea {
+    font-size: 16px; /* ≥16px prevents iOS focus-zoom */
+  }
+
+  /* Selection affordance as a docked bottom action-bar (JS adds --bar on touch). */
+  .cmt-float.cmt-float--bar {
+    top: auto !important;
+    left: 12px !important;
+    right: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    min-height: 44px;
+    font-size: 15px;
+    border-radius: 10px;
+    z-index: 90;
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    gap: 0.6rem;
+    padding: 0 0.6rem;
+  }
+  .brand span {
+    display: none; /* drop the tagline on very small screens */
+  }
+  .rail.nb-sheet,
+  #cmt-view:not([hidden]) {
+    max-height: 90svh;
+  }
+}
+
+/* Force unified diffs on narrow screens (JS coerces the mode; hide the toggle). */
+@media (max-width: 640px) {
+  .diff-toggle {
+    display: none;
+  }
+  .nb-diff {
+    font-size: 0.75rem;
+  }
+}
+
+/* ── Touch targets: enlarge interactive controls for coarse pointers ─────── */
+@media (pointer: coarse) {
+  .nav-a,
+  .space > .space-title,
+  .nav-group > details > summary,
+  .topbar-link,
+  .drawer-link {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+  .cmt-filter button,
+  .diff-toggle button {
+    min-height: 40px;
+    padding: 6px 14px;
+  }
+  .cmt-actions button,
+  .caf-actions button,
+  .rev-actions button {
+    min-height: 44px;
+    min-width: 44px;
+    justify-content: center;
+    padding: 8px;
+  }
+  .cmt-actions,
+  .caf-actions {
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .caf-filters input[type="search"],
+  .caf-filters select {
+    min-height: 44px;
+  }
+  .cmt-composer button,
+  .cmt-reply-form button,
+  .cmt-edit-form button,
+  .cmt-pop-actions button,
+  .rev-reject-form button {
+    min-height: 44px;
+    padding: 8px 16px;
+  }
+  .cmt-actions button svg,
+  .caf-actions button svg,
+  .rev-actions button svg {
+    width: 18px;
+    height: 18px;
+  }
+  textarea {
+    font-size: 16px; /* avoid iOS focus-zoom */
+  }
+}
+
+/* Respect reduced-motion for the drawer slide. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
   }
 }
 
 /* ── Comments + highlights ────────────────────────────────────────────── */
 ::highlight(cmt) {
-  background: rgba(255, 200, 0, 0.28);
-  text-decoration: underline dotted var(--accent);
+  background: rgba(255, 200, 0, 0.42);
+  text-decoration: underline solid var(--accent);
 }
 ::highlight(cmt-active) {
   background: rgba(255, 145, 0, 0.55);
@@ -786,6 +1072,11 @@ a:hover {
   border-radius: 6px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  /* Never let a press on the affordance extend/replace the selection or fire a callout. */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* Discussion (page-wide comments) — at the bottom of the page, aligned with prose. */
