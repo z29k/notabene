@@ -37,7 +37,7 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
 <html lang={locale}>
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title} · {siteName}</title>
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
@@ -46,25 +46,55 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
   </head>
   <body>
     <header class="topbar">
+      <button
+        id="nb-nav-toggle"
+        class="nb-nav-toggle"
+        type="button"
+        aria-label={m.menu}
+        aria-controls="nb-sidebar"
+        aria-expanded="false"
+      >
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+      </button>
       <a href="/" class="brand">{siteName} <span>· {tagline}</span></a>
       <div class="search">
         <input id="search-input" type="search" placeholder={m.searchPlaceholder} autocomplete="off" />
         <div id="search-results" class="search-results" hidden></div>
       </div>
-      <a href="/comments" class="topbar-link">{m.navComments}</a>
-      <a href="/review" id="nav-review" class="topbar-link" hidden>
-        {m.navReview} <span id="nav-review-badge" class="review-badge"></span>
+      <a href="/comments" class="topbar-link topbar-util">{m.navComments}</a>
+      <a href="/review" id="nav-review" class="topbar-link topbar-util js-review-link" hidden>
+        {m.navReview} <span id="nav-review-badge" class="review-badge js-review-badge"></span>
       </a>
-      <a href="/journal" class="topbar-link">{m.navJournal}</a>
-      <label class="topbar-me" title={m.yourNameHint}>
+      <a href="/journal" class="topbar-link topbar-util">{m.navJournal}</a>
+      <label class="topbar-me topbar-util" title={m.yourNameHint}>
         <span aria-hidden="true">👤</span>
         <input id="me-input" type="text" placeholder={m.yourName} autocomplete="off" aria-label={m.yourName} />
       </label>
+      <button id="nb-cmt-sheet-btn" class="nb-cmt-sheet-btn" type="button" hidden aria-label={m.annotations}>
+        <span aria-hidden="true">💬</span> <span id="nb-cmt-sheet-count" class="nb-cmt-sheet-count"></span>
+      </button>
     </header>
 
     <div class="shell">
-      <aside class="sidebar">
+      <aside class="sidebar" id="nb-sidebar" tabindex="-1">
         <Sidebar current={current} activeSpace={space} />
+        <nav class="drawer-util" aria-label={m.menu}>
+          <a href="/comments" class="drawer-link">{m.navComments}</a>
+          <a href="/review" class="drawer-link js-review-link" hidden>
+            {m.navReview} <span class="review-badge js-review-badge"></span>
+          </a>
+          <a href="/journal" class="drawer-link">{m.navJournal}</a>
+          <label class="drawer-me" title={m.yourNameHint}>
+            <span aria-hidden="true">👤</span>
+            <input
+              id="me-input-drawer"
+              type="text"
+              placeholder={m.yourName}
+              autocomplete="off"
+              aria-label={m.yourName}
+            />
+          </label>
+        </nav>
       </aside>
 
       <main class="content">
@@ -80,6 +110,14 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
             </nav>
           )
         }
+        {
+          headings.length > 0 && (
+            <details class="toc-inline">
+              <summary>{m.tocTitle}</summary>
+              <Toc headings={headings} />
+            </details>
+          )
+        }
         <article id="doc-content" class="prose" data-space={space} data-page={page}>
           <slot />
         </article>
@@ -92,33 +130,71 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
       </aside>
     </div>
 
+    <div id="nb-scrim" class="nb-scrim" hidden></div>
+
     <script>
       import { getAuthor, setAuthor } from "../lib/client/comments-client";
+      import { closeOverlay, currentOverlay, initShell, openOverlay } from "../lib/client/shell";
 
-      // Identity: the top-bar name input is the per-device comment author (localStorage),
-      // pre-filled with the server default (config author / git user.name / "you").
+      // Wire the shared scrim / Escape / resize-to-desktop overlay closers once.
+      initShell();
+
+      // Identity: the top-bar AND drawer name inputs are the per-device comment author
+      // (localStorage), pre-filled with the server default (config author / git user.name /
+      // "you") and kept in sync with each other.
       const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
-      const meInput = document.getElementById("me-input") as HTMLInputElement | null;
-      if (meInput) {
-        meInput.value = getAuthor(meCfg.author || "you");
-        meInput.addEventListener("change", () => setAuthor(meInput.value));
+      const meInputs = Array.from(
+        document.querySelectorAll<HTMLInputElement>("#me-input, #me-input-drawer"),
+      );
+      for (const el of meInputs) {
+        el.value = getAuthor(meCfg.author || "you");
+        el.addEventListener("change", () => {
+          setAuthor(el.value);
+          for (const other of meInputs) if (other !== el) other.value = el.value;
+        });
       }
 
-      // Review badge: reveal the "Review" link + a count of `addressed` comments when in
-      // approve mode, OR whenever any addressed comment exists (so none get stuck if the
-      // mode is flipped back to auto). One tiny fetch per page load; dev-only tool.
+      // Hamburger → off-canvas nav drawer (compact only; the button is CSS-hidden on
+      // desktop). Uses the shared overlay machinery (scrim, inert, scroll-lock, Escape).
+      const navToggle = document.getElementById("nb-nav-toggle");
+      const sidebar = document.getElementById("nb-sidebar");
+      if (navToggle && sidebar) {
+        const closeDrawer = () => {
+          sidebar.classList.remove("nb-open");
+          navToggle.setAttribute("aria-expanded", "false");
+        };
+        navToggle.addEventListener("click", () => {
+          if (currentOverlay() === "drawer") {
+            closeOverlay();
+            return;
+          }
+          sidebar.classList.add("nb-open");
+          navToggle.setAttribute("aria-expanded", "true");
+          openOverlay("drawer", sidebar, closeDrawer, sidebar);
+        });
+        // Following a link inside the drawer navigates away → close it first.
+        sidebar.addEventListener("click", (e) => {
+          if ((e.target as HTMLElement).closest("a") && currentOverlay() === "drawer") closeOverlay();
+        });
+      }
+
+      // Review badge: reveal every "Review" link (topbar + drawer) + a count of
+      // `addressed` comments when in approve mode, OR whenever any addressed comment
+      // exists (so none get stuck if the mode is flipped back to auto). One tiny fetch.
       const reviewCfg = JSON.parse(document.getElementById("notabene-review")?.textContent || "{}");
-      const reviewLink = document.getElementById("nav-review");
-      const reviewBadge = document.getElementById("nav-review-badge");
-      if (reviewLink && reviewBadge) {
+      const reviewLinks = Array.from(document.querySelectorAll<HTMLElement>(".js-review-link"));
+      const reviewBadges = Array.from(document.querySelectorAll<HTMLElement>(".js-review-badge"));
+      if (reviewLinks.length) {
         fetch("/api/comments?all=1")
           .then((r) => r.json())
           .then((all: { status: string }[]) => {
             const n = Array.isArray(all) ? all.filter((c) => c.status === "addressed").length : 0;
             if (reviewCfg.mode === "approve" || n > 0) {
-              reviewLink.hidden = false;
-              reviewBadge.textContent = n ? String(n) : "";
-              reviewBadge.hidden = !n;
+              for (const l of reviewLinks) l.hidden = false;
+              for (const b of reviewBadges) {
+                b.textContent = n ? String(n) : "";
+                b.hidden = !n;
+              }
             }
           })
           .catch(() => {});

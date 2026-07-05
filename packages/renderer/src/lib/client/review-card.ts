@@ -4,7 +4,7 @@
 //   comments (?all=1) + journal (/api/journal) → for each `addressed` comment, invert the
 //   journal to its changed pages (cascade included) → diffs (/api/diff, one batched call).
 import { createApi, esc, getAuthor, type Comment } from "./comments-client";
-import { type DiffMode, getDiffMode, renderDiff, setDiffMode } from "./diff";
+import { type DiffMode, effectiveDiffMode, getDiffMode, renderDiff, setDiffMode } from "./diff";
 
 interface JournalChange {
   page: string;
@@ -123,7 +123,7 @@ export async function mountReviewList(
   m: Msgs,
   routeFor: RouteFor,
 ): Promise<{ reload: () => Promise<void> }> {
-  let mode = getDiffMode();
+  let stored = getDiffMode();
   let comments: Comment[] = [];
   let journal: JournalEntry[] = [];
   let byId = new Map<string, Comment>();
@@ -131,13 +131,18 @@ export async function mountReviewList(
   const api = createApi(); // PATCH carries the token from localStorage
   const authorDefault = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}").author || "you";
 
+  // Side-by-side is unreadable on phones → coerce to unified below 640px (the toggle is
+  // CSS-hidden there); the stored preference is preserved for wider screens.
+  const narrowMQ = typeof matchMedia === "function" ? matchMedia("(max-width: 640px)") : null;
+  const mode = (): DiffMode => effectiveDiffMode(stored, narrowMQ?.matches ?? false);
+
   function render(): void {
     const addressed = comments
       .filter((c) => c.status === "addressed")
       .sort((a, b) => (a.page < b.page ? -1 : a.page > b.page ? 1 : a.createdAt < b.createdAt ? -1 : 1));
     listEl.innerHTML = addressed.length
       ? addressed
-          .map((c) => renderReviewCard(c, changesForComment(c, journal), diffs, byId, m, mode, routeFor))
+          .map((c) => renderReviewCard(c, changesForComment(c, journal), diffs, byId, m, mode(), routeFor))
           .join("")
       : `<p class="cmt-empty">${m.reviewEmpty}</p>`;
   }
@@ -164,16 +169,18 @@ export async function mountReviewList(
   }
 
   if (toggleEl) {
-    renderToggle(toggleEl, m, mode);
+    renderToggle(toggleEl, m, stored);
     toggleEl.addEventListener("click", (e) => {
       const b = (e.target as HTMLElement).closest("button[data-mode]") as HTMLElement | null;
       if (!b) return;
-      mode = b.dataset.mode === "split" ? "split" : "unified";
-      setDiffMode(mode);
-      renderToggle(toggleEl, m, mode);
+      stored = b.dataset.mode === "split" ? "split" : "unified";
+      setDiffMode(stored);
+      renderToggle(toggleEl, m, stored);
       render();
     });
   }
+  // Re-render when crossing the narrow breakpoint (e.g. tablet rotation).
+  narrowMQ?.addEventListener("change", () => render());
 
   listEl.addEventListener("click", async (e) => {
     const btn = (e.target as HTMLElement).closest("button[data-act]") as HTMLElement | null;

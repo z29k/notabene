@@ -77,6 +77,12 @@ export function renderDiff(diffText: string, mode: DiffMode): string {
   return `<table class="nb-diff nb-diff-unified">${rows}</table>`;
 }
 
+/** Coerce the persisted preference to unified on narrow screens, where side-by-side is
+ *  unreadable. Pure so it's unit-tested; callers pass a `matchMedia` result for `isNarrow`. */
+export function effectiveDiffMode(stored: DiffMode, isNarrow: boolean): DiffMode {
+  return isNarrow ? "unified" : stored;
+}
+
 // Diff mode persisted across the app (both /review and /comments read/write it).
 export function getDiffMode(): DiffMode {
   try {

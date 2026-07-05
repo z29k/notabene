@@ -49,6 +49,7 @@ const { page, space } = Astro.props;
 <script>
   import { ICONS } from "../lib/icons";
   import { createApi, esc, fmt, getAuthor, type Comment, type CommentAnchor } from "../lib/client/comments-client";
+  import { closeOverlay, currentOverlay, isCompact, openOverlay } from "../lib/client/shell";
   type Anchor = CommentAnchor;
 
   const pageSection = document.getElementById("cmt-page");
@@ -72,6 +73,16 @@ const { page, space } = Astro.props;
     const popQuote = document.getElementById("cmt-pop-quote")!;
     const popInput = document.getElementById("cmt-pop-input") as HTMLTextAreaElement;
     const viewEl = document.getElementById("cmt-view")!;
+    const railAside = document.querySelector(".rail") as HTMLElement | null;
+    const sheetBtn = document.getElementById("nb-cmt-sheet-btn");
+    const sheetCount = document.getElementById("nb-cmt-sheet-count");
+
+    // The three fixed overlays live at <body> level so an open sheet can make the whole
+    // shell (topbar/sidebar/content/rail) `inert` without disabling itself. Position is
+    // fixed, so relocating them in the DOM has no visual effect on desktop.
+    document.body.append(floatBtn, pop, viewEl);
+    // On a doc page the 💬 sheet-open button is relevant (CSS hides it on desktop).
+    if (sheetBtn) sheetBtn.hidden = false;
 
     let comments: Comment[] = [];
     let railFilter = "open";
@@ -237,6 +248,10 @@ const { page, space } = Astro.props;
       const pageWide = comments.filter((c) => c.scope === "page");
       const openCount = comments.filter((c) => c.status !== "resolved").length;
       countEl.textContent = openCount ? `${openCount} ${M.openSuffix}` : `${comments.length}`;
+      if (sheetCount) {
+        const openAnchored = anchored.filter((c) => c.status !== "resolved").length;
+        sheetCount.textContent = openAnchored ? String(openAnchored) : "";
+      }
 
       // right rail: anchored comments
       if (railEl) {
@@ -276,19 +291,7 @@ const { page, space } = Astro.props;
       renderView();
     }
 
-    // ── click on highlighted text → reading popover at the text ─────────────
-    function pointAt(x: number, y: number): { node: Node; offset: number } | null {
-      const d = document as any;
-      if (d.caretRangeFromPoint) {
-        const r = d.caretRangeFromPoint(x, y);
-        return r ? { node: r.startContainer, offset: r.startOffset } : null;
-      }
-      if (d.caretPositionFromPoint) {
-        const p = d.caretPositionFromPoint(x, y);
-        return p ? { node: p.offsetNode, offset: p.offset } : null;
-      }
-      return null;
-    }
+    // ── tap on highlighted text → reading sheet (compact) / popover (desktop) ─
     function renderView() {
       const cs = comments.filter((c) => viewIds.includes(c.id));
       if (!cs.length) {
@@ -298,32 +301,72 @@ const { page, space } = Astro.props;
       (viewEl.querySelector(".cmt-view-list") as HTMLElement).innerHTML = cs.map(card).join("");
       viewEl.hidden = false;
     }
-    article.addEventListener("click", (e) => {
-      const me = e as MouseEvent;
-      if ((e.target as HTMLElement).closest("a")) return;
-      if (window.getSelection()?.toString().trim()) return;
-      const pt = pointAt(me.clientX, me.clientY);
-      if (!pt) return;
+    // Highlights are painted (CSS Custom Highlight API), not DOM nodes, so hit-test the
+    // point against each comment range's client rects, inflated for fat fingers.
+    function hitComments(x: number, y: number): string[] {
+      const PADX = 4;
+      const PADY = 10;
       const hit: string[] = [];
-      for (const [cid, r] of ranges) if (r.isPointInRange(pt.node, pt.offset)) hit.push(cid);
-      viewIds = hit;
-      if (!hit.length) {
-        viewEl.hidden = true;
+      for (const [cid, r] of ranges) {
+        for (const rect of r.getClientRects()) {
+          if (x >= rect.left - PADX && x <= rect.right + PADX && y >= rect.top - PADY && y <= rect.bottom + PADY) {
+            hit.push(cid);
+            break;
+          }
+        }
+      }
+      return hit;
+    }
+    function openView(x: number, y: number) {
+      viewIds = hitComments(x, y);
+      if (!viewIds.length) {
+        if (currentOverlay() === "sheet-read") closeOverlay();
+        else viewEl.hidden = true;
         return;
       }
-      viewEl.style.top = `${Math.min(window.innerHeight - 80, me.clientY + 10)}px`;
-      viewEl.style.left = `${Math.min(window.innerWidth - 340, me.clientX)}px`;
       renderView();
+      if (isCompact()) {
+        viewEl.style.top = "";
+        viewEl.style.left = "";
+        if (currentOverlay() !== "sheet-read") {
+          openOverlay("sheet-read", viewEl, () => {
+            viewEl.hidden = true;
+            viewIds = [];
+          });
+        }
+      } else {
+        viewEl.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, y + 10))}px`;
+        viewEl.style.left = `${Math.max(8, Math.min(window.innerWidth - 340, x))}px`;
+      }
+    }
+    // Distinguish a tap (open) from a drag (select) by movement — never read the global
+    // selection, so a lingering touch selection can't swallow the tap.
+    let tapStart: { x: number; y: number } | null = null;
+    article.addEventListener("pointerdown", (e) => {
+      const pe = e as PointerEvent;
+      tapStart = { x: pe.clientX, y: pe.clientY };
+    });
+    article.addEventListener("pointerup", (e) => {
+      const pe = e as PointerEvent;
+      const start = tapStart;
+      tapStart = null;
+      if (!start || (e.target as HTMLElement).closest("a")) return;
+      if (Math.hypot(pe.clientX - start.x, pe.clientY - start.y) > 8) return;
+      openView(pe.clientX, pe.clientY);
     });
 
-    // ── selection → floating button → popover (mouse, keyboard AND touch) ───
+    // ── selection → comment affordance → compose (mouse, keyboard AND touch) ──
     let savedRange: Range | null = null;
     let pointerDown = false;
+    let lastPointerType = "mouse";
     let selTimer: ReturnType<typeof setTimeout>;
 
-    // Show the comment button for any non-collapsed selection inside the article,
-    // regardless of how it was made (this is what enables keyboard + touch, not just
-    // the old mouseup path).
+    // Coarse pointer (or a touch just happened) → dock the affordance as a bottom bar
+    // rather than a small button above the selection, which collides with the iOS callout.
+    const coarse = () => lastPointerType === "touch" || matchMedia("(pointer: coarse)").matches;
+
+    // Show the comment affordance for any non-collapsed selection inside the article,
+    // regardless of how it was made (mouse, keyboard, touch, or AT selection handles).
     function updateFloatFromSelection() {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !sel.toString().trim()) {
@@ -336,19 +379,32 @@ const { page, space } = Astro.props;
         return;
       }
       savedRange = range.cloneRange();
-      const rect = range.getBoundingClientRect();
-      floatBtn.style.top = `${Math.max(8, rect.top - 40)}px`;
-      floatBtn.style.left = `${rect.left}px`;
+      if (coarse()) {
+        floatBtn.classList.add("cmt-float--bar");
+        floatBtn.style.top = "";
+        floatBtn.style.left = "";
+      } else {
+        floatBtn.classList.remove("cmt-float--bar");
+        const rect = range.getBoundingClientRect();
+        floatBtn.style.top = `${Math.max(8, rect.top - 40)}px`;
+        floatBtn.style.left = `${rect.left}px`;
+      }
       floatBtn.hidden = false;
     }
 
-    document.addEventListener("pointerdown", () => {
+    document.addEventListener("pointerdown", (e) => {
       pointerDown = true;
+      lastPointerType = (e as PointerEvent).pointerType || "mouse";
     });
     // pointerup covers mouse, touch AND pen (was mouseup = mouse only).
     document.addEventListener("pointerup", (e) => {
       pointerDown = false;
-      if ((e.target as HTMLElement).closest("#cmt-float,#cmt-pop,#cmt-page,#cmt-rail")) return;
+      if (
+        (e.target as HTMLElement).closest(
+          "#cmt-float,#cmt-pop,#cmt-page,#cmt-rail,#cmt-view,#nb-scrim,#nb-cmt-sheet-btn,.rail,.sidebar",
+        )
+      )
+        return;
       updateFloatFromSelection();
     });
     // Keyboard selection (Shift+arrows / Home / End) fires no pointer event.
@@ -362,30 +418,45 @@ const { page, space } = Astro.props;
       clearTimeout(selTimer);
       selTimer = setTimeout(updateFloatFromSelection, 120);
     });
-    floatBtn.addEventListener("mousedown", (e) => e.preventDefault());
-    floatBtn.addEventListener("click", () => {
+    // pointerdown (not mousedown) preventDefault keeps the press from collapsing the
+    // selection / stealing focus on touch; the anchor is read from savedRange regardless.
+    floatBtn.addEventListener("pointerdown", (e) => e.preventDefault());
+    floatBtn.addEventListener("click", openCompose);
+
+    function openCompose() {
       if (!savedRange) return;
       pendingAnchor = computeAnchor(savedRange);
-      const rect = savedRange.getBoundingClientRect();
-      pop.style.top = `${Math.min(window.innerHeight - 180, rect.bottom + 8)}px`;
-      pop.style.left = `${Math.min(window.innerWidth - 320, rect.left)}px`;
       popQuote.textContent = `“${pendingAnchor.quote.slice(0, 120)}”`;
-      pop.hidden = false;
-      floatBtn.hidden = true;
       popInput.value = "";
-      popInput.focus();
-    });
-    document.getElementById("cmt-pop-cancel")!.addEventListener("click", () => {
+      floatBtn.hidden = true;
+      if (isCompact()) {
+        pop.style.top = ""; // let CSS anchor it as a bottom sheet
+        pop.style.left = "";
+        pop.hidden = false;
+        openOverlay("sheet-compose", pop, hideComposeVisual, popInput);
+      } else {
+        const rect = savedRange.getBoundingClientRect();
+        pop.style.top = `${Math.max(8, Math.min(window.innerHeight - 180, rect.bottom + 8))}px`;
+        pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 320, rect.left))}px`;
+        pop.hidden = false;
+        popInput.focus();
+      }
+    }
+    function hideComposeVisual() {
       pop.hidden = true;
       pendingAnchor = null;
-    });
+    }
+    function hideCompose() {
+      if (currentOverlay() === "sheet-compose") closeOverlay();
+      else hideComposeVisual();
+    }
+    document.getElementById("cmt-pop-cancel")!.addEventListener("click", hideCompose);
     document.getElementById("cmt-pop-save")!.addEventListener("click", async () => {
       const body = popInput.value.trim();
       if (!body || !pendingAnchor) return;
       await api("POST", { page, space, scope: "selection", anchor: pendingAnchor, author: me(), body });
-      pop.hidden = true;
-      pendingAnchor = null;
       window.getSelection()?.removeAllRanges();
+      hideCompose();
       await load();
     });
     // Keyboard: Ctrl/Cmd+Enter saves the selection comment without reaching for the mouse.
@@ -401,21 +472,24 @@ const { page, space } = Astro.props;
         (document.getElementById("cmt-composer") as HTMLFormElement).requestSubmit();
       }
     });
-    document.addEventListener("mousedown", (e) => {
+    // Desktop outside-dismiss for the lightweight popovers. On compact these are sheets
+    // dismissed via the scrim/Escape (shell.ts) — skip while an overlay owns the screen.
+    document.addEventListener("pointerdown", (e) => {
+      if (currentOverlay()) return;
       const t = e.target as HTMLElement;
       if (!t.closest("#cmt-pop,#cmt-float")) {
         pop.hidden = true;
         if (!window.getSelection()?.toString().trim()) floatBtn.hidden = true;
       }
-      // Close the reading popover unless the click is inside it or back in the
-      // content (the content click handler reopens it when hitting a highlight).
+      // Close the reading popover unless the press is inside it or back in the
+      // content (the content tap handler reopens it when hitting a highlight).
       if (!t.closest("#cmt-view") && !article!.contains(t)) {
         viewIds = [];
         viewEl.hidden = true;
       }
     });
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !currentOverlay()) {
         pop.hidden = true;
         viewEl.hidden = true;
         viewIds = [];
@@ -507,6 +581,17 @@ const { page, space } = Astro.props;
       render();
     });
 
+    // 💬 topbar button → open the anchored-comments list as a bottom sheet (compact).
+    sheetBtn?.addEventListener("click", () => {
+      if (!railAside) return;
+      if (currentOverlay() === "sheet-list") {
+        closeOverlay();
+        return;
+      }
+      railAside.classList.add("nb-sheet");
+      openOverlay("sheet-list", railAside, () => railAside.classList.remove("nb-sheet"));
+    });
+
     // Focus a comment targeted from the global page (?c=<id>).
     function focusFromUrl() {
       const cid = new URLSearchParams(location.search).get("c");
@@ -522,10 +607,19 @@ const { page, space } = Astro.props;
           setTimeout(() => C.highlights.delete("cmt-active"), 2500);
         }
         viewIds = [cid];
-        const rect = r.getBoundingClientRect();
-        viewEl.style.top = `${Math.min(window.innerHeight - 80, rect.bottom + 10)}px`;
-        viewEl.style.left = `${Math.min(window.innerWidth - 340, rect.left)}px`;
         renderView();
+        if (isCompact()) {
+          viewEl.style.top = "";
+          viewEl.style.left = "";
+          openOverlay("sheet-read", viewEl, () => {
+            viewEl.hidden = true;
+            viewIds = [];
+          });
+        } else {
+          const rect = r.getBoundingClientRect();
+          viewEl.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, rect.bottom + 10))}px`;
+          viewEl.style.left = `${Math.max(8, Math.min(window.innerWidth - 340, rect.left))}px`;
+        }
       } else {
         document.getElementById("cmt-page")?.scrollIntoView({ behavior: "smooth" });
       }

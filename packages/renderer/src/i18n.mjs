@@ -8,6 +8,8 @@ const MESSAGES = {
   en: {
     navComments: "Comments",
     navJournal: "Journal",
+    menu: "Menu",
+    close: "Close",
     searchPlaceholder: "Search all docs…",
     searchNoResults: "No results",
     tocTitle: "On this page",
@@ -94,6 +96,8 @@ const MESSAGES = {
   fr: {
     navComments: "Commentaires",
     navJournal: "Journal",
+    menu: "Menu",
+    close: "Fermer",
     searchPlaceholder: "Rechercher dans la doc…",
     searchNoResults: "Aucun résultat",
     tocTitle: "Sur cette page",
