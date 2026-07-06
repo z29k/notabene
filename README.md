@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  MDX <strong>and</strong> CommonMark/GFM · dev-local · zero backend · <strong>your data stays in git</strong>
+  MDX <strong>and</strong> CommonMark/GFM · dev-local · zero backend · responsive · <strong>your data stays in git</strong>
 </p>
 
 <p align="center"><strong>English</strong> · <a href="https://github.com/z29k/notabene/blob/main/README.fr.md">Français</a></p>
@@ -54,6 +54,16 @@ the docs, marks them resolved, and writes a journal entry linking *what changed*
   mix them - selectable via config.
 - **Dev-local & safe by default.** The write API only runs under `notabene dev`,
   binds loopback (`127.0.0.1`) by default, and never ships in a build.
+- **Phone, tablet & touch.** The viewer is fully responsive: below 1024px the nav
+  folds into a drawer and the TOC and anchored comments become bottom sheets, and you
+  can **select text and comment with your thumb** from a docked action bar (≥44px
+  controls, keyboard-safe compose). Review the docs from the couch; desktop is unchanged.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-mobile-demo.gif" alt="notabene on a phone: touch-select a passage, the action bar docks at the bottom, leave a comment" width="300" />
+</p>
+
+<p align="center"><em>Same loop on a phone - touch-select, comment from the docked bar; nav and anchored comments as sheets.</em></p>
 
 ## How it works (30 seconds)
 
