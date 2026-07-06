@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseUnifiedDiff, toSideBySide } from "../src/lib/client/diff";
+import { effectiveDiffMode, parseUnifiedDiff, toSideBySide } from "../src/lib/client/diff";
 
 const sample = [
   "diff --git a/x.md b/x.md",
@@ -48,5 +48,16 @@ describe("toSideBySide", () => {
     const changed = r.filter((x) => x.right?.type === "add");
     expect(changed.length).toBe(3);
     expect(changed.filter((x) => x.left === null).length).toBe(2);
+  });
+});
+
+describe("effectiveDiffMode", () => {
+  it("keeps the stored preference on wide screens", () => {
+    expect(effectiveDiffMode("split", false)).toBe("split");
+    expect(effectiveDiffMode("unified", false)).toBe("unified");
+  });
+  it("forces unified on narrow screens regardless of preference", () => {
+    expect(effectiveDiffMode("split", true)).toBe("unified");
+    expect(effectiveDiffMode("unified", true)).toBe("unified");
   });
 });

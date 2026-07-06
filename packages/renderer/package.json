@@ -1,6 +1,6 @@
 {
   "name": "@z29k/notabene",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Navigable docs renderer + human↔agent review loop. Leave review comments right on your rendered docs; an agent reads .notabene/, applies the feedback, and journals it.",
   "type": "module",
   "license": "MIT",

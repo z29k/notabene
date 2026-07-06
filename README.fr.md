@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  MDX <strong>et</strong> CommonMark/GFM · dev-local · zéro backend · <strong>tes données restent dans git</strong>
+  MDX <strong>et</strong> CommonMark/GFM · dev-local · zéro backend · responsive · <strong>tes données restent dans git</strong>
 </p>
 
 <p align="center"><a href="https://github.com/z29k/notabene#readme">English</a> · <strong>Français</strong></p>
@@ -53,6 +53,17 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
   mélange les deux - au choix via la config.
 - **Dev-local & sûr par défaut.** L'API d'écriture ne tourne que sous `notabene dev`, bind en
   loopback (`127.0.0.1`) par défaut, et n'est jamais embarquée dans un build.
+- **Mobile, tablette & tactile.** Le viewer est entièrement responsive : en dessous de 1024px
+  la nav se replie en tiroir, le sommaire et les commentaires ancrés deviennent des bottom
+  sheets, et tu peux **sélectionner du texte et commenter au pouce** depuis une barre d'action
+  ancrée (contrôles ≥44px, saisie qui esquive le clavier). Relis les docs depuis le canapé ; le
+  bureau ne change pas.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-mobile-demo.gif" alt="notabene sur téléphone : sélectionne un passage au doigt, la barre d'action s'ancre en bas, laisse un commentaire" width="300" />
+</p>
+
+<p align="center"><em>La même boucle sur téléphone - sélection au doigt, commentaire depuis la barre ancrée ; nav et commentaires en sheets.</em></p>
 
 ## Comment ça marche (30 secondes)
 

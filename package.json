@@ -7,9 +7,13 @@
   "license": "MIT",
   "scripts": {
     "demo": "node scripts/gen-fixture.mjs --git && node packages/renderer/bin/notabene.mjs dev --root .demo",
-    "gen:fixture": "node scripts/gen-fixture.mjs"
+    "gen:fixture": "node scripts/gen-fixture.mjs",
+    "gen:mobile-gif": "node scripts/record-mobile-demo.mjs"
   },
   "workspaces": [
     "packages/renderer"
-  ]
+  ],
+  "devDependencies": {
+    "playwright-core": "^1.61.1"
+  }
 }
