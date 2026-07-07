@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  MDX <strong>and</strong> CommonMark/GFM · dev-local · zero backend · responsive · <strong>your data stays in git</strong>
+  MDX <strong>and</strong> CommonMark/GFM · Mermaid diagrams · dev-local · zero backend · responsive · <strong>your data stays in git</strong>
 </p>
 
 <p align="center"><strong>English</strong> · <a href="https://github.com/z29k/notabene/blob/main/README.fr.md">Français</a></p>
@@ -52,6 +52,9 @@ the docs, marks them resolved, and writes a journal entry linking *what changed*
   plain-text protocol any agent can follow.
 - **MDX *and* CommonMark/GFM.** Point it at `.md` (lenient) or `.mdx` (strict), or
   mix them - selectable via config.
+- **Diagrams, first-class & commentable.** Write **Mermaid** (flowcharts, sequence, ER…)
+  in a fenced ` ```mermaid ` block - rendered inline. **Comment or enlarge** any diagram
+  *or image* as a whole (a block comment in the rail), not only text.
 - **Dev-local & safe by default.** The write API only runs under `notabene dev`,
   binds loopback (`127.0.0.1`) by default, and never ships in a build.
 - **Phone, tablet & touch.** The viewer is fully responsive: below 1024px the nav
@@ -67,14 +70,20 @@ the docs, marks them resolved, and writes a journal entry linking *what changed*
 
 ## How it works (30 seconds)
 
-1. `npx notabene dev` → open the site, **select any text → leave a comment** (or
-   comment a whole page). Threads, resolve, hold, a global `/comments` view.
+1. `npx notabene dev` → open the site, **select any text → leave a comment** (or comment a
+   whole page, or a whole **diagram/image**). Threads, resolve, hold, a global `/comments` view.
 2. Tell your agent: **"address the doc comments."**
 3. The agent reads `.notabene/`, edits the docs faithfully, marks each comment
    **resolved**, and appends a **journal** entry (what / why / which comments).
 4. Read the trail at `/journal`.
 
 > 📽️ _That's the clip above - comment a passage, the agent proposes the edit, you approve the real diff._
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-diagrams-demo.gif" alt="notabene: click a Mermaid diagram to enlarge it in a lightbox, then comment the whole diagram - the comment lands in the right rail" width="820" />
+</p>
+
+<p align="center"><em>Diagrams are first-class - render <strong>Mermaid</strong>, <strong>enlarge</strong> any diagram or image, and <strong>comment the whole block</strong> (it lands in the rail like a text comment).</em></p>
 
 ## Install
 
