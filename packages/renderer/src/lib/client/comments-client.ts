@@ -6,7 +6,7 @@
 //
 // Types come from the canonical store contract (lib/comment-types) so the client and
 // server can't disagree on the shape.
-export type { Comment, CommentAnchor, CommentReply, CommentScope, CommentStatus } from "../comment-types";
+export type { BlockAnchor, Comment, CommentAnchor, CommentReply, CommentScope, CommentStatus } from "../comment-types";
 
 /** HTML-escape for building card markup from user text. */
 export const esc = (s: string): string =>

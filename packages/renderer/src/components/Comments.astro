@@ -48,7 +48,17 @@ const { page, space } = Astro.props;
 
 <script>
   import { ICONS } from "../lib/icons";
-  import { createApi, esc, fmt, getAuthor, type Comment, type CommentAnchor } from "../lib/client/comments-client";
+  import { blockKey, imageLabel, matchBlockIndex, mermaidLabel } from "../lib/client/blocks";
+  import {
+    createApi,
+    esc,
+    fmt,
+    getAuthor,
+    type BlockAnchor,
+    type Comment,
+    type CommentAnchor,
+  } from "../lib/client/comments-client";
+  import { openLightbox } from "../lib/client/lightbox";
   import { closeOverlay, currentOverlay, isCompact, openOverlay } from "../lib/client/shell";
   type Anchor = CommentAnchor;
 
@@ -87,6 +97,7 @@ const { page, space } = Astro.props;
     let comments: Comment[] = [];
     let railFilter = "open";
     let pendingAnchor: Anchor | null = null;
+    let pendingBlock: BlockAnchor | null = null;
     let viewIds: string[] = [];
     const ranges = new Map<string, Range>();
 
@@ -167,7 +178,7 @@ const { page, space } = Astro.props;
       const found: Range[] = [];
       for (const c of comments) {
         if (c.scope !== "selection" || !c.anchor || c.status === "resolved") continue;
-        const r = findRange(c.anchor);
+        const r = findRange(c.anchor as Anchor);
         if (r) {
           ranges.set(c.id, r);
           found.push(r);
@@ -203,18 +214,153 @@ const { page, space } = Astro.props;
       document.body.appendChild(bar);
     }
 
+    // ── block comments (diagrams / images) ─────────────────────────────────
+    // Commentable blocks = rendered Mermaid diagrams (pre.mermaid) + images, in document
+    // order. Identity is by CONTENT (blocks.ts) so a comment survives reordering.
+    type BlockDesc = { el: HTMLElement; kind: "mermaid" | "image"; key: string; label: string };
+    function blockList(): BlockDesc[] {
+      return Array.from(article!.querySelectorAll<HTMLElement>("pre.mermaid, img")).map((el) => {
+        if (el instanceof HTMLImageElement) {
+          const src = el.getAttribute("src") || "";
+          return { el, kind: "image" as const, key: blockKey("image", src), label: imageLabel(src, el.alt || "") };
+        }
+        const src = (el.dataset.nbSrc ?? el.textContent ?? "").trim();
+        return { el, kind: "mermaid" as const, key: blockKey("mermaid", src), label: mermaidLabel(src) };
+      });
+    }
+    function blockAnchorFor(el: HTMLElement): BlockAnchor | null {
+      const bs = blockList();
+      const i = bs.findIndex((b) => b.el === el);
+      if (i < 0) return null;
+      const b = bs[i];
+      return { kind: b.kind, key: b.key, label: b.label, section: nearestSection(el), index: i };
+    }
+    function findBlockEl(a: BlockAnchor): HTMLElement | null {
+      const bs = blockList();
+      const i = matchBlockIndex({ key: a.key, index: a.index }, bs);
+      return i >= 0 ? bs[i].el : null;
+    }
+    function blockCommentIdsFor(el: HTMLElement): string[] {
+      return comments
+        .filter((c) => c.scope === "block" && c.status !== "resolved" && c.anchor && findBlockEl(c.anchor as BlockAnchor) === el)
+        .map((c) => c.id);
+    }
+    // Outline + count badge (CSS ::after via data-cmt-count) on blocks that have open
+    // comments. Class/attr only — never a text node, so the selection flat-map is untouched.
+    function markBlocks() {
+      for (const b of blockList()) {
+        b.el.classList.remove("cmt-block-has");
+        delete b.el.dataset.cmtCount;
+      }
+      const counts = new Map<HTMLElement, number>();
+      for (const c of comments) {
+        if (c.scope !== "block" || c.status === "resolved" || !c.anchor) continue;
+        const el = findBlockEl(c.anchor as BlockAnchor);
+        if (el) counts.set(el, (counts.get(el) || 0) + 1);
+      }
+      for (const [el, n] of counts) {
+        el.classList.add("cmt-block-has");
+        el.dataset.cmtCount = String(n);
+      }
+    }
+    function flashBlock(el: HTMLElement) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("cmt-block-flash");
+      setTimeout(() => el.classList.remove("cmt-block-flash"), 1500);
+    }
+
+    // Floating toolbar (⤢ enlarge · 💬 comment) — body-level like the selection affordance.
+    let blockBarEl: HTMLElement | null = null;
+    let barTarget: HTMLElement | null = null;
+    function blockBar(): HTMLElement {
+      if (blockBarEl) return blockBarEl;
+      const bar = document.createElement("div");
+      bar.className = "cmt-blockbar";
+      bar.hidden = true;
+      bar.innerHTML =
+        `<button type="button" data-b="zoom" title="${M.enlarge}" aria-label="${M.enlarge}">⤢</button>` +
+        `<button type="button" data-b="comment" title="${M.floatComment}" aria-label="${M.floatComment}">💬</button>`;
+      bar.addEventListener("pointerdown", (e) => e.preventDefault());
+      bar.addEventListener("click", (e) => {
+        const b = (e.target as HTMLElement).closest("button[data-b]") as HTMLElement | null;
+        if (!b || !barTarget) return;
+        if (b.dataset.b === "zoom") openLightbox(barTarget);
+        else openBlockCompose(barTarget);
+      });
+      bar.addEventListener("pointerleave", () => hideBar());
+      document.body.appendChild(bar);
+      blockBarEl = bar;
+      return bar;
+    }
+    function positionBar(el: HTMLElement) {
+      const bar = blockBar();
+      const r = el.getBoundingClientRect();
+      bar.style.top = `${Math.max(6, r.top + 6)}px`;
+      bar.style.left = `${Math.max(6, Math.min(window.innerWidth - 78, r.right - 72))}px`;
+    }
+    function showBar(el: HTMLElement) {
+      barTarget = el;
+      positionBar(el);
+      blockBar().hidden = false;
+    }
+    function hideBar() {
+      if (blockBarEl) blockBarEl.hidden = true;
+      barTarget = null;
+    }
+    function openBlockCompose(el: HTMLElement) {
+      const a = blockAnchorFor(el);
+      if (!a) return;
+      pendingAnchor = null;
+      pendingBlock = a;
+      hideBar();
+      popQuote.textContent = `${a.kind === "image" ? "🖼" : "📊"} ${a.label}`;
+      popInput.value = "";
+      floatBtn.hidden = true;
+      if (isCompact()) {
+        pop.style.top = "";
+        pop.style.left = "";
+        pop.hidden = false;
+        openOverlay("sheet-compose", pop, hideComposeVisual, popInput);
+      } else {
+        const rect = el.getBoundingClientRect();
+        pop.style.top = `${Math.max(8, Math.min(window.innerHeight - 180, rect.bottom + 8))}px`;
+        pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 320, rect.left))}px`;
+        pop.hidden = false;
+        popInput.focus();
+      }
+    }
+    // Desktop hover → toolbar; hide on leave (unless entering the bar) or on scroll.
+    function initBlocks() {
+      article!.addEventListener("pointerover", (e) => {
+        if ((e as PointerEvent).pointerType === "touch") return;
+        const el = (e.target as HTMLElement).closest("pre.mermaid, img") as HTMLElement | null;
+        if (el && article!.contains(el)) showBar(el);
+      });
+      article!.addEventListener("pointerout", (e) => {
+        const to = (e as PointerEvent).relatedTarget as HTMLElement | null;
+        if (to?.closest?.("pre.mermaid, img") || to?.closest?.(".cmt-blockbar")) return;
+        setTimeout(() => {
+          if (blockBarEl && !blockBarEl.matches(":hover")) hideBar();
+        }, 150);
+      });
+      window.addEventListener("scroll", () => hideBar(), { passive: true });
+    }
+
     // ── card rendering (shared) ────────────────────────────────────────────
     function card(c: Comment): string {
       const head = c.thread[0];
       const replies = c.thread.slice(1);
-      const orphan = c.scope === "selection" && c.anchor && !findRange(c.anchor);
+      const sel = c.scope === "selection" ? (c.anchor as Anchor | null) : null;
+      const blk = c.scope === "block" ? (c.anchor as BlockAnchor | null) : null;
+      const orphan = (sel && !findRange(sel)) || (blk && !findBlockEl(blk));
+      const anchorHtml = sel
+        ? `<span class="cmt-quote${orphan ? " orphan" : ""}" data-jump="${c.id}">${orphan ? "⚠ " : ""}“${esc((sel.quote || "").slice(0, 70))}”</span>`
+        : blk
+          ? `<span class="cmt-quote cmt-block${orphan ? " orphan" : ""}" data-jump="${c.id}">${orphan ? "⚠ " : ""}${blk.kind === "image" ? "🖼" : "📊"} ${esc(blk.label.slice(0, 60))}</span>`
+          : `<span class="cmt-scope">${M.scopePage}</span>`;
       return `<article class="cmt-card ${c.status}${c.hold ? " held" : ""}" data-id="${c.id}">
         <div class="cmt-meta"><span class="cmt-dot ${c.status}"></span>
-          ${
-            c.scope === "selection"
-              ? `<span class="cmt-quote${orphan ? " orphan" : ""}" data-jump="${c.id}">${orphan ? "⚠ " : ""}“${esc((c.anchor?.quote || "").slice(0, 70))}”</span>`
-              : `<span class="cmt-scope">${M.scopePage}</span>`
-          }
+          ${anchorHtml}
           ${c.hold ? `<span class="cmt-hold-badge">${M.onHold}</span>` : ""}
         </div>
         <div class="cmt-body"><b>${esc(head.author)}</b> ${esc(head.body)}</div>
@@ -244,7 +390,7 @@ const { page, space } = Astro.props;
     }
 
     function render() {
-      const anchored = comments.filter((c) => c.scope === "selection");
+      const anchored = comments.filter((c) => c.scope === "selection" || c.scope === "block");
       const pageWide = comments.filter((c) => c.scope === "page");
       const openCount = comments.filter((c) => c.status !== "resolved").length;
       countEl.textContent = openCount ? `${openCount} ${M.openSuffix}` : `${comments.length}`;
@@ -283,6 +429,7 @@ const { page, space } = Astro.props;
         ? pageWide.map(card).join("")
         : `<p class="cmt-empty">${M.noPageComments}</p>`;
       applyHighlights();
+      markBlocks();
     }
 
     async function load() {
@@ -319,6 +466,14 @@ const { page, space } = Astro.props;
     }
     function openView(x: number, y: number) {
       viewIds = hitComments(x, y);
+      if (!viewIds.length) {
+        const blockEl = ((document.elementFromPoint(x, y) as HTMLElement | null)?.closest("pre.mermaid, img") ??
+          null) as HTMLElement | null;
+        if (blockEl && article!.contains(blockEl)) {
+          showBar(blockEl); // surface enlarge/comment (esp. touch, which has no hover)
+          viewIds = blockCommentIdsFor(blockEl); // open its thread if it has comments
+        }
+      }
       if (!viewIds.length) {
         if (currentOverlay() === "sheet-read") closeOverlay();
         else viewEl.hidden = true;
@@ -425,6 +580,7 @@ const { page, space } = Astro.props;
 
     function openCompose() {
       if (!savedRange) return;
+      pendingBlock = null;
       pendingAnchor = computeAnchor(savedRange);
       popQuote.textContent = `“${pendingAnchor.quote.slice(0, 120)}”`;
       popInput.value = "";
@@ -445,6 +601,7 @@ const { page, space } = Astro.props;
     function hideComposeVisual() {
       pop.hidden = true;
       pendingAnchor = null;
+      pendingBlock = null;
     }
     function hideCompose() {
       if (currentOverlay() === "sheet-compose") closeOverlay();
@@ -453,9 +610,13 @@ const { page, space } = Astro.props;
     document.getElementById("cmt-pop-cancel")!.addEventListener("click", hideCompose);
     document.getElementById("cmt-pop-save")!.addEventListener("click", async () => {
       const body = popInput.value.trim();
-      if (!body || !pendingAnchor) return;
-      await api("POST", { page, space, scope: "selection", anchor: pendingAnchor, author: me(), body });
-      window.getSelection()?.removeAllRanges();
+      if (!body || (!pendingAnchor && !pendingBlock)) return;
+      if (pendingBlock) {
+        await api("POST", { page, space, scope: "block", anchor: pendingBlock, author: me(), body });
+      } else {
+        await api("POST", { page, space, scope: "selection", anchor: pendingAnchor, author: me(), body });
+        window.getSelection()?.removeAllRanges();
+      }
       hideCompose();
       await load();
     });
@@ -511,7 +672,8 @@ const { page, space } = Astro.props;
       const t = e.target as HTMLElement;
       const jump = t.closest("[data-jump]") as HTMLElement | null;
       if (jump) {
-        const r = ranges.get(jump.dataset.jump!);
+        const cid = jump.dataset.jump!;
+        const r = ranges.get(cid);
         if (r) {
           (r.startContainer.parentElement || article)!.scrollIntoView({ behavior: "smooth", block: "center" });
           const C = window.CSS as any;
@@ -519,6 +681,12 @@ const { page, space } = Astro.props;
             C.highlights.set("cmt-active", new (window as any).Highlight(r));
             setTimeout(() => C.highlights.delete("cmt-active"), 1500);
           }
+          return;
+        }
+        const bc = comments.find((x) => x.id === cid);
+        if (bc?.scope === "block" && bc.anchor) {
+          const el = findBlockEl(bc.anchor as BlockAnchor);
+          if (el) flashBlock(el);
         }
         return;
       }
@@ -620,11 +788,31 @@ const { page, space } = Astro.props;
           viewEl.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, rect.bottom + 10))}px`;
           viewEl.style.left = `${Math.max(8, Math.min(window.innerWidth - 340, rect.left))}px`;
         }
+      } else if (c.scope === "block" && c.anchor) {
+        const el = findBlockEl(c.anchor as BlockAnchor);
+        if (el) {
+          flashBlock(el);
+          viewIds = [cid];
+          renderView();
+          if (isCompact()) {
+            viewEl.style.top = "";
+            viewEl.style.left = "";
+            openOverlay("sheet-read", viewEl, () => {
+              viewEl.hidden = true;
+              viewIds = [];
+            });
+          } else {
+            const rect = el.getBoundingClientRect();
+            viewEl.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, rect.bottom + 10))}px`;
+            viewEl.style.left = `${Math.max(8, Math.min(window.innerWidth - 340, rect.left))}px`;
+          }
+        }
       } else {
         document.getElementById("cmt-page")?.scrollIntoView({ behavior: "smooth" });
       }
     }
 
+    initBlocks();
     load().then(focusFromUrl);
   }
 </script>

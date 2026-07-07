@@ -2,6 +2,7 @@
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
+import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
 import { REPO_ROOT, host, mdxEnabled, port, roots } from "./src/config.mjs";
 
@@ -15,7 +16,10 @@ export default defineConfig({
   // LOOPBACK (host: false = 127.0.0.1) — the write endpoint is NOT reachable from
   // the LAN. Explicit opt-in only (config `host: true` or NOTABENE_HOST=1), trusted
   // networks only.
-  server: { host, port },
+  // host:true = LAN opt-in (all interfaces). Otherwise bind IPv4 loopback EXPLICITLY:
+  // Astro's default `localhost` resolves to ::1 on Node ≥17, but the CLI's readiness/
+  // status checks and printed URLs use 127.0.0.1 — bind 127.0.0.1 so they match.
+  server: { host: host === true ? true : "127.0.0.1", port },
   // outDir/cacheDir default under the app root (= the installed package), which may
   // be read-only. The CLI (bin/notabene.mjs) points these at a writable per-consumer
   // temp dir. Absolute paths are used as-is; undefined = Astro's default.
@@ -28,11 +32,16 @@ export default defineConfig({
   // Astro's native markdown pipeline (lenient CommonMark/GFM).
   integrations: mdxEnabled ? [mdx()] : [],
   markdown: {
-    // GFM on by default. Shiki syntax highlighting.
+    // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs
+    // leaves that fence as a plain <pre><code class="language-mermaid">, which the rehype
+    // plugin below normalizes to <pre class="mermaid"> for client-side rendering.
+    syntaxHighlight: { type: "shiki", excludeLangs: ["mermaid"] },
     shikiConfig: { theme: "github-dark", wrap: true },
     // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
     // [attacher, options]: unified calls remarkRewriteLinks(roots).
     remarkPlugins: [[remarkRewriteLinks, roots]],
+    // ```mermaid fence → <pre class="mermaid"> (rendered client-side; see lib/client/mermaid.ts).
+    rehypePlugins: [rehypeMermaid],
   },
   vite: {
     // Consumer content (docs, notabene.config) lives outside the Astro root

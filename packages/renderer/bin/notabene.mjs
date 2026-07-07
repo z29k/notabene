@@ -154,7 +154,8 @@ async function doInit() {
   const store = path.resolve(repoRoot, readStore(configPath));
   fs.mkdirSync(store, { recursive: true });
   const meta = path.join(store, "meta.json");
-  if (!fs.existsSync(meta)) fs.writeFileSync(meta, `${JSON.stringify({ schemaVersion: 2 }, null, 2)}\n`);
+  // Keep in sync with SCHEMA_VERSION in src/lib/comment-types.ts (bin can't import the .ts).
+  if (!fs.existsSync(meta)) fs.writeFileSync(meta, `${JSON.stringify({ schemaVersion: 3 }, null, 2)}\n`);
   console.log(`notabene: store ready at ${path.relative(repoRoot, store)}/`);
   console.log("notabene: run `notabene dev` to start reviewing.");
 }
@@ -195,8 +196,8 @@ function doMigrate() {
       pages++;
     }
   })(store);
-  fs.writeFileSync(path.join(store, "meta.json"), `${JSON.stringify({ schemaVersion: 2 }, null, 2)}\n`);
-  console.log(`notabene: migrated ${pages} page file(s) → ${moved} comment file(s) (store schemaVersion 2).`);
+  fs.writeFileSync(path.join(store, "meta.json"), `${JSON.stringify({ schemaVersion: 3 }, null, 2)}\n`);
+  console.log(`notabene: migrated ${pages} page file(s) → ${moved} comment file(s) (store schemaVersion 3).`);
 }
 
 // Read every comment from the store (both v2 per-comment files and legacy v1 arrays).
@@ -246,7 +247,8 @@ function doCommentsLs() {
   if (!list.length) return console.log("notabene: no comments.");
   for (const c of list) {
     console.log(`\n[${c.id}] ${c.status}${c.hold ? " ⏸" : ""} ${c.scope} page=${c.page}`);
-    if (c.anchor) console.log(`  §${c.anchor.section}: «${(c.anchor.quote || "").slice(0, 100)}»`);
+    if (c.anchor && c.scope === "block") console.log(`  §${c.anchor.section} [${c.anchor.kind}] ${c.anchor.label}`);
+    else if (c.anchor) console.log(`  §${c.anchor.section}: «${(c.anchor.quote || "").slice(0, 100)}»`);
     (c.thread || []).forEach((t, i) => {
       console.log(`  ${i ? "↳" : "•"} ${t.author}: ${t.body}`);
     });
