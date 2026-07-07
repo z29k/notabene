@@ -79,7 +79,7 @@ the docs, marks them resolved, and writes a journal entry linking *what changed*
 ## Install
 
 notabene is **two installable pieces**: the **renderer** (an npm package + CLI) and
-the **review skill** (a Claude Code plugin). Install one or both.
+the **Claude Code plugin** (turnkey setup + the review loop). Install one or both.
 
 ### 1 · The renderer - npm package
 
@@ -100,18 +100,22 @@ CLI:
 
 | Command | What it does |
 | --- | --- |
-| `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present) |
-| `notabene dev` | Start the review server over this repo's docs (live-reload) |
+| `notabene doctor` | Read-only state as JSON: config/store/port + detected doc folders - `--json` |
+| `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present); `--detect` auto-detects doc folders |
+| `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon |
+| `notabene status` | Is the detached server running? (pid, port, URL) - `--json` |
+| `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
 | `notabene migrate` | Convert the store to one file per comment (schema v2) |
 | `notabene comments ls` | List comments - `--open` `--json` `--page <p>` (for agents/scripts) |
 | `notabene journal add` | Append a JSON journal entry read from stdin |
 
-Flags: `--port <n>` · `--config <path>` · `--root <path>` · `--host` (expose on the
-LAN - trusted networks only).
+Flags: `--port <n>` · `--detach` (dev: background daemon) · `--detect` (init: auto-detect
+roots) · `--config <path>` · `--root <path>` · `--host` (expose on the LAN - trusted
+networks only).
 
-### 2 · The review skill - Claude Code plugin
+### 2 · The Claude Code plugin - setup + review
 
 In Claude Code:
 
@@ -120,7 +124,13 @@ In Claude Code:
 /plugin install notabene@z29k
 ```
 
-Then just say **"address the doc comments"** (or *"review the docs"*, *"apply the
+On a fresh repo, say **"set up notabene"** first - the plugin writes
+`notabene.config.mjs`, creates the store, and starts the review server for you
+(also via `/notabene:setup` · `/notabene:dev` · `/notabene:status` · `/notabene:stop`).
+It works on **any stack** (Rust/Python/Go/JS) - no toolchain to install. See
+[`packages/plugin/README.md`](packages/plugin/README.md).
+
+Then say **"address the doc comments"** (or *"review the docs"*, *"apply the
 review feedback"*). The skill reads your `notabene.config.mjs`, processes the `open`
 (non-held) comments, edits the docs, marks them resolved, appends the journal, and
 runs your `verify` checks - never committing without asking.
@@ -132,6 +142,8 @@ point your agent at it.
 ## Configure
 
 `notabene.config.mjs` at your repo root is the only wiring. Paths are repo-relative.
+(`notabene init` scaffolds a template; `notabene init --detect` prefills `roots[]` from the
+doc folders it finds.)
 
 ```js
 // notabene.config.mjs
