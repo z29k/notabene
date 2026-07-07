@@ -79,7 +79,7 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
 ## Installation
 
 notabene, c'est **deux briques installables** : le **renderer** (un package npm + CLI) et le
-**skill de revue** (un plugin Claude Code). Installe l'un, l'autre, ou les deux.
+**plugin Claude Code** (setup clé en main + la boucle de revue). Installe l'un, l'autre, ou les deux.
 
 ### 1 · Le renderer - package npm
 
@@ -100,18 +100,22 @@ CLI :
 
 | Commande | Ce qu'elle fait |
 | --- | --- |
-| `notabene init` | Écrit `notabene.config.mjs` + crée le store (no-op si déjà présent) |
-| `notabene dev` | Lance le serveur de revue sur les docs de ce repo (live-reload) |
+| `notabene doctor` | État en lecture seule (JSON) : config/store/port + dossiers de docs détectés - `--json` |
+| `notabene init` | Écrit `notabene.config.mjs` + crée le store (no-op si déjà présent) ; `--detect` détecte les dossiers de docs |
+| `notabene dev` | Lance le serveur de revue sur les docs de ce repo (live-reload) ; `--detach` = daemon en arrière-plan |
+| `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL) - `--json` |
+| `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Build le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
 | `notabene preview` | Sert le site buildé |
 | `notabene migrate` | Convertit le store en un fichier par commentaire (schéma v2) |
 | `notabene comments ls` | Liste les commentaires - `--open` `--json` `--page <p>` (pour agents/scripts) |
 | `notabene journal add` | Ajoute une entrée de journal JSON lue sur stdin |
 
-Flags : `--port <n>` · `--config <path>` · `--root <path>` · `--host` (exposer sur le LAN -
-réseaux de confiance uniquement).
+Flags : `--port <n>` · `--detach` (dev : daemon en arrière-plan) · `--detect` (init : détecte
+les roots) · `--config <path>` · `--root <path>` · `--host` (exposer sur le LAN - réseaux de
+confiance uniquement).
 
-### 2 · Le skill de revue - plugin Claude Code
+### 2 · Le plugin Claude Code - setup + revue
 
 Dans Claude Code :
 
@@ -120,7 +124,13 @@ Dans Claude Code :
 /plugin install notabene@z29k
 ```
 
-Ensuite, dis simplement **« traite les commentaires de la doc »** (ou *« review les docs »*,
+Sur un repo vierge, dis d'abord **« installe notabene »** - le plugin écrit
+`notabene.config.mjs`, crée le store, et démarre le serveur de revue pour toi
+(aussi via `/notabene:setup` · `/notabene:dev` · `/notabene:status` · `/notabene:stop`).
+Ça marche sur **n'importe quel stack** (Rust/Python/Go/JS) - aucun toolchain à installer.
+Voir [`packages/plugin/README.md`](packages/plugin/README.md).
+
+Ensuite, dis **« traite les commentaires de la doc »** (ou *« review les docs »*,
 *« applique les retours de revue »*). Le skill lit ton `notabene.config.mjs`, traite les
 commentaires `open` (hors mise en attente), édite les docs, les marque résolus, ajoute le
 journal, et lance tes checks `verify` - sans jamais committer sans demander.
@@ -132,7 +142,8 @@ protocole - pointe ton agent dessus.
 ## Configurer
 
 `notabene.config.mjs` à la racine de ton repo est le seul câblage. Les chemins sont relatifs
-au repo.
+au repo. (`notabene init` scaffolde un template ; `notabene init --detect` préremplit
+`roots[]` à partir des dossiers de docs trouvés.)
 
 ```js
 // notabene.config.mjs
