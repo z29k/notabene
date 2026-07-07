@@ -96,11 +96,19 @@ text…). To find it in the source, search tolerantly, using `anchor.prefix`/`su
 (disambiguating context) and `anchor.section` (nearest heading). `scope: "page"` = a
 page-wide comment, no anchor.
 
+**Block comments** (`scope: "block"`, store v3) target a **diagram or image**, not text —
+the anchor is `{ kind, key, label, section }` (no quote). `kind: "image"` → find the
+`![…](…)` whose src matches `key`/`label` and act on it; `kind: "mermaid"` → find the
+` ```mermaid ` fence for that diagram (its source hashes to `key`; `label` = the diagram
+type + first line) and edit the **diagram source**. `anchor.section` narrows the search.
+
 ## Step 4 — Edit the docs (faithfully)
 
 Apply each piece of feedback **faithfully** at the right spot. A comment is a user
 decision. If the change touches public behavior documented elsewhere, update it (see
-project hooks below).
+project hooks below). For **what you can add** — Mermaid diagrams (```mermaid), GFM
+tables, code blocks, inter-doc links — and the MDX-safety rules, see the
+**`notabene-authoring`** skill.
 
 ## Step 5 — Mark the comment + write the journal
 
