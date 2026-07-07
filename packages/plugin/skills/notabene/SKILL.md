@@ -6,16 +6,23 @@ description: >-
   comments", "apply the review feedback", "review/check the docs", or references
   the global /comments page. Reads the notabene store, edits the docs per the
   feedback, marks them resolved + writes the journal, then verifies (renderer
-  build, links, project checks). Ignores comments on "hold". Never commits without
-  an explicit request.
+  build, links, project checks). Ignores comments on "hold". This skill does NOT
+  install, configure, or launch the review server — that's `notabene-setup`. Never
+  commits without an explicit request.
 ---
 
 # Docs review loop (comments + verification)
 
 **notabene**: a navigable renderer over a repo's docs + a human↔agent review loop.
 **Stateless** — the data lives in the consumer repo's git, not in the tool. The
-renderer companion is the `notabene` npm package (`npx notabene dev`), but this loop
-is **file-I/O-first** and does not require the server to be running.
+renderer companion is the `@z29k/notabene` npm package (run via `npx`, or set up with
+`/notabene:setup`), but this loop is **file-I/O-first** and does not require the server
+to be running.
+
+> **Not set up here?** If there's **no `notabene.config.mjs`** or **no `.notabene/`
+> store**, notabene isn't configured for this repo yet — **hand off to the
+> `notabene-setup` skill** (or `/notabene:setup`) to install/configure and launch, then
+> resume. Don't fail; delegate.
 
 ## Discovery — EVERYTHING comes from the config (nothing hardcoded)
 
@@ -61,6 +68,11 @@ reimplement, no `python3`):
 npx notabene comments ls --open --json    # open AND not-on-hold, machine-readable
 npx notabene comments ls --open           # …or human-readable
 ```
+
+> `npx notabene` only resolves a renderer **installed locally**. If it isn't (the plugin
+> runs the renderer from the npx cache), call it through the plugin forwarder instead —
+> `node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" comments ls --open --json` — or just read the
+> store files directly (next paragraph). The loop never depends on the CLI being present.
 
 A comment reopened after a **rejection** (approve mode) carries the human's reason as
 later `thread` replies — **read them** and adjust accordingly before editing.
