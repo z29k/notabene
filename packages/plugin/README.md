@@ -43,6 +43,9 @@ thin wrappers around the renderer CLI.
   the docs per each comment, marks them resolved (or *addressed* in approve mode), appends
   the journal, and verifies (renderer build + your `verify[]` checks). This file **is** the
   agent-agnostic protocol spec — point any agent at it.
+- **`notabene-authoring`** — the doc rendering palette: what you can put in a page
+  (CommonMark/GFM, code + Shiki highlighting, **Mermaid diagrams**, inter-doc links) and the
+  MDX-safety rules, so the agent can write a complete doc with every tool the renderer supports.
 
 ## How it works
 

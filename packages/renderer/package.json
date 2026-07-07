@@ -39,7 +39,8 @@
   "dependencies": {
     "@astrojs/mdx": "5.0.6",
     "@astrojs/node": "10.0.6",
-    "astro": "^6.0.0"
+    "astro": "^6.0.0",
+    "mermaid": "^11.16.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
@@ -48,7 +49,17 @@
     "typescript": "^5.6.0",
     "vitest": "^3.0.0"
   },
-  "keywords": ["docs", "documentation", "review", "comments", "mdx", "markdown", "astro", "ai", "agent"],
+  "keywords": [
+    "docs",
+    "documentation",
+    "review",
+    "comments",
+    "mdx",
+    "markdown",
+    "astro",
+    "ai",
+    "agent"
+  ],
   "engines": {
     "node": ">=22.12.0"
   }

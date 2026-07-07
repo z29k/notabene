@@ -202,6 +202,16 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
     </script>
 
     <script>
+      import { renderMermaid } from "../lib/client/mermaid";
+
+      // Render any ```mermaid diagrams on the page (lazy-loads mermaid only if present).
+      // No ClientRouter here, so a direct call covers every full page load; the listener
+      // is a harmless no-op unless view transitions are added later.
+      renderMermaid();
+      document.addEventListener("astro:page-load", () => renderMermaid());
+    </script>
+
+    <script>
       import { esc } from "../lib/client/comments-client";
 
       // Client-side search: JSON index (title + headings + excerpt), scored.
