@@ -9,6 +9,7 @@
 //   NOTABENE_ROOT   — consumer repo root (defaults to process.cwd()).
 //   NOTABENE_CONFIG — path to notabene.config.mjs (defaults to <root>/notabene.config.mjs).
 // The CLI (bin/notabene.mjs) sets these before invoking astro.
+import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -18,16 +19,32 @@ const CONFIG_PATH = process.env.NOTABENE_CONFIG
   ? path.resolve(process.env.NOTABENE_CONFIG)
   : path.resolve(REPO_ROOT, "notabene.config.mjs");
 
+// Zero-config is opt-in via NOTABENE_ALLOW_DEFAULTS=1 (set by the plugin forwarder). A
+// MISSING config then falls back to the defaults below (drop-in on any repo); a config
+// that EXISTS but fails to load ALWAYS throws — never silently defaulted. Bare CLI use
+// (no gate) keeps its explicit "run init first" error, so ergonomics don't change.
+const ALLOW_DEFAULTS = process.env.NOTABENE_ALLOW_DEFAULTS === "1";
+const CONFIG_EXISTS = fs.existsSync(CONFIG_PATH);
+
 // Top-level await: load the consumer's config by absolute path. Astro loads this
 // module (via astro.config.mjs / content.config.ts) as ESM, which supports TLA.
 let userConfig;
-try {
-  userConfig = (await import(/* @vite-ignore */ pathToFileURL(CONFIG_PATH).href)).default ?? {};
-} catch (err) {
-  throw new Error(
-    `notabene: could not load config at ${CONFIG_PATH}. Run \`notabene init\` first, ` +
-      `or set NOTABENE_CONFIG. (${err instanceof Error ? err.message : err})`,
-  );
+if (!CONFIG_EXISTS) {
+  if (!ALLOW_DEFAULTS) {
+    throw new Error(
+      `notabene: could not load config at ${CONFIG_PATH}. Run \`notabene init\` first, or set NOTABENE_CONFIG.`,
+    );
+  }
+  userConfig = {};
+} else {
+  try {
+    userConfig = (await import(/* @vite-ignore */ pathToFileURL(CONFIG_PATH).href)).default ?? {};
+  } catch (err) {
+    throw new Error(
+      `notabene: could not load config at ${CONFIG_PATH}. Run \`notabene init\` first, ` +
+        `or set NOTABENE_CONFIG. (${err instanceof Error ? err.message : err})`,
+    );
+  }
 }
 
 function slugify(s) {
@@ -43,7 +60,9 @@ function slugify(s) {
 //                mix both, by extension.
 //   "commonmark" (alias "gfm"/"md"): globs .md + .markdown, MDX NOT loaded. Everything
 //                CommonMark/GFM lenient — zero MDX dependency/strictness.
-const FORMAT = String(userConfig.format ?? "mdx").toLowerCase();
+// Zero-config picks the safer commonmark (no MDX-safety traps); an explicit config keeps
+// the code default of "mdx". No behavior change for any existing config (it has a file).
+const FORMAT = String(userConfig.format ?? (CONFIG_EXISTS ? "mdx" : "commonmark")).toLowerCase();
 export const format = FORMAT === "gfm" || FORMAT === "md" ? "commonmark" : FORMAT;
 export const mdxEnabled = format === "mdx";
 export const extensions = mdxEnabled ? ["md", "mdx"] : ["md", "markdown"];
