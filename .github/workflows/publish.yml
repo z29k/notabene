@@ -28,8 +28,11 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
-      - name: Use latest npm (trusted publishing needs npm >= 11.5)
-        run: npm install -g npm@latest
+      # Trusted publishing needs npm >= 11.5. Pin the 11.x line: npm 12.0.x drops the bundled
+      # `sigstore` module on global install, which breaks provenance signing at publish time
+      # (npm error "Cannot find module 'sigstore'"). Revisit once 12.x is fixed.
+      - name: Pin npm 11.x (>= 11.5, avoids the 12.0.x provenance/sigstore break)
+        run: npm install -g 'npm@^11.5'
       - run: npm ci
 
       # Same gates as CI — never publish something that doesn't pass.

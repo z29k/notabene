@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  MDX <strong>et</strong> CommonMark/GFM · dev-local · zéro backend · responsive · <strong>tes données restent dans git</strong>
+  MDX <strong>et</strong> CommonMark/GFM · diagrammes Mermaid · dev-local · zéro backend · responsive · <strong>tes données restent dans git</strong>
 </p>
 
 <p align="center"><a href="https://github.com/z29k/notabene#readme">English</a> · <strong>Français</strong></p>
@@ -51,6 +51,10 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
   protocole en texte clair que n'importe quel agent peut suivre.
 - **MDX *et* CommonMark/GFM.** Pointe-le sur du `.md` (indulgent) ou du `.mdx` (strict), ou
   mélange les deux - au choix via la config.
+- **Diagrammes, de première classe & commentables.** Écris du **Mermaid** (logigrammes,
+  séquence, ER…) dans une fence ` ```mermaid ` - rendu inline. **Commente ou agrandis**
+  n'importe quel diagramme *ou image* en entier (un commentaire de bloc dans le rail), pas
+  seulement du texte.
 - **Dev-local & sûr par défaut.** L'API d'écriture ne tourne que sous `notabene dev`, bind en
   loopback (`127.0.0.1`) par défaut, et n'est jamais embarquée dans un build.
 - **Mobile, tablette & tactile.** Le viewer est entièrement responsive : en dessous de 1024px
@@ -68,7 +72,8 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
 ## Comment ça marche (30 secondes)
 
 1. `npx notabene dev` → ouvre le site, **sélectionne du texte → laisse un commentaire** (ou
-   commente une page entière). Fils, résolution, mise en attente, une vue globale `/comments`.
+   commente une page entière, ou un **diagramme/une image** en entier). Fils, résolution, mise
+   en attente, une vue globale `/comments`.
 2. Dis à ton agent : **« traite les commentaires de la doc ».**
 3. L'agent lit `.notabene/`, édite les docs fidèlement, marque chaque commentaire **résolu**,
    et ajoute une entrée de **journal** (quoi / pourquoi / quels commentaires).
@@ -76,10 +81,16 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
 
 > 📽️ _C'est le clip ci-dessus - commente un passage, l'agent propose l'édition, tu valides le vrai diff._
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-diagrams-demo.gif" alt="notabene : clique un diagramme Mermaid pour l'agrandir en lightbox, puis commente le diagramme entier - le commentaire arrive dans le rail de droite" width="820" />
+</p>
+
+<p align="center"><em>Les diagrammes sont de première classe - rendu <strong>Mermaid</strong>, <strong>agrandis</strong> n'importe quel diagramme ou image, et <strong>commente le bloc entier</strong> (il arrive dans le rail comme un commentaire de texte).</em></p>
+
 ## Installation
 
 notabene, c'est **deux briques installables** : le **renderer** (un package npm + CLI) et le
-**skill de revue** (un plugin Claude Code). Installe l'un, l'autre, ou les deux.
+**plugin Claude Code** (setup clé en main + la boucle de revue). Installe l'un, l'autre, ou les deux.
 
 ### 1 · Le renderer - package npm
 
@@ -100,18 +111,22 @@ CLI :
 
 | Commande | Ce qu'elle fait |
 | --- | --- |
-| `notabene init` | Écrit `notabene.config.mjs` + crée le store (no-op si déjà présent) |
-| `notabene dev` | Lance le serveur de revue sur les docs de ce repo (live-reload) |
+| `notabene doctor` | État en lecture seule (JSON) : config/store/port + dossiers de docs détectés - `--json` |
+| `notabene init` | Écrit `notabene.config.mjs` + crée le store (no-op si déjà présent) ; `--detect` détecte les dossiers de docs |
+| `notabene dev` | Lance le serveur de revue sur les docs de ce repo (live-reload) ; `--detach` = daemon en arrière-plan |
+| `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL) - `--json` |
+| `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Build le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
 | `notabene preview` | Sert le site buildé |
 | `notabene migrate` | Convertit le store en un fichier par commentaire (schéma v2) |
 | `notabene comments ls` | Liste les commentaires - `--open` `--json` `--page <p>` (pour agents/scripts) |
 | `notabene journal add` | Ajoute une entrée de journal JSON lue sur stdin |
 
-Flags : `--port <n>` · `--config <path>` · `--root <path>` · `--host` (exposer sur le LAN -
-réseaux de confiance uniquement).
+Flags : `--port <n>` · `--detach` (dev : daemon en arrière-plan) · `--detect` (init : détecte
+les roots) · `--config <path>` · `--root <path>` · `--host` (exposer sur le LAN - réseaux de
+confiance uniquement).
 
-### 2 · Le skill de revue - plugin Claude Code
+### 2 · Le plugin Claude Code - setup + revue
 
 Dans Claude Code :
 
@@ -120,7 +135,13 @@ Dans Claude Code :
 /plugin install notabene@z29k
 ```
 
-Ensuite, dis simplement **« traite les commentaires de la doc »** (ou *« review les docs »*,
+Sur un repo vierge, dis d'abord **« installe notabene »** - le plugin écrit
+`notabene.config.mjs`, crée le store, et démarre le serveur de revue pour toi
+(aussi via `/notabene:setup` · `/notabene:dev` · `/notabene:status` · `/notabene:stop`).
+Ça marche sur **n'importe quel stack** (Rust/Python/Go/JS) - aucun toolchain à installer.
+Voir [`packages/plugin/README.md`](packages/plugin/README.md).
+
+Ensuite, dis **« traite les commentaires de la doc »** (ou *« review les docs »*,
 *« applique les retours de revue »*). Le skill lit ton `notabene.config.mjs`, traite les
 commentaires `open` (hors mise en attente), édite les docs, les marque résolus, ajoute le
 journal, et lance tes checks `verify` - sans jamais committer sans demander.
@@ -132,7 +153,8 @@ protocole - pointe ton agent dessus.
 ## Configurer
 
 `notabene.config.mjs` à la racine de ton repo est le seul câblage. Les chemins sont relatifs
-au repo.
+au repo. (`notabene init` scaffolde un template ; `notabene init --detect` préremplit
+`roots[]` à partir des dossiers de docs trouvés.)
 
 ```js
 // notabene.config.mjs

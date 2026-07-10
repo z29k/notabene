@@ -50,7 +50,9 @@ export function changesForComment(c: Comment, journal: JournalEntry[]): ReviewCh
 }
 
 function snippet(c: Comment | undefined): string {
-  const s = c?.anchor?.quote || c?.thread[0]?.body || "";
+  // Anchor is a TextQuoteSelector (quote) for selection, a BlockAnchor (label) for block.
+  const a = c?.anchor as { quote?: string; label?: string } | null | undefined;
+  const s = a?.quote || a?.label || c?.thread[0]?.body || "";
   return s.length > 40 ? `${s.slice(0, 40)}…` : s;
 }
 
@@ -86,10 +88,13 @@ export function renderReviewCard(
   routeFor: RouteFor,
 ): string {
   const href = `${routeFor(c.page)}?c=${c.id}`;
+  const anc = c.anchor as { quote?: string; kind?: string; label?: string } | null;
   const head =
     c.scope === "selection"
-      ? `<span class="rev-quote">“${esc((c.anchor?.quote || "").slice(0, 90))}”</span>`
-      : `<span class="cmt-scope">${m.scopePage}</span>`;
+      ? `<span class="rev-quote">“${esc((anc?.quote || "").slice(0, 90))}”</span>`
+      : c.scope === "block"
+        ? `<span class="rev-quote">${anc?.kind === "image" ? "🖼" : "📊"} ${esc((anc?.label || "").slice(0, 70))}</span>`
+        : `<span class="cmt-scope">${m.scopePage}</span>`;
   return `<article class="rev-card" data-id="${c.id}" data-page="${esc(c.page)}">
     <header class="rev-head"><a class="rev-page" href="${href}">${esc(c.page)}</a> ${head}</header>
     <div class="rev-thread">${c.thread.map((t) => `<div class="rev-msg"><b>${esc(t.author)}</b> ${esc(t.body)}</div>`).join("")}</div>

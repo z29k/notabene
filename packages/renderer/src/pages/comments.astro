@@ -39,7 +39,15 @@ const m = t(locale);
 
 <script>
   import { ICONS } from "../lib/icons";
-  import { createApi, esc, fmt, makeRouteFor, type Comment } from "../lib/client/comments-client";
+  import {
+    type BlockAnchor,
+    type Comment,
+    type CommentAnchor,
+    createApi,
+    esc,
+    fmt,
+    makeRouteFor,
+  } from "../lib/client/comments-client";
   import { mountReviewList } from "../lib/client/review-card";
 
   const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
@@ -75,7 +83,13 @@ const m = t(locale);
         if (fh === "active" && c.hold) return false;
         if (fh === "hold" && !c.hold) return false;
         if (q) {
-          const hay = (c.page + " " + (c.anchor?.quote || "") + " " + c.thread.map((t) => t.body).join(" ")).toLowerCase();
+          const at =
+            c.scope === "selection"
+              ? (c.anchor as CommentAnchor | null)?.quote || ""
+              : c.scope === "block"
+                ? (c.anchor as BlockAnchor | null)?.label || ""
+                : "";
+          const hay = `${c.page} ${at} ${c.thread.map((t) => t.body).join(" ")}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -92,7 +106,13 @@ const m = t(locale);
                 <span class="cmt-dot ${c.status}"></span>
                 <a class="caf-page" href="${routeFor(c.page)}?c=${c.id}">${esc(c.page)}</a>
                 <span class="r-space ${c.space}">${esc(spaceLabel(c.space))}</span>
-                ${c.scope === "selection" ? `<span class="caf-quote">“${esc((c.anchor?.quote || "").slice(0, 60))}”</span>` : `<span class="cmt-scope">${M.scopePage}</span>`}
+                ${
+                  c.scope === "selection"
+                    ? `<span class="caf-quote">“${esc(((c.anchor as CommentAnchor | null)?.quote || "").slice(0, 60))}”</span>`
+                    : c.scope === "block"
+                      ? `<span class="caf-quote">${(c.anchor as BlockAnchor | null)?.kind === "image" ? "🖼" : "📊"} ${esc(((c.anchor as BlockAnchor | null)?.label || "").slice(0, 50))}</span>`
+                      : `<span class="cmt-scope">${M.scopePage}</span>`
+                }
                 ${c.hold ? `<span class="cmt-hold-badge">${M.onHold}</span>` : ""}
                 ${c.thread.length > 1 ? `<span class="caf-replies">${c.thread.length - 1} ${M.repliesSuffix}</span>` : ""}
               </div>

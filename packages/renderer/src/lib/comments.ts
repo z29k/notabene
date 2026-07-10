@@ -9,7 +9,15 @@ import path from "node:path";
 import { author as defaultAuthor, storeAbs } from "../config.mjs";
 import { assertStoreCompatible } from "./store-meta";
 import { resolveStoreDir, resolveStorePath } from "./store-path";
-import type { Comment, CommentAnchor, CommentScope, CommentSpace, CommentStatus } from "./comment-types";
+import {
+  type BlockAnchor,
+  type Comment,
+  type CommentAnchor,
+  type CommentScope,
+  type CommentSpace,
+  type CommentStatus,
+  SCHEMA_VERSION,
+} from "./comment-types";
 
 const STORE_ROOT = storeAbs;
 // Reserved store files (never comment pages).
@@ -48,9 +56,29 @@ async function read(page: string): Promise<Comment[]> {
   return out;
 }
 
+// Keep the store's version sidecar in step with the renderer writing it: bump
+// `<store>/meta.json` UP to SCHEMA_VERSION (never down) on write, so the read guard
+// (store-meta) refuses this store from an OLDER renderer that can't read v3 block
+// comments. Never rewrites an already-current/newer meta.
+async function ensureMeta(): Promise<void> {
+  const metaPath = path.join(STORE_ROOT, "meta.json");
+  let current = 0;
+  try {
+    const m = JSON.parse(await fs.readFile(metaPath, "utf8"));
+    if (typeof m.schemaVersion === "number") current = m.schemaVersion;
+  } catch {
+    /* no / unreadable meta — treat as pre-versioned */
+  }
+  if (current < SCHEMA_VERSION) {
+    await fs.mkdir(STORE_ROOT, { recursive: true });
+    await fs.writeFile(metaPath, `${JSON.stringify({ schemaVersion: SCHEMA_VERSION }, null, 2)}\n`, "utf8");
+  }
+}
+
 // Write the page as v2 (one file per comment), atomically (tmp + rename so a reader —
 // the agent — never sees a truncated file), and migrate away from any v1 array file.
 async function write(page: string, comments: Comment[]): Promise<void> {
+  await ensureMeta();
   const dir = pageDirFor(page);
   const legacy = legacyFileFor(page);
   const rmOwnCommentFiles = async (except?: Set<string>) => {
@@ -130,7 +158,7 @@ export async function createComment(input: {
   space: CommentSpace;
   page: string;
   scope: CommentScope;
-  anchor: CommentAnchor | null;
+  anchor: CommentAnchor | BlockAnchor | null;
   author?: string;
   body: string;
 }): Promise<Comment> {
@@ -141,7 +169,9 @@ export async function createComment(input: {
     space: input.space,
     page: input.page,
     scope: input.scope,
-    anchor: input.scope === "selection" ? input.anchor : null,
+    // Anchor is kept for `selection` (TextQuoteSelector) and `block` (BlockAnchor);
+    // a `page` comment has none.
+    anchor: input.scope === "page" ? null : input.anchor,
     thread: [{ author: input.author || defaultAuthor, body: input.body, ts: now }],
     status: "open",
     hold: false,

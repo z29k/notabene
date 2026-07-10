@@ -3,8 +3,11 @@
 // package). Writes a full consumer repo you can point `notabene dev` at:
 //   - a multi-space doc tree (nested folders, index pages, headings, lists, a code fence,
 //     a GFM table, inter-doc links) so nav / search / link-rewriting have real content;
-//   - a `.notabene` store with comments in EVERY state (open / addressed / resolved, hold,
-//     selection + page scope, threaded replies) whose anchors match the generated text;
+//   - Mermaid diagrams (flowchart / erDiagram / sequenceDiagram) and images (a base64
+//     data-URI + a relative-file SVG) so the block-comment + enlarge features have targets;
+//   - a `.notabene` store (schema v3) with comments in EVERY state (open / addressed /
+//     resolved, hold, selection + page + block scope, threaded replies) whose text anchors
+//     match the generated prose and whose block anchors match the diagram/image keys;
 //   - a journal, including a CASCADE (one comment → two pages) and a SHARED page (two
 //     comments → one change);
 //   - with --git: commit the clean docs, then apply the "agent edits" for `addressed`
@@ -337,6 +340,169 @@ addressedEdits.push({
   line: "> Limits: capped at 100 requests per minute.",
 });
 
+// ---- 4) rich media: Mermaid diagrams + images, with v3 block comments ----
+// Diagrams/images are commentable as whole BLOCKS (scope "block", schema v3). Identity is
+// by CONTENT: mermaid → hash of the source; image → its rendered `src`. To seed comments
+// whose keys MATCH what the client computes from the rendered page, we mirror blocks.ts:
+//   - hashSource / mermaidLabel / imageLabel are copied verbatim (keep them in sync);
+//   - Mermaid keys are deterministic (the source is verbatim inside the .md fence);
+//   - the ONE commented image is a base64 data-URI — Astro rewrites a *relative* image
+//     `src` to a non-deterministic /_image|/_astro URL, so a relative image can't carry an
+//     exact key; a second relative-file SVG is added for realistic manual comment/enlarge.
+// `index` is the block's ordinal among commentable blocks (pre.mermaid + img) on its page.
+
+// djb2 → base36 — mirrors src/lib/client/blocks.ts hashSource (keep identical).
+const hashSource = (s) => {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+};
+const mermaidKey = (src) => `mermaid:${hashSource(src.trim())}`;
+const mermaidLabel = (src) => {
+  const lines = src
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const type = (lines[0] || "diagram").split(/\s+/)[0];
+  const body = lines.slice(1).find(Boolean);
+  return (body ? `${type}: ${body}` : type).slice(0, 80);
+};
+const imageLabel = (src, alt) => {
+  if (alt.trim()) return alt.trim().slice(0, 80);
+  const base = (src.split(/[?#]/)[0].split("/").pop() || src).trim();
+  return (base || src).slice(0, 80);
+};
+const dataImg = (svg) => `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
+
+// diagram sources (verbatim → hashed for the block key)
+const FLOWCHART = `flowchart TD
+  A[Request] --> B{Cached?}
+  B -->|yes| C[Serve from cache]
+  B -->|no| D[Query service]
+  D --> E[Store in cache]
+  E --> C`;
+const ERD = `erDiagram
+  CLIENT ||--o{ ORDER : places
+  ORDER ||--|{ LINE_ITEM : contains
+  ORDER {
+    int id PK
+    int client_id FK
+  }`;
+const SEQ = `sequenceDiagram
+  participant U as User
+  participant A as API
+  participant S as Store
+  U->>A: POST /comment
+  A->>S: write (atomic)
+  S-->>A: ok
+  A-->>U: 201 Created`;
+
+// a self-contained dashboard mockup (base64 data-URI → deterministic, exact block key)
+const DASH_IMG = dataImg(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="200">' +
+    '<rect width="480" height="200" fill="#0f172a"/>' +
+    '<rect x="16" y="16" width="210" height="80" rx="6" fill="#334155"/>' +
+    '<rect x="254" y="16" width="210" height="80" rx="6" fill="#334155"/>' +
+    '<rect x="16" y="112" width="448" height="72" rx="6" fill="#1e293b"/>' +
+    '<text x="24" y="152" font-family="sans-serif" font-size="16" fill="#94a3b8">Dashboard mockup</text></svg>',
+);
+// a relative-file SVG (realistic authoring; renders offline; manual comment/enlarge target)
+const REL_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120">' +
+  '<rect width="320" height="120" fill="#4f46e5"/>' +
+  '<text x="160" y="66" font-family="sans-serif" font-size="20" fill="#fff" text-anchor="middle">sequence overview</text></svg>';
+
+// append a media block under its own heading; return { index, section } for its anchor.
+const blockIdx = new Map(); // page -> next block ordinal
+const mediaAssets = []; // { rel, content } written after OUT is (re)created
+function pushMedia(pageObj, heading, markup) {
+  pageObj.body += `\n## ${heading}\n\n${markup}\n`;
+  const index = blockIdx.get(pageObj.page) ?? 0;
+  blockIdx.set(pageObj.page, index + 1);
+  return { index, section: heading };
+}
+const indexPageOf = (space) => pagesBySpace.get(space.key).find((p) => /(^|\/)index$/.test(p.rel));
+const primary = indexPageOf(spaces[0]);
+const secondary = spaces[1] ? indexPageOf(spaces[1]) : primary;
+
+function addBlockComment({ pageObj, anchor, thread, status, resolution = null, hold = false }) {
+  const cid = id("b");
+  addFile(pageObj.page, {
+    id: cid,
+    space: pageObj.page.split("/")[0],
+    page: pageObj.page,
+    scope: "block",
+    anchor,
+    thread,
+    status,
+    hold,
+    resolution,
+    createdAt: ts(ci),
+    updatedAt: ts(ci),
+  });
+  return cid;
+}
+
+// primary space home: a flowchart (open) + a dashboard image (open)
+{
+  const m = pushMedia(primary, "Architecture", `\`\`\`mermaid\n${FLOWCHART}\n\`\`\``);
+  addBlockComment({
+    pageObj: primary,
+    anchor: { kind: "mermaid", key: mermaidKey(FLOWCHART), label: mermaidLabel(FLOWCHART), section: m.section, index: m.index },
+    thread: [{ author: pick(authors), body: "Should we add a caching layer to this flow?", ts: ts(ci++) }],
+    status: "open",
+  });
+  const im = pushMedia(primary, "Dashboard", `![Dashboard mockup](${DASH_IMG})`);
+  addBlockComment({
+    pageObj: primary,
+    anchor: { kind: "image", key: `image:${DASH_IMG}`, label: imageLabel(DASH_IMG, "Dashboard mockup"), section: im.section, index: im.index },
+    thread: [{ author: pick(authors), body: "Update this screenshot to the new UI.", ts: ts(ci++) }],
+    status: "open",
+  });
+}
+
+// secondary space home: an ER diagram (addressed → /review diff), a sequence diagram
+// (resolved), and a relative-file image (uncommented, for manual comment/enlarge).
+{
+  const em = pushMedia(secondary, "Data model", `\`\`\`mermaid\n${ERD}\n\`\`\``);
+  const erId = addBlockComment({
+    pageObj: secondary,
+    anchor: { kind: "mermaid", key: mermaidKey(ERD), label: mermaidLabel(ERD), section: em.section, index: em.index },
+    thread: [{ author: "you", body: "Rename ORDER to INVOICE across the model.", ts: ts(ci++) }],
+    status: "addressed",
+    resolution: { note: "renamed ORDER→INVOICE", journalEntryId: "j_block_er" },
+  });
+  journal.push({
+    id: "j_block_er",
+    date: "2026-01-08",
+    title: "Rename ORDER→INVOICE in the ER diagram",
+    summary: "Renamed the entity in the data model.",
+    changes: [{ page: secondary.page, commentIds: [erId], what: "renamed the ORDER entity", why: "domain consistency" }],
+  });
+  addressedEdits.push({ page: secondary.page, line: "> Diagram updated: ORDER renamed to INVOICE." });
+
+  const sm = pushMedia(secondary, "Sequence", `\`\`\`mermaid\n${SEQ}\n\`\`\``);
+  const seqId = addBlockComment({
+    pageObj: secondary,
+    anchor: { kind: "mermaid", key: mermaidKey(SEQ), label: mermaidLabel(SEQ), section: sm.section, index: sm.index },
+    thread: [{ author: "alex", body: "Show the error path (4xx) too.", ts: ts(ci++) }],
+    status: "resolved",
+    resolution: { note: "added the 4xx branch", journalEntryId: "j_block_seq" },
+  });
+  journal.push({
+    id: "j_block_seq",
+    date: "2026-01-06",
+    title: "Add the error path to the sequence diagram",
+    summary: "Documented the 4xx branch.",
+    changes: [{ page: secondary.page, commentIds: [seqId], what: "added the error branch", why: "completeness" }],
+  });
+
+  // relative-file SVG image (no seeded comment): realistic authoring + manual target.
+  const assetRel = `${secondary.page.split("/")[0]}/assets/sequence-overview.svg`;
+  mediaAssets.push({ rel: assetRel, content: REL_SVG });
+  pushMedia(secondary, "Overview image", "![Sequence overview](./assets/sequence-overview.svg)");
+}
+
 // ---- write everything ----
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
@@ -364,10 +530,17 @@ for (const pg of [...pagesBySpace.values()].flat()) {
   fs.writeFileSync(f, pg.body);
 }
 
+// media assets (referenced by relative image links; data-URI images are inline)
+for (const a of mediaAssets) {
+  const f = path.join(OUT, a.rel);
+  fs.mkdirSync(path.dirname(f), { recursive: true });
+  fs.writeFileSync(f, a.content);
+}
+
 // store
 const STORE = path.join(OUT, "docs", ".notabene");
 fs.mkdirSync(STORE, { recursive: true });
-fs.writeFileSync(path.join(STORE, "meta.json"), `${JSON.stringify({ schemaVersion: 2 }, null, 2)}\n`);
+fs.writeFileSync(path.join(STORE, "meta.json"), `${JSON.stringify({ schemaVersion: 3 }, null, 2)}\n`);
 // v2 store: one file per comment at <store>/<page>/<id>.json (conflict-free git merges).
 for (const [page, list] of commentsByPage) {
   const dir = path.join(STORE, page);
@@ -393,9 +566,10 @@ if (GIT) {
 }
 
 const nComments = [...commentsByPage.values()].reduce((n, l) => n + l.length, 0);
+const nBlocks = [...commentsByPage.values()].flat().filter((c) => c.scope === "block").length;
 console.log(`notabene demo written to ${OUT}`);
 console.log(
-  `  ${spaces.length} space(s), ${[...pagesBySpace.values()].flat().length} pages, ${nComments} comments, ${journal.length} journal entries`,
+  `  ${spaces.length} space(s), ${[...pagesBySpace.values()].flat().length} pages, ${nComments} comments (${nBlocks} on diagrams/images), ${journal.length} journal entries`,
 );
 console.log(`  format=${FORMAT} locale=${LOCALE} review=${REVIEW} seed=${SEED}`);
 console.log(gitNote);

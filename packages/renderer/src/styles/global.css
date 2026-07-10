@@ -16,7 +16,10 @@
   --topbar-h: 52px;
   --sidebar-w: 290px;
   --toc-w: 320px;
-  --content-max: 50rem;
+  /* Reading measure for the doc content. Responsive: ~50rem on laptops, growing to 80rem
+     on large screens so wide monitors aren't mostly empty gutter — capped so prose lines
+     stay readable. Tables/code/prose fill it; diagrams/images stay natural size, centered. */
+  --content-max: clamp(50rem, 62vw, 80rem);
   --radius: 8px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -198,6 +201,11 @@ a:hover {
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--toc-w);
   align-items: start;
+}
+/* App pages (review / comments / journal) have no anchored-comment rail — drop the empty
+   third column so their content isn't left off-balance beside 320px of dead space. */
+.shell--full {
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
 }
 
 .sidebar,
@@ -447,6 +455,161 @@ a:hover {
   padding: 0;
   font-size: inherit;
 }
+/* Mermaid diagrams: ```mermaid → pre.mermaid (src/remark/mermaid.mjs), rendered to SVG
+   client-side (src/lib/client/mermaid.ts). Pre-render, show the source legibly as a
+   graceful fallback; once rendered (.nb-mermaid-ok) it holds a centered, responsive SVG. */
+.prose pre.mermaid {
+  background: none !important;
+  border: none;
+  padding: 0;
+  margin: 1.25rem 0;
+  text-align: center;
+  overflow-x: auto;
+  font-family: var(--mono);
+  color: var(--text-soft);
+}
+.prose pre.mermaid.nb-mermaid-ok {
+  font-family: inherit;
+  /* The rendered SVG already fits the column (Mermaid emits width:100% capped at its natural
+     max-width), so it never needs to scroll. Drop the source-text `overflow-x: auto` here:
+     as a scroll container it clips the comment count badge (::after, offset outside the box)
+     and its overhang triggers a spurious horizontal scrollbar. Enlarge via the ⤢ lightbox. */
+  overflow: visible;
+}
+.prose pre.mermaid svg {
+  /* Defensive cap only — never upscales (Mermaid's own width:100%/max-width already fit the
+     column); guards the rare diagram that emits a fixed px width wider than the container. */
+  max-width: 100%;
+  height: auto;
+}
+.prose pre.mermaid.nb-mermaid-error {
+  text-align: left;
+  color: crimson;
+}
+
+/* Block comments on diagrams/images: floating toolbar, commented-block badge, flash. */
+.cmt-blockbar {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+.cmt-blockbar button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  padding: 7px 9px;
+  border-radius: 6px;
+  color: var(--text);
+}
+.cmt-blockbar button:hover {
+  background: var(--accent-soft);
+}
+.prose pre.mermaid.cmt-block-has,
+.prose img.cmt-block-has {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
+  /* The whole commented block opens its thread on click (openView → blockCommentIdsFor). */
+  cursor: pointer;
+}
+/* Count badge (indication) on a commented diagram/image. A REAL element (built in
+   Comments.astro markBlocks), not a ::after — pseudo-elements don't render on <img>
+   (a replaced element), so images would silently get no badge. Body-level + document
+   coords (positioned in JS); clicking it opens the block's thread. Sits at the block's
+   top-left, clear of the top-right hover toolbar (action). */
+.cmt-block-badge {
+  position: absolute;
+  z-index: 61;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--accent);
+  color: #fff;
+  font: 600 12.5px/1 var(--sans);
+  padding: 5px 9px;
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.cmt-block-badge:hover {
+  filter: brightness(1.08);
+}
+.prose pre.mermaid.cmt-block-flash,
+.prose img.cmt-block-flash {
+  animation: nb-block-flash 1.4s ease-out;
+}
+@keyframes nb-block-flash {
+  0%,
+  45% {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
+  }
+  100% {
+    outline: 3px solid transparent;
+    outline-offset: 4px;
+  }
+}
+.cmt-quote.cmt-block {
+  font-style: normal;
+}
+
+/* Lightbox — enlarge a diagram/image over a dim backdrop (Escape/backdrop to close). */
+.nb-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4vmin;
+  background: rgba(0, 0, 0, 0.72);
+}
+.nb-lightbox[hidden] {
+  display: none;
+}
+.nb-lightbox-stage {
+  max-width: 96vw;
+  max-height: 92vh;
+  overflow: auto;
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+.nb-lightbox-stage svg {
+  /* Size (width/height in px, fit-to-viewport) is set inline by openLightbox — a viewBox
+     SVG has no reliable intrinsic size, so CSS alone can't enlarge it. Just kill the gap. */
+  display: block;
+}
+.nb-lightbox-stage img {
+  max-width: 88vw;
+  max-height: 86vh;
+  display: block;
+}
+.nb-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+}
+.nb-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
 .prose blockquote {
   margin: 1rem 0;
   padding: 0.4rem 1rem;
@@ -465,6 +628,13 @@ a:hover {
   font-size: 13.5px;
   display: block;
   overflow-x: auto;
+}
+/* Diff tables are fixed-layout tables meant to FILL their column (50/50 split). Opt out of
+   the responsive `display:block` above — as a block box the table content stays at its
+   natural width and leaves empty space to the right on the (now wider) content. */
+.prose .nb-diff {
+  display: table;
+  width: 100%;
 }
 .prose th,
 .prose td {
@@ -1098,9 +1268,8 @@ a:hover {
   border: none;
   padding: 0;
 }
-.cmt-page .cmt-composer {
-  max-width: 640px;
-}
+/* The discussion (composer + page-comment cards) fills the content width like the rest of
+   the page — no narrower cap, so it lines up with the prose/tables above it. */
 
 /* Right rail — anchored annotations. */
 .cmt-rail {

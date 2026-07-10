@@ -6,16 +6,23 @@ description: >-
   comments", "apply the review feedback", "review/check the docs", or references
   the global /comments page. Reads the notabene store, edits the docs per the
   feedback, marks them resolved + writes the journal, then verifies (renderer
-  build, links, project checks). Ignores comments on "hold". Never commits without
-  an explicit request.
+  build, links, project checks). Ignores comments on "hold". This skill does NOT
+  install, configure, or launch the review server — that's `notabene-setup`. Never
+  commits without an explicit request.
 ---
 
 # Docs review loop (comments + verification)
 
 **notabene**: a navigable renderer over a repo's docs + a human↔agent review loop.
 **Stateless** — the data lives in the consumer repo's git, not in the tool. The
-renderer companion is the `notabene` npm package (`npx notabene dev`), but this loop
-is **file-I/O-first** and does not require the server to be running.
+renderer companion is the `@z29k/notabene` npm package (run via `npx`, or set up with
+`/notabene:setup`), but this loop is **file-I/O-first** and does not require the server
+to be running.
+
+> **Not set up here?** If there's **no `notabene.config.mjs`** or **no `.notabene/`
+> store**, notabene isn't configured for this repo yet — **hand off to the
+> `notabene-setup` skill** (or `/notabene:setup`) to install/configure and launch, then
+> resume. Don't fail; delegate.
 
 ## Discovery — EVERYTHING comes from the config (nothing hardcoded)
 
@@ -62,6 +69,11 @@ npx notabene comments ls --open --json    # open AND not-on-hold, machine-readab
 npx notabene comments ls --open           # …or human-readable
 ```
 
+> `npx notabene` only resolves a renderer **installed locally**. If it isn't (the plugin
+> runs the renderer from the npx cache), call it through the plugin forwarder instead —
+> `node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" comments ls --open --json` — or just read the
+> store files directly (next paragraph). The loop never depends on the CLI being present.
+
 A comment reopened after a **rejection** (approve mode) carries the human's reason as
 later `thread` replies — **read them** and adjust accordingly before editing.
 
@@ -84,11 +96,19 @@ text…). To find it in the source, search tolerantly, using `anchor.prefix`/`su
 (disambiguating context) and `anchor.section` (nearest heading). `scope: "page"` = a
 page-wide comment, no anchor.
 
+**Block comments** (`scope: "block"`, store v3) target a **diagram or image**, not text —
+the anchor is `{ kind, key, label, section }` (no quote). `kind: "image"` → find the
+`![…](…)` whose src matches `key`/`label` and act on it; `kind: "mermaid"` → find the
+` ```mermaid ` fence for that diagram (its source hashes to `key`; `label` = the diagram
+type + first line) and edit the **diagram source**. `anchor.section` narrows the search.
+
 ## Step 4 — Edit the docs (faithfully)
 
 Apply each piece of feedback **faithfully** at the right spot. A comment is a user
 decision. If the change touches public behavior documented elsewhere, update it (see
-project hooks below).
+project hooks below). For **what you can add** — Mermaid diagrams (```mermaid), GFM
+tables, code blocks, inter-doc links — and the MDX-safety rules, see the
+**`notabene-authoring`** skill.
 
 ## Step 5 — Mark the comment + write the journal
 

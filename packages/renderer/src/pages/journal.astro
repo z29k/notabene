@@ -21,7 +21,9 @@ const entries = (await readJournal()).slice().reverse(); // most recent first
         {entries.map((e) => (
           <section class="journal-entry">
             <header class="journal-head">
-              <span class="journal-date">{e.date}</span>
+              <span class="journal-date">
+                {new Date(`${e.date}T00:00:00Z`).toLocaleDateString(locale, { dateStyle: "medium", timeZone: "UTC" })}
+              </span>
               <h2>{e.title}</h2>
             </header>
             <p class="journal-summary">{e.summary}</p>
