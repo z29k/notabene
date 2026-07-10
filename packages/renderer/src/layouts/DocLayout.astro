@@ -31,6 +31,9 @@ interface Props {
 }
 
 const { title, current = "", space, page, headings = [], breadcrumb = [] } = Astro.props;
+// Doc pages (page set) carry the TOC + anchored-comment rail. App pages (review / comments /
+// journal) pass no page → no rail; drop the empty third column so they use the full width.
+const hasRail = page != null;
 ---
 
 <!doctype html>
@@ -75,7 +78,7 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
       </button>
     </header>
 
-    <div class="shell">
+    <div class:list={["shell", { "shell--full": !hasRail }]}>
       <aside class="sidebar" id="nb-sidebar" tabindex="-1">
         <Sidebar current={current} activeSpace={space} />
         <nav class="drawer-util" aria-label={m.menu}>
@@ -124,10 +127,14 @@ const { title, current = "", space, page, headings = [], breadcrumb = [] } = Ast
         <Comments page={page} space={space} />
       </main>
 
-      <aside class="rail">
-        <Toc headings={headings} />
-        <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations}></div>
-      </aside>
+      {
+        hasRail && (
+          <aside class="rail">
+            <Toc headings={headings} />
+            <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations} />
+          </aside>
+        )
+      }
     </div>
 
     <div id="nb-scrim" class="nb-scrim" hidden></div>

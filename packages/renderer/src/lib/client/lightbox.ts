@@ -36,9 +36,29 @@ export function openLightbox(block: HTMLElement): void {
     img.alt = (block as HTMLImageElement).alt || "";
     stage.appendChild(img);
   } else {
-    const svg = block.querySelector("svg");
-    if (svg) stage.appendChild(svg.cloneNode(true));
-    else stage.textContent = block.textContent || ""; // not rendered yet → show source
+    const svg = block.querySelector("svg") as SVGSVGElement | null;
+    if (svg) {
+      // Mermaid emits the SVG with width:100% + an inline max-width:<natural>px. Cloned into
+      // the flex-centered stage that percentage width is INDEFINITE, so the SVG collapses to
+      // the 300px replaced-element default (smaller than the inline original!), and the inline
+      // max-width would also cap any enlargement. Size the clone explicitly to fill the
+      // viewport, preserving the viewBox aspect ratio, so "enlarge" actually enlarges.
+      const clone = svg.cloneNode(true) as SVGSVGElement;
+      const vb = svg.viewBox?.baseVal;
+      const r = svg.getBoundingClientRect();
+      const nw = vb?.width || r.width || 300;
+      const nh = vb?.height || r.height || 150;
+      const scale = Math.min((window.innerWidth * 0.86) / nw, (window.innerHeight * 0.82) / nh);
+      clone.removeAttribute("width");
+      clone.removeAttribute("height");
+      clone.style.maxWidth = "none";
+      clone.style.maxHeight = "none";
+      clone.style.width = `${Math.round(nw * scale)}px`;
+      clone.style.height = `${Math.round(nh * scale)}px`;
+      stage.appendChild(clone);
+    } else {
+      stage.textContent = block.textContent || ""; // not rendered yet → show source
+    }
   }
   box.hidden = false;
   openOverlay("lightbox", box, () => {

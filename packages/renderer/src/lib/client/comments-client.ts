@@ -12,8 +12,21 @@ export type { BlockAnchor, Comment, CommentAnchor, CommentReply, CommentScope, C
 export const esc = (s: string): string =>
   s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
 
-/** ISO timestamp → compact "YYYY-MM-DD HH:MM". */
-export const fmt = (s: string): string => s.slice(0, 16).replace("T", " ");
+/** ISO timestamp → date+time formatted for the PAGE locale (read from `<html lang>`, set
+ *  from notabene.config `locale`) and the VIEWER's local timezone, so FR shows
+ *  "7 janv. 2026, 10:00" and EN "Jan 7, 2026, 10:00 AM" for a 09:00Z instant in CET. The
+ *  store always keeps the instant in UTC (`new Date().toISOString()` on write) — only the
+ *  display is localized. Falls back to a compact ISO form if Intl/locale is unavailable. */
+export const fmt = (s: string): string => {
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 16).replace("T", " ");
+  const locale = (typeof document !== "undefined" && document.documentElement.lang) || undefined;
+  try {
+    return d.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return s.slice(0, 16).replace("T", " ");
+  }
+};
 
 /**
  * Build a `/api/comments` fetch wrapper. With a `page` it scopes GET to that page

@@ -94,6 +94,22 @@ const { page, space } = Astro.props;
     // On a doc page the 💬 sheet-open button is relevant (CSS hides it on desktop).
     if (sheetBtn) sheetBtn.hidden = false;
 
+    // Desktop overlays (float button, compose/view popovers) are anchored to the DOCUMENT,
+    // not the viewport, so they scroll WITH the page and stay pinned to their target text/
+    // block instead of drifting away. `t`/`l` are viewport coords (already clamped so the
+    // overlay opens on-screen); add the scroll offset and switch to position:absolute (the
+    // CSS default is fixed — kept for the compact bottom-sheet path via placeSheet).
+    const placeDoc = (el: HTMLElement, t: number, l: number) => {
+      el.style.position = "absolute";
+      el.style.top = `${t + window.scrollY}px`;
+      el.style.left = `${l + window.scrollX}px`;
+    };
+    const placeSheet = (el: HTMLElement) => {
+      el.style.position = "";
+      el.style.top = "";
+      el.style.left = "";
+    };
+
     let comments: Comment[] = [];
     let railFilter = "open";
     let pendingAnchor: Anchor | null = null;
@@ -245,13 +261,27 @@ const { page, space } = Astro.props;
         .filter((c) => c.scope === "block" && c.status !== "resolved" && c.anchor && findBlockEl(c.anchor as BlockAnchor) === el)
         .map((c) => c.id);
     }
-    // Outline + count badge (CSS ::after via data-cmt-count) on blocks that have open
-    // comments. Class/attr only — never a text node, so the selection flat-map is untouched.
+    // Outline + a clickable count badge on blocks that have open comments. The badge is a
+    // real, body-level element (NOT a CSS ::after — pseudo-elements don't render on <img>,
+    // a replaced element, so images would silently get no badge). Body-level + document
+    // coords means ONE mechanism covers both <pre.mermaid> and <img> and the badge scrolls
+    // with the page; it's repositioned on any article relayout (ResizeObserver in initBlocks).
+    let blockBadges: { el: HTMLElement; badge: HTMLElement }[] = [];
+    function clearBlockBadges() {
+      for (const { badge } of blockBadges) badge.remove();
+      blockBadges = [];
+    }
+    function positionBlockBadge(el: HTMLElement, badge: HTMLElement) {
+      const r = el.getBoundingClientRect();
+      badge.style.top = `${r.top + window.scrollY + 6}px`;
+      badge.style.left = `${r.left + window.scrollX + 6}px`;
+    }
+    function repositionBlockBadges() {
+      for (const { el, badge } of blockBadges) positionBlockBadge(el, badge);
+    }
     function markBlocks() {
-      for (const b of blockList()) {
-        b.el.classList.remove("cmt-block-has");
-        delete b.el.dataset.cmtCount;
-      }
+      clearBlockBadges();
+      for (const b of blockList()) b.el.classList.remove("cmt-block-has");
       const counts = new Map<HTMLElement, number>();
       for (const c of comments) {
         if (c.scope !== "block" || c.status === "resolved" || !c.anchor) continue;
@@ -260,7 +290,20 @@ const { page, space } = Astro.props;
       }
       for (const [el, n] of counts) {
         el.classList.add("cmt-block-has");
-        el.dataset.cmtCount = String(n);
+        const badge = document.createElement("button");
+        badge.type = "button";
+        badge.className = "cmt-block-badge";
+        badge.textContent = `💬 ${n}`;
+        badge.title = M.blockThread;
+        badge.setAttribute("aria-label", `${M.blockThread} (${n})`);
+        badge.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const me = e as MouseEvent;
+          openBlockThread(el, me.clientX, me.clientY);
+        });
+        document.body.appendChild(badge);
+        positionBlockBadge(el, badge);
+        blockBadges.push({ el, badge });
       }
     }
     function flashBlock(el: HTMLElement) {
@@ -317,14 +360,16 @@ const { page, space } = Astro.props;
       popInput.value = "";
       floatBtn.hidden = true;
       if (isCompact()) {
-        pop.style.top = "";
-        pop.style.left = "";
+        placeSheet(pop);
         pop.hidden = false;
         openOverlay("sheet-compose", pop, hideComposeVisual, popInput);
       } else {
         const rect = el.getBoundingClientRect();
-        pop.style.top = `${Math.max(8, Math.min(window.innerHeight - 180, rect.bottom + 8))}px`;
-        pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 320, rect.left))}px`;
+        placeDoc(
+          pop,
+          Math.max(8, Math.min(window.innerHeight - 180, rect.bottom + 8)),
+          Math.max(8, Math.min(window.innerWidth - 320, rect.left)),
+        );
         pop.hidden = false;
         popInput.focus();
       }
@@ -344,6 +389,11 @@ const { page, space } = Astro.props;
         }, 150);
       });
       window.addEventListener("scroll", () => hideBar(), { passive: true });
+      // Badges are body-level at document coords → they scroll with the page for free, but
+      // must be re-placed when the article relays out (Mermaid renders async and grows its
+      // block; a diagram growing also pushes blocks below it) or the window resizes.
+      new ResizeObserver(() => repositionBlockBadges()).observe(article!);
+      window.addEventListener("resize", () => repositionBlockBadges(), { passive: true });
     }
 
     // ── card rendering (shared) ────────────────────────────────────────────
@@ -481,8 +531,7 @@ const { page, space } = Astro.props;
       }
       renderView();
       if (isCompact()) {
-        viewEl.style.top = "";
-        viewEl.style.left = "";
+        placeSheet(viewEl);
         if (currentOverlay() !== "sheet-read") {
           openOverlay("sheet-read", viewEl, () => {
             viewEl.hidden = true;
@@ -490,8 +539,34 @@ const { page, space } = Astro.props;
           });
         }
       } else {
-        viewEl.style.top = `${Math.max(8, Math.min(window.innerHeight - 80, y + 10))}px`;
-        viewEl.style.left = `${Math.max(8, Math.min(window.innerWidth - 340, x))}px`;
+        placeDoc(
+          viewEl,
+          Math.max(8, Math.min(window.innerHeight - 80, y + 10)),
+          Math.max(8, Math.min(window.innerWidth - 340, x)),
+        );
+      }
+    }
+    // Open a block's thread directly (from its count badge). The badge sits on top of the
+    // block at body level, so a point hit-test (openView) would resolve to the badge, not
+    // the block — go straight through blockCommentIdsFor and position near the click.
+    function openBlockThread(el: HTMLElement, x: number, y: number) {
+      viewIds = blockCommentIdsFor(el);
+      if (!viewIds.length) return;
+      renderView();
+      if (isCompact()) {
+        placeSheet(viewEl);
+        if (currentOverlay() !== "sheet-read") {
+          openOverlay("sheet-read", viewEl, () => {
+            viewEl.hidden = true;
+            viewIds = [];
+          });
+        }
+      } else {
+        placeDoc(
+          viewEl,
+          Math.max(8, Math.min(window.innerHeight - 80, y + 10)),
+          Math.max(8, Math.min(window.innerWidth - 340, x)),
+        );
       }
     }
     // Distinguish a tap (open) from a drag (select) by movement — never read the global
@@ -536,13 +611,11 @@ const { page, space } = Astro.props;
       savedRange = range.cloneRange();
       if (coarse()) {
         floatBtn.classList.add("cmt-float--bar");
-        floatBtn.style.top = "";
-        floatBtn.style.left = "";
+        placeSheet(floatBtn);
       } else {
         floatBtn.classList.remove("cmt-float--bar");
         const rect = range.getBoundingClientRect();
-        floatBtn.style.top = `${Math.max(8, rect.top - 40)}px`;
-        floatBtn.style.left = `${rect.left}px`;
+        placeDoc(floatBtn, Math.max(8, rect.top - 40), rect.left);
       }
       floatBtn.hidden = false;
     }
@@ -556,7 +629,7 @@ const { page, space } = Astro.props;
       pointerDown = false;
       if (
         (e.target as HTMLElement).closest(
-          "#cmt-float,#cmt-pop,#cmt-page,#cmt-rail,#cmt-view,#nb-scrim,#nb-cmt-sheet-btn,.rail,.sidebar",
+          "#cmt-float,#cmt-pop,#cmt-page,#cmt-rail,#cmt-view,#nb-scrim,#nb-cmt-sheet-btn,.cmt-block-badge,.rail,.sidebar",
         )
       )
         return;
@@ -586,14 +659,16 @@ const { page, space } = Astro.props;
       popInput.value = "";
       floatBtn.hidden = true;
       if (isCompact()) {
-        pop.style.top = ""; // let CSS anchor it as a bottom sheet
-        pop.style.left = "";
+        placeSheet(pop); // let CSS anchor it as a bottom sheet
         pop.hidden = false;
         openOverlay("sheet-compose", pop, hideComposeVisual, popInput);
       } else {
         const rect = savedRange.getBoundingClientRect();
-        pop.style.top = `${Math.max(8, Math.min(window.innerHeight - 180, rect.bottom + 8))}px`;
-        pop.style.left = `${Math.max(8, Math.min(window.innerWidth - 320, rect.left))}px`;
+        placeDoc(
+          pop,
+          Math.max(8, Math.min(window.innerHeight - 180, rect.bottom + 8)),
+          Math.max(8, Math.min(window.innerWidth - 320, rect.left)),
+        );
         pop.hidden = false;
         popInput.focus();
       }
@@ -638,13 +713,13 @@ const { page, space } = Astro.props;
     document.addEventListener("pointerdown", (e) => {
       if (currentOverlay()) return;
       const t = e.target as HTMLElement;
-      if (!t.closest("#cmt-pop,#cmt-float")) {
+      if (!t.closest("#cmt-pop,#cmt-float,.cmt-block-badge")) {
         pop.hidden = true;
         if (!window.getSelection()?.toString().trim()) floatBtn.hidden = true;
       }
-      // Close the reading popover unless the press is inside it or back in the
-      // content (the content tap handler reopens it when hitting a highlight).
-      if (!t.closest("#cmt-view") && !article!.contains(t)) {
+      // Close the reading popover unless the press is inside it, on a block's count badge
+      // (its own handler opens it), or back in the content (the tap handler reopens it).
+      if (!t.closest("#cmt-view,.cmt-block-badge") && !article!.contains(t)) {
         viewIds = [];
         viewEl.hidden = true;
       }
