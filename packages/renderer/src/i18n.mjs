@@ -72,6 +72,11 @@ const MESSAGES = {
 
     homeDocumentation: "documentation",
     homeLede: "Sourced live from the repo.",
+    notFoundTitle: "Page not found",
+    notFoundBody: "The page you're looking for doesn't exist or may have moved.",
+    notFoundPathLabel: "Requested path",
+    notFoundHome: "Back to home",
+    notFoundSpaces: "Or jump into a space",
 
     noHighlightSupport:
       "This browser can't paint comment highlights — clicking a marked passage still works. Use a recent Chrome, Edge, Safari, or Firefox.",
@@ -163,6 +168,11 @@ const MESSAGES = {
 
     homeDocumentation: "documentation",
     homeLede: "Sourcé en direct depuis le repo.",
+    notFoundTitle: "Page introuvable",
+    notFoundBody: "La page que vous recherchez n'existe pas ou a été déplacée.",
+    notFoundPathLabel: "Chemin demandé",
+    notFoundHome: "Retour à l'accueil",
+    notFoundSpaces: "Ou accédez à un espace",
 
     noHighlightSupport:
       "Ce navigateur ne peut pas afficher le surlignage des commentaires — cliquer sur un passage annoté fonctionne toujours. Utilise un Chrome, Edge, Safari ou Firefox récent.",

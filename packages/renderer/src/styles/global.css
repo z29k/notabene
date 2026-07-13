@@ -728,6 +728,66 @@ a:hover {
   color: var(--text-soft);
 }
 
+/* ── Custom 404 (src/pages/404.astro) ─────────────────────────────────────── */
+.nf {
+  text-align: center;
+  padding: 2.5rem 1rem 0.5rem;
+}
+.nf-code {
+  margin: 0;
+  font-size: clamp(4rem, 13vw, 7rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--accent);
+}
+.nf h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 1.6rem;
+}
+.nf .lede {
+  margin: 0 auto 1.25rem;
+  max-width: 34rem;
+}
+.nf-path {
+  margin: 0 0 1.5rem;
+  font-size: 13px;
+  color: var(--text-faint);
+}
+.nf-path code {
+  padding: 2px 8px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-family: var(--mono);
+  word-break: break-all;
+}
+.nf-actions {
+  margin: 0;
+}
+.nf-home {
+  display: inline-block;
+  padding: 0.55rem 1.4rem;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 600;
+}
+.nf-home:hover {
+  filter: brightness(1.06);
+  text-decoration: none;
+}
+.nf-spaces-label {
+  margin: 2.25rem 0 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
 /* ── Responsive shell ─────────────────────────────────────────────────────
    Desktop ≥1024: the 3-col grid above, unchanged.
    Compact  <1024: nav → off-canvas drawer, TOC → inline collapsible,
