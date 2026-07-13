@@ -327,7 +327,8 @@ const { page, space } = Astro.props;
       bar.addEventListener("click", (e) => {
         const b = (e.target as HTMLElement).closest("button[data-b]") as HTMLElement | null;
         if (!b || !barTarget) return;
-        if (b.dataset.b === "zoom") openLightbox(barTarget);
+        if (b.dataset.b === "zoom")
+          openLightbox(barTarget, { close: M.close, zoomIn: M.zoomIn, zoomOut: M.zoomOut, zoomReset: M.zoomReset });
         else openBlockCompose(barTarget);
       });
       bar.addEventListener("pointerleave", () => hideBar());

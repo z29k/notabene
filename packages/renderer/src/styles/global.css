@@ -562,7 +562,9 @@ a:hover {
   font-style: normal;
 }
 
-/* Lightbox — enlarge a diagram/image over a dim backdrop (Escape/backdrop to close). */
+/* Lightbox — enlarge a diagram/image over a dim backdrop and pan/zoom it. The stage is a
+   fixed viewport; the content layer is transformed (pan/zoom) inside it by lib/client/
+   lightbox.ts. Escape or the backdrop margin closes; the − % + ⤢ pill controls zoom. */
 .nb-lightbox {
   position: fixed;
   inset: 0;
@@ -570,29 +572,40 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4vmin;
-  background: rgba(0, 0, 0, 0.72);
+  padding: 3vmin;
+  background: rgba(0, 0, 0, 0.78);
 }
 .nb-lightbox[hidden] {
   display: none;
 }
 .nb-lightbox-stage {
-  max-width: 96vw;
-  max-height: 92vh;
-  overflow: auto;
+  position: relative;
+  width: 94vw;
+  height: 90vh;
+  overflow: hidden;
   background: var(--bg);
   border-radius: var(--radius);
-  padding: 1rem;
+  cursor: grab;
+  touch-action: none; /* we own the gestures (pan/pinch) */
+  overscroll-behavior: contain;
 }
-.nb-lightbox-stage svg {
-  /* Size (width/height in px, fit-to-viewport) is set inline by openLightbox — a viewBox
-     SVG has no reliable intrinsic size, so CSS alone can't enlarge it. Just kill the gap. */
-  display: block;
+.nb-lightbox-stage.nb-grabbing {
+  cursor: grabbing;
 }
-.nb-lightbox-stage img {
-  max-width: 88vw;
-  max-height: 86vh;
+.nb-lightbox-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+.nb-lightbox-content svg,
+.nb-lightbox-content img {
   display: block;
+  width: 100%;
+  height: 100%;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .nb-lightbox-close {
   position: absolute;
@@ -609,6 +622,45 @@ a:hover {
 }
 .nb-lightbox-close:hover {
   background: rgba(255, 255, 255, 0.28);
+}
+.nb-lightbox-tools {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(20, 22, 28, 0.82);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px);
+}
+.nb-lightbox-tools button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #fff;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nb-lightbox-tools button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+.nb-lightbox-pct {
+  min-width: 54px;
+  text-align: center;
+  color: #fff;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
 }
 .prose blockquote {
   margin: 1rem 0;
