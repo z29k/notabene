@@ -315,20 +315,24 @@ const { page, space } = Astro.props;
     // Floating toolbar (⤢ enlarge · 💬 comment) — body-level like the selection affordance.
     let blockBarEl: HTMLElement | null = null;
     let barTarget: HTMLElement | null = null;
+    // Crisp inline "expand" icon — the ⤢ glyph rendered too thin/small to read as a button.
+    const EXPAND_ICON =
+      '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M21 3l-8 8M9 21H3v-6M3 21l8-8"/></svg>';
+    const openEnlarge = (el: HTMLElement) =>
+      openLightbox(el, { close: M.close, zoomIn: M.zoomIn, zoomOut: M.zoomOut, zoomReset: M.zoomReset });
     function blockBar(): HTMLElement {
       if (blockBarEl) return blockBarEl;
       const bar = document.createElement("div");
       bar.className = "cmt-blockbar";
       bar.hidden = true;
       bar.innerHTML =
-        `<button type="button" data-b="zoom" title="${M.enlarge}" aria-label="${M.enlarge}">⤢</button>` +
+        `<button type="button" data-b="zoom" title="${M.enlarge}" aria-label="${M.enlarge}">${EXPAND_ICON}</button>` +
         `<button type="button" data-b="comment" title="${M.floatComment}" aria-label="${M.floatComment}">💬</button>`;
       bar.addEventListener("pointerdown", (e) => e.preventDefault());
       bar.addEventListener("click", (e) => {
         const b = (e.target as HTMLElement).closest("button[data-b]") as HTMLElement | null;
         if (!b || !barTarget) return;
-        if (b.dataset.b === "zoom")
-          openLightbox(barTarget, { close: M.close, zoomIn: M.zoomIn, zoomOut: M.zoomOut, zoomReset: M.zoomReset });
+        if (b.dataset.b === "zoom") openEnlarge(barTarget);
         else openBlockCompose(barTarget);
       });
       bar.addEventListener("pointerleave", () => hideBar());
@@ -339,13 +343,19 @@ const { page, space } = Astro.props;
     function positionBar(el: HTMLElement) {
       const bar = blockBar();
       const r = el.getBoundingClientRect();
-      bar.style.top = `${Math.max(6, r.top + 6)}px`;
+      // Keep the toolbar in the block's top-right corner, but never under the sticky header
+      // (it would paint over it — see z-index too) and never past the block's bottom edge as
+      // the block scrolls up and away.
+      const headerBottom = (document.querySelector(".topbar") as HTMLElement | null)?.getBoundingClientRect().bottom ?? 0;
+      const minTop = headerBottom + 6;
+      const barH = bar.offsetHeight || 34;
+      bar.style.top = `${Math.min(Math.max(minTop, r.top + 6), Math.max(minTop, r.bottom - barH - 6))}px`;
       bar.style.left = `${Math.max(6, Math.min(window.innerWidth - 78, r.right - 72))}px`;
     }
     function showBar(el: HTMLElement) {
       barTarget = el;
+      blockBar().hidden = false; // unhide first so positionBar can measure the bar's height
       positionBar(el);
-      blockBar().hidden = false;
     }
     function hideBar() {
       if (blockBarEl) blockBarEl.hidden = true;
@@ -381,6 +391,14 @@ const { page, space } = Astro.props;
         if ((e as PointerEvent).pointerType === "touch") return;
         const el = (e.target as HTMLElement).closest("pre.mermaid, img") as HTMLElement | null;
         if (el && article!.contains(el)) showBar(el);
+      });
+      // Double-click a diagram/image to enlarge (a bigger target than the small toolbar icon).
+      article!.addEventListener("dblclick", (e) => {
+        const el = (e.target as HTMLElement).closest("pre.mermaid, img") as HTMLElement | null;
+        if (el && article!.contains(el)) {
+          e.preventDefault();
+          openEnlarge(el);
+        }
       });
       article!.addEventListener("pointerout", (e) => {
         const to = (e as PointerEvent).relatedTarget as HTMLElement | null;
