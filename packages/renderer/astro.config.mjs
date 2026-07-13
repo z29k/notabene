@@ -47,5 +47,14 @@ export default defineConfig({
     // Consumer content (docs, notabene.config) lives outside the Astro root
     // (the app is in node_modules) → let Vite serve it.
     server: { fs: { allow: [REPO_ROOT] } },
+    // Mermaid (lazy-loaded by lib/client/mermaid.ts via `import("mermaid")`) pulls in
+    // dayjs — a CommonJS module with no ESM `default` export — through its OWN internal
+    // dynamic imports, which Vite's dep scanner never reaches from our single dynamic
+    // import. Left un-prebundled, dayjs is served raw and `import mermaid from "mermaid"`
+    // throws `dayjs … does not provide an export named 'default'` BEFORE the per-diagram
+    // try/catch — so no diagram renders and every block stays as plain text. Force Vite to
+    // pre-bundle both so it synthesizes the CJS→ESM default. Dev-only: the production build
+    // goes through Rollup, which handles CJS interop itself.
+    optimizeDeps: { include: ["mermaid", "dayjs"] },
   },
 });
