@@ -1,6 +1,6 @@
 {
   "name": "notabene",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Turnkey docs review: set up notabene on any repo — write the config, create the .notabene store, and start the review server via npx (no toolchain to install) — then run the human↔agent loop: process browser comments on your docs, apply the feedback, mark resolved, write the journal, and verify.",
   "author": {
     "name": "z29k"
