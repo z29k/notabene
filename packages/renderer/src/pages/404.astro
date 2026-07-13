@@ -1,0 +1,42 @@
+---
+// Custom 404 — Astro serves this for any unmatched route (dev + the static 404.html the
+// Node adapter falls back to). Uses the full site shell (topbar search + nav) so a wrong
+// URL is a way back in, not a dead end. The requested path is filled client-side because a
+// prerendered 404 is served for every path (Astro.url would be the build-time path).
+import DocLayout from "../layouts/DocLayout.astro";
+import { locale, roots } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+const m = t(locale);
+---
+
+<DocLayout title={m.notFoundTitle}>
+  <div class="nf">
+    <p class="nf-code">404</p>
+    <h1>{m.notFoundTitle}</h1>
+    <p class="lede">{m.notFoundBody}</p>
+    <p class="nf-path"><span>{m.notFoundPathLabel}</span> <code id="nf-path">—</code></p>
+    <p class="nf-actions"><a class="nf-home" href="/">{m.notFoundHome}</a></p>
+  </div>
+
+  <p class="nf-spaces-label">{m.notFoundSpaces}</p>
+  <div class="home-cards">
+    {
+      roots.map((root) => (
+        <a class="home-card" href={`/${root.key}`}>
+          <h2>{root.label}</h2>
+          <p><code>{root.subLabel}</code></p>
+          {root.description && <p>{root.description}</p>}
+        </a>
+      ))
+    }
+  </div>
+
+  <script is:inline>
+    // A single prerendered 404 is served for every unmatched path → show the real one.
+    (function () {
+      var el = document.getElementById("nf-path");
+      if (el) el.textContent = location.pathname + location.search;
+    })();
+  </script>
+</DocLayout>
