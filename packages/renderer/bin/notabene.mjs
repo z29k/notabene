@@ -477,14 +477,20 @@ function doStop() {
 // and page numbers — things browser print-to-PDF can't produce. The in-browser "Export
 // PDF" button needs none of this; this is the reproducible, CI-friendly artifact.
 
-// --scope value → /print URL. doc | space:<key> | folder:<key>/<path> | page:<key>/<id>.
-function scopeToUrl(scope) {
-  if (scope === "doc") return "/print";
+// --scope value (+ optional --locale) → /print URL.
+//   doc | space:<key> | folder:<key>/<path> | page:<key>/<id>
+// `--locale <loc>` prefixes doc/space/folder with the language token (omit it for the
+// default locale). A page scope encodes the locale in its id, so the token is not added.
+function scopeToUrl(scope, locale) {
+  const tok = locale ? `${locale}/` : "";
+  if (scope === "doc") return locale ? `/print/${locale}` : "/print";
   const m = scope.match(/^(space|folder|page):(.+)$/);
   if (!m) {
     fail(`--scope must be one of: doc | space:<key> | folder:<key>/<path> | page:<key>/<id> (got "${scope}")`);
   }
-  return `/print/${m[1]}/${m[2].replace(/^\/+|\/+$/g, "")}`;
+  const rest = m[2].replace(/^\/+|\/+$/g, "");
+  if (m[1] === "page") return `/print/page/${rest}`;
+  return `/print/${tok}${m[1]}/${rest}`;
 }
 
 // Best-effort path to a system Chrome/Chromium/Edge (for puppeteer-core, which ships no
@@ -606,11 +612,14 @@ async function doPdf() {
   }
 
   const scope = flag("--scope") && flag("--scope") !== true ? String(flag("--scope")).trim() : "doc";
-  const urlPath = scopeToUrl(scope);
+  const localeFlag = flag("--locale") && flag("--locale") !== true ? String(flag("--locale")).trim() : undefined;
+  const urlPath = scopeToUrl(scope, localeFlag);
   const outFlag = flag("--out");
   const outPath = path.resolve(
     repoRoot,
-    outFlag && outFlag !== true ? String(outFlag) : `notabene-${scope.replace(/[:/]+/g, "-")}.pdf`,
+    outFlag && outFlag !== true
+      ? String(outFlag)
+      : `notabene-${[scope, localeFlag].filter(Boolean).join("-").replace(/[:/]+/g, "-")}.pdf`,
   );
   const chromePath =
     (flag("--chrome") && flag("--chrome") !== true && String(flag("--chrome"))) ||
@@ -704,7 +713,7 @@ switch (cmd) {
         "  notabene stop            stop the detached server\n" +
         "  notabene build           build the site (Node standalone)\n" +
         "  notabene preview         serve the built site\n" +
-        "  notabene pdf             export a PDF (headless Chromium)  [--scope doc|space:K|folder:K/P|page:K/I] [--out F] [--chrome P]\n" +
+        "  notabene pdf             export a PDF (headless Chromium)  [--scope doc|space:K|folder:K/P|page:K/I] [--locale L] [--out F] [--chrome P]\n" +
         "  notabene migrate         convert the store to one file per comment (schemaVersion 3)\n" +
         "  notabene comments ls     list comments  [--open] [--json] [--page <p>]\n" +
         "  notabene journal add     append a JSON journal entry from stdin\n\n" +

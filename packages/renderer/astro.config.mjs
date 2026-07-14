@@ -4,7 +4,7 @@ import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
-import { REPO_ROOT, host, mdxEnabled, port, roots } from "./src/config.mjs";
+import { REPO_ROOT, host, i18n, mdxEnabled, port, roots } from "./src/config.mjs";
 
 // notabene renderer — a navigable site over a repo's docs + a human↔agent review
 // loop. DEV-LOCAL tool, not deployed. Plain Astro (not Starlight): content lives
@@ -39,7 +39,7 @@ export default defineConfig({
     shikiConfig: { theme: "github-dark", wrap: true },
     // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
     // [attacher, options]: unified calls remarkRewriteLinks(roots).
-    remarkPlugins: [[remarkRewriteLinks, roots]],
+    remarkPlugins: [[remarkRewriteLinks, { roots, i18n }]],
     // ```mermaid fence → <pre class="mermaid"> (rendered client-side; see lib/client/mermaid.ts).
     rehypePlugins: [rehypeMermaid],
   },

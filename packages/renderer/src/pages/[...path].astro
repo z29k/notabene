@@ -101,23 +101,25 @@ if (entry) {
 
 const current = isHome ? homeHref : routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
 
-// Contextual PDF export targets (raw ids; the print pipeline becomes locale-aware later).
+// Contextual PDF export targets, locale-scoped: the locale token prefixes non-default
+// space/folder scopes and the folder path is CANONICAL; a page scope carries the locale in
+// its raw id (no token).
 let exportScopes:
   | { space?: { href: string; label: string }; folder?: { href: string; label: string }; page?: { href: string; label: string } }
   | undefined;
 if (pdf.enabled) {
-  exportScopes = { space: { href: scopeToPath({ kind: "space", space: spaceKey }), label: spaceLabel } };
+  const scLoc = locale === i18n.defaultLocale ? undefined : locale;
+  exportScopes = { space: { href: scopeToPath({ kind: "space", space: spaceKey, locale: scLoc }), label: spaceLabel } };
   if (entry && !isHome) {
-    const rid = entry.id;
-    const idParts = rid.split("/");
-    if (idParts.length > 1) {
-      const folderPath = idParts.slice(0, -1).join("/");
+    const cparts = canonicalId.split("/");
+    if (cparts.length > 1) {
+      const folderPath = cparts.slice(0, -1).join("/");
       exportScopes.folder = {
-        href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath }),
-        label: humanize(idParts[idParts.length - 2]),
+        href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath, locale: scLoc }),
+        label: humanize(cparts[cparts.length - 2]),
       };
     }
-    exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: rid }), label: title };
+    exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: entry.id }), label: title };
   }
 }
 ---

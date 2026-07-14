@@ -126,7 +126,7 @@ CLI:
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
-| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep |
+| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep |
 | `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
 | `notabene comments ls` | List comments - `--open` `--json` `--page <p>` (for agents/scripts) |
 | `notabene journal add` | Append a JSON journal entry read from stdin |
@@ -206,6 +206,7 @@ export default {
 | `author` | git `user.name` | Default comment author; each browser overrides it per-device via the **identity dialog** (name + optional email) |
 | `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
+| `i18n` | — | Multi-language docs: `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` (see below). Omit for one language |
 
 ## Two-phase review (optional)
 
@@ -232,6 +233,28 @@ drops the MDX dependency entirely - best for a plain-Markdown repo.
 
 > Note: the config **default** is `"mdx"` (omit the key to get it), but `notabene init`
 > scaffolds `"commonmark"` - the safe, zero-dependency, most-lenient starting point.
+
+## Multi-language docs (i18n)
+
+Add `i18n` to serve the same docs in several languages with **clean prefixed URLs** (the
+default locale unprefixed, others `/<locale>/…`), a **language switcher** in the header,
+`hreflang` alternates, and per-page chrome (a French page renders French nav/buttons/dates).
+
+```js
+i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory" },
+```
+
+Pick how you lay out the files with `strategy`:
+
+- **`directory`** — a folder per locale: `docs/en/guide.md` · `docs/fr/guide.md`.
+- **`suffix`** — one tree, translated per file: `docs/guide.md` (default) · `docs/guide.fr.md`.
+  Best for adding languages to an **existing** doc: the default-language files don't move,
+  so their URLs *and* their comment threads are preserved.
+
+Comments are **per language** (a comment on the FR page is its own thread). Untranslated
+pages still show the switcher (it points at that language's home). Search and PDF export
+(`notabene pdf --locale fr`) are scoped to one language. Omit `i18n` for a single language —
+behavior is unchanged.
 
 ## The `.notabene` contract
 

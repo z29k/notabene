@@ -158,6 +158,23 @@ parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to 
   Flags: `--scope`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
   pagination hangs in a hidden tab and can't emit a real PDF outline — see the pdf-export memory).
 
+## Architecture: content i18n (multi-language docs)
+
+Optional (`i18n: { locales, defaultLocale, strategy }` in config). **Locale is DERIVED per
+entry** — `roots[]` stay declared once. The pure resolver is `src/lib/i18n-content.mjs`
+(**`.mjs`** so `config.mjs`/`rewrite-links.mjs` can import it): `decode(rawId)` →
+`{ locale, canonicalId }`, `routeFor` (default locale unprefixed `/docs/…`, others
+`/<loc>/…`), `buildEquivalence`/`switchLinks`, `makeSuffixGenerateId`. Two authoring layouts:
+`directory` (`docs/<loc>/…`) or `suffix` (`guide.md` + `guide.fr.md` — needs the custom
+`generateId` because Astro's default slugger deletes the dot). One unified route
+`src/pages/[...path].astro` (replaced `[space]/[...slug]`) emits exact prefixed paths;
+`DocLayout` takes a per-page `locale` → `t()`/`<html lang>`/injected catalog + a language
+switcher + `hreflang`. **The store `page` key is the raw locale-encoded id**, so comments are
+locale-scoped with **no schema change** (page-file/store-path resolve it unchanged). Disabled
+(one locale) → byte-identical to before. `buildNav(space, locale?)`, `makeRouteFor(roots,
+i18n?)`, `parseScope(scope, locales)` all take the i18n arg OPT-IN so mono-language + tests
+are unaffected. Search + print/PDF are per-locale (`/print/<loc>/…`, `notabene pdf --locale`).
+
 ## Safety model (keep it intact)
 
 The comments API (`src/pages/api/comments.ts`) writes into the consumer's git, so:

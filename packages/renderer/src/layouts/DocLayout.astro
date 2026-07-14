@@ -70,6 +70,8 @@ const showExport = pdf.enabled;
 // dialog (?autoprint=1, handled by lib/client/print.ts) — as close to "save straight to
 // PDF" as a browser allows. The silent file-export path is the `notabene pdf` CLI.
 const printHref = (href: string) => `${href}?autoprint=1`;
+// Whole-doc PDF is per-locale (default unprefixed): /print or /print/<locale>.
+const wholeDocHref = locale === clientI18n.defaultLocale ? "/print" : `/print/${locale}`;
 // Doc pages (page set) carry the TOC + anchored-comment rail. App pages (review / comments /
 // journal) pass no page → no rail; drop the empty third column so they use the full width.
 const hasRail = page != null;
@@ -158,7 +160,7 @@ const hasRail = page != null;
                   {m.exportThisSpace}
                 </a>
               )}
-              <a href={printHref("/print")} target="_blank" rel="noopener">
+              <a href={printHref(wholeDocHref)} target="_blank" rel="noopener">
                 {m.exportWholeDoc}
               </a>
             </div>
@@ -218,7 +220,7 @@ const hasRail = page != null;
                     🖨 {m.exportThisSpace}
                   </a>
                 )}
-                <a href={printHref("/print")} target="_blank" rel="noopener" class="drawer-link">
+                <a href={printHref(wholeDocHref)} target="_blank" rel="noopener" class="drawer-link">
                   🖨 {m.exportWholeDoc}
                 </a>
               </>
@@ -453,6 +455,7 @@ const hasRail = page != null;
 
       interface Doc {
         space: string;
+        locale: string;
         href: string;
         title: string;
         headings: string[];
@@ -462,6 +465,9 @@ const hasRail = page != null;
       const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
         document.getElementById("notabene-roots")?.textContent || "[]",
       );
+      // Scope search to the current page's language when i18n is on.
+      const SEARCH_I18N = JSON.parse(document.getElementById("notabene-i18n-config")?.textContent || "null");
+      const searchLocale = document.documentElement.lang || SEARCH_I18N?.defaultLocale || "";
       const M: Record<string, string> = JSON.parse(
         document.getElementById("notabene-i18n")?.textContent || "{}",
       );
@@ -492,7 +498,7 @@ const hasRail = page != null;
             box.innerHTML = "";
             return;
           }
-          const data = await ensureIndex();
+          const data = (await ensureIndex()).filter((d) => !SEARCH_I18N?.enabled || d.locale === searchLocale);
           const hits = data
             .map((doc) => ({ doc, s: score(doc, q) }))
             .filter((x) => x.s > 0)
