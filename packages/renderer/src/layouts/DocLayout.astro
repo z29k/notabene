@@ -4,10 +4,8 @@ import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import Comments from "../components/Comments.astro";
 import type { Space } from "../lib/nav";
-import { author, authorEmail, clientRoots, locale, pdf, reviewMode, siteName, tagline } from "../config.mjs";
+import { author, authorEmail, clientI18n, clientRoots, pdf, reviewMode, siteName, tagline } from "../config.mjs";
 import { t } from "../i18n.mjs";
-
-const m = t(locale);
 
 interface Heading {
   depth: number;
@@ -28,23 +26,96 @@ interface ExportScopes {
   page?: { href: string; label: string };
 }
 
+interface Alt {
+  locale: string;
+  href: string;
+  /** True when this is a REAL translation of the page (vs. a home fallback) — hreflang only. */
+  translated?: boolean;
+}
+
 interface Props {
   title: string;
   current?: string;
   space?: Space;
   /** Chemin logique repo-relatif (sans extension) — support Phase 2 commentaires. */
   page?: string;
+  /** Content locale of THIS page (per-page chrome). Aggregate pages omit it → default. */
+  locale?: string;
   headings?: Heading[];
   breadcrumb?: Crumb[];
   exportScopes?: ExportScopes;
+  /** Equivalent pages in other locales — drives the language switcher + hreflang. */
+  alternates?: Alt[];
+  /** Aggregate pages (comments/journal/review/…): no per-page locale, so localize the chrome
+   *  CLIENT-SIDE to the visitor's current language (localStorage) + show a client switcher. */
+  i18nClientChrome?: boolean;
 }
 
-const { title, current = "", space, page, headings = [], breadcrumb = [], exportScopes } = Astro.props;
+const {
+  title,
+  current = "",
+  space,
+  page,
+  locale = clientI18n.defaultLocale,
+  headings = [],
+  breadcrumb = [],
+  exportScopes,
+  alternates = [],
+  i18nClientChrome = false,
+} = Astro.props;
+// UI chrome follows THIS page's locale (t() falls back to English per key).
+const m = t(locale);
+const showLang = clientI18n.enabled && alternates.length > 1;
+// Aggregate pages: ship EVERY locale's catalog so the client can re-localize the chrome to
+// the visitor's current language (no per-page locale to key off server-side).
+const clientChrome = i18nClientChrome && clientI18n.enabled;
+const i18nAll = clientChrome ? Object.fromEntries(clientI18n.locales.map((l: string) => [l, t(l)])) : null;
+// Runs in <head> BEFORE any list script: pick the visitor's current language (localStorage)
+// → set <html lang> + swap the page-locale catalog so everything downstream (fetched lists,
+// dates) uses it. Injected via set:html (an is:inline body is raw text, not interpolated).
+const earlyLocaleScript =
+  "(function(){try{var all=JSON.parse(document.getElementById('notabene-i18n-all').textContent);" +
+  "var cfg=JSON.parse(document.getElementById('notabene-i18n-config').textContent);" +
+  "var loc=localStorage.getItem('nb-locale');if(!loc||!all[loc])loc=cfg.defaultLocale;" +
+  "document.documentElement.lang=loc;var one=document.getElementById('notabene-i18n');" +
+  "if(one)one.textContent=JSON.stringify(all[loc]);}catch(e){}})();";
+// Endonym for a locale (e.g. "Français"), shown in the language dropdown — via Intl so it's
+// not a hardcoded UI string; falls back to the uppercased code.
+const langName = (loc: string) => {
+  try {
+    const n = new Intl.DisplayNames([loc], { type: "language" }).of(loc);
+    return n ? n.charAt(0).toUpperCase() + n.slice(1) : loc.toUpperCase();
+  } catch {
+    return loc.toUpperCase();
+  }
+};
+// hreflang lists only REAL translations (+ x-default = the default locale's page).
+const hreflangs = alternates.filter((a) => a.translated);
+const xDefault = hreflangs.find((a) => a.locale === clientI18n.defaultLocale)?.href ?? hreflangs[0]?.href;
+// Language-preference redirect (doc pages): the visitor's chosen language (localStorage,
+// set by the switcher) wins. Landing on a page in another language that HAS an equivalent →
+// redirect to it. `altMap` = { locale: href } of the real translations of THIS page.
+const altMap =
+  clientI18n.enabled && !i18nClientChrome && hreflangs.length > 1
+    ? Object.fromEntries(hreflangs.map((a) => [a.locale, a.href]))
+    : null;
+const redirectScript =
+  "(function(){try{var alts=JSON.parse(document.getElementById('notabene-i18n-alts').textContent);" +
+  "var pref=localStorage.getItem('nb-locale');var cur=document.documentElement.lang;" +
+  "if(pref&&pref!==cur&&alts[pref])location.replace(alts[pref]);}catch(e){}})();";
+// Doc page MISSING at least one locale → ship the locales it DOES have + the (per-locale)
+// "not translated" notice, so the client can show a discreet banner when the visitor's
+// preferred language isn't among them (no redirect fired, they're reading the fallback).
+const docLangs = clientI18n.enabled && !i18nClientChrome ? hreflangs.map((a) => a.locale) : null;
+const showBanner = !!docLangs && docLangs.length < clientI18n.locales.length;
+const bannerTpl = showBanner ? Object.fromEntries(clientI18n.locales.map((l: string) => [l, t(l).pageNotTranslated])) : null;
 const showExport = pdf.enabled;
 // Export links open the print view in a NEW TAB and auto-open the browser's print
 // dialog (?autoprint=1, handled by lib/client/print.ts) — as close to "save straight to
 // PDF" as a browser allows. The silent file-export path is the `notabene pdf` CLI.
 const printHref = (href: string) => `${href}?autoprint=1`;
+// Whole-doc PDF is per-locale (default unprefixed): /print or /print/<locale>.
+const wholeDocHref = locale === clientI18n.defaultLocale ? "/print" : `/print/${locale}`;
 // Doc pages (page set) carry the TOC + anchored-comment rail. App pages (review / comments /
 // journal) pass no page → no rail; drop the empty third column so they use the full width.
 const hasRail = page != null;
@@ -60,6 +131,15 @@ const hasRail = page != null;
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
     <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
     <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author, email: authorEmail })} />
+    <script type="application/json" id="notabene-i18n-config" is:inline set:html={JSON.stringify(clientI18n)} />
+    {i18nAll && <script type="application/json" id="notabene-i18n-all" is:inline set:html={JSON.stringify(i18nAll)} />}
+    {i18nAll && <script is:inline set:html={earlyLocaleScript} />}
+    {altMap && <script type="application/json" id="notabene-i18n-alts" is:inline set:html={JSON.stringify(altMap)} />}
+    {altMap && <script is:inline set:html={redirectScript} />}
+    {showBanner && <script type="application/json" id="notabene-i18n-langs" is:inline set:html={JSON.stringify(docLangs)} />}
+    {bannerTpl && <script type="application/json" id="notabene-i18n-banner" is:inline set:html={JSON.stringify(bannerTpl)} />}
+    {showLang && hreflangs.map((a) => <link rel="alternate" hreflang={a.locale} href={a.href} />)}
+    {showLang && xDefault && <link rel="alternate" hreflang="x-default" href={xDefault} />}
   </head>
   <body>
     <header class="topbar">
@@ -75,22 +155,74 @@ const hasRail = page != null;
       </button>
       <a href="/" class="brand">{siteName} <span>· {tagline}</span></a>
       <div class="search">
-        <input id="search-input" type="search" placeholder={m.searchPlaceholder} autocomplete="off" />
+        <input id="search-input" type="search" placeholder={m.searchPlaceholder} data-i18n-ph="searchPlaceholder" autocomplete="off" />
         <div id="search-results" class="search-results" hidden></div>
       </div>
-      <a href="/comments" class="topbar-link topbar-util">{m.navComments}</a>
+      <a href="/comments" class="topbar-link topbar-util" data-i18n="navComments">{m.navComments}</a>
       <a href="/review" id="nav-review" class="topbar-link topbar-util js-review-link" hidden>
-        {m.navReview} <span id="nav-review-badge" class="review-badge js-review-badge"></span>
+        <span data-i18n="navReview">{m.navReview}</span> <span id="nav-review-badge" class="review-badge js-review-badge"></span>
       </a>
-      <a href="/journal" class="topbar-link topbar-util">{m.navJournal}</a>
+      <a href="/journal" class="topbar-link topbar-util" data-i18n="navJournal">{m.navJournal}</a>
       {/* Flexible gap: keeps Comments/Journal on the left, pushes the ancillary
-          Export + name group to the far right (desktop only — utils collapse into the
-          drawer on compact). */}
+          language + Export + name group to the far right (desktop only — utils collapse
+          into the drawer on compact). */}
       <div class="topbar-spacer topbar-util" aria-hidden="true"></div>
+      {
+        showLang && (
+          <details class="lang-menu topbar-util">
+            <summary class="topbar-link lang-summary" aria-label={m.language} title={m.language}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              <span class="lang-current">{locale.toUpperCase()}</span>
+            </summary>
+            <div class="lang-menu-pop">
+              {alternates.map((a) => (
+                <a
+                  href={a.href}
+                  hreflang={a.locale}
+                  lang={a.locale}
+                  class:list={["lang-opt-row", { active: a.locale === locale }]}
+                  aria-current={a.locale === locale ? "true" : undefined}
+                >
+                  <span class="lang-code">{a.locale.toUpperCase()}</span>
+                  <span class="lang-name">{langName(a.locale)}</span>
+                </a>
+              ))}
+            </div>
+          </details>
+        )
+      }
+      {
+        /* Aggregate pages: a client-side switcher — picks the chrome language in place (no
+           URL change), persists it, reloads so the lists re-render in that language. */
+        clientChrome && (
+          <details class="lang-menu topbar-util" id="nb-lang-client">
+            <summary class="topbar-link lang-summary" aria-label={m.language} title={m.language}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              <span class="lang-current" id="nb-lang-current">{clientI18n.defaultLocale.toUpperCase()}</span>
+            </summary>
+            <div class="lang-menu-pop">
+              {clientI18n.locales.map((loc: string) => (
+                <button type="button" class="lang-opt-row" data-locale={loc} lang={loc}>
+                  <span class="lang-code">{loc.toUpperCase()}</span>
+                  <span class="lang-name">{langName(loc)}</span>
+                </button>
+              ))}
+            </div>
+          </details>
+        )
+      }
       {
         showExport && (
           <details class="export-menu topbar-util">
-            <summary class="topbar-link export-summary" aria-label={m.exportPdf} title={m.exportPdf}>
+            <summary class="topbar-link export-summary" aria-label={m.exportPdf} title={m.exportPdf} data-i18n-aria="exportPdf">
               <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <polyline points="6 9 6 2 18 2 18 9" />
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
@@ -99,28 +231,28 @@ const hasRail = page != null;
             </summary>
             <div class="export-menu-pop">
               {exportScopes?.page && (
-                <a href={printHref(exportScopes.page.href)} target="_blank" rel="noopener">
+                <a href={printHref(exportScopes.page.href)} target="_blank" rel="noopener" data-i18n="exportThisPage">
                   {m.exportThisPage}
                 </a>
               )}
               {exportScopes?.folder && (
-                <a href={printHref(exportScopes.folder.href)} target="_blank" rel="noopener">
+                <a href={printHref(exportScopes.folder.href)} target="_blank" rel="noopener" data-i18n="exportThisFolder">
                   {m.exportThisFolder}
                 </a>
               )}
               {exportScopes?.space && (
-                <a href={printHref(exportScopes.space.href)} target="_blank" rel="noopener">
+                <a href={printHref(exportScopes.space.href)} target="_blank" rel="noopener" data-i18n="exportThisSpace">
                   {m.exportThisSpace}
                 </a>
               )}
-              <a href={printHref("/print")} target="_blank" rel="noopener">
+              <a href={printHref(wholeDocHref)} target="_blank" rel="noopener" data-i18n="exportWholeDoc">
                 {m.exportWholeDoc}
               </a>
             </div>
           </details>
         )
       }
-      <button id="nb-identity-chip" class="topbar-me topbar-util" type="button" title={m.identityHint} aria-label={m.identityHint}>
+      <button id="nb-identity-chip" class="topbar-me topbar-util" type="button" title={m.identityHint} aria-label={m.identityHint} data-i18n-aria="identityHint">
         <span aria-hidden="true">👤</span>
         <span class="nb-identity-name"></span>
       </button>
@@ -131,13 +263,30 @@ const hasRail = page != null;
 
     <div class:list={["shell", { "shell--full": !hasRail }]}>
       <aside class="sidebar" id="nb-sidebar" tabindex="-1">
-        <Sidebar current={current} activeSpace={space} />
+        <Sidebar current={current} activeSpace={space} locale={locale} />
         <nav class="drawer-util" aria-label={m.menu}>
-          <a href="/comments" class="drawer-link">{m.navComments}</a>
+          <a href="/comments" class="drawer-link" data-i18n="navComments">{m.navComments}</a>
           <a href="/review" class="drawer-link js-review-link" hidden>
-            {m.navReview} <span class="review-badge js-review-badge"></span>
+            <span data-i18n="navReview">{m.navReview}</span> <span class="review-badge js-review-badge"></span>
           </a>
-          <a href="/journal" class="drawer-link">{m.navJournal}</a>
+          <a href="/journal" class="drawer-link" data-i18n="navJournal">{m.navJournal}</a>
+          {
+            showLang && (
+              <nav class="lang-switch-drawer" aria-label={m.language}>
+                {alternates.map((a) => (
+                  <a
+                    href={a.href}
+                    hreflang={a.locale}
+                    lang={a.locale}
+                    class:list={["drawer-link lang-opt", { active: a.locale === locale }]}
+                    aria-current={a.locale === locale ? "true" : undefined}
+                  >
+                    🌐 {a.locale.toUpperCase()}
+                  </a>
+                ))}
+              </nav>
+            )
+          }
           {
             showExport && (
               <>
@@ -156,7 +305,7 @@ const hasRail = page != null;
                     🖨 {m.exportThisSpace}
                   </a>
                 )}
-                <a href={printHref("/print")} target="_blank" rel="noopener" class="drawer-link">
+                <a href={printHref(wholeDocHref)} target="_blank" rel="noopener" class="drawer-link">
                   🖨 {m.exportWholeDoc}
                 </a>
               </>
@@ -170,6 +319,7 @@ const hasRail = page != null;
       </aside>
 
       <main class="content">
+        {showBanner && <div id="nb-i18n-banner" class="i18n-banner" role="status" hidden />}
         {
           breadcrumb.length > 0 && (
             <nav class="breadcrumb" aria-label="Breadcrumb">
@@ -186,20 +336,20 @@ const hasRail = page != null;
           headings.length > 0 && (
             <details class="toc-inline">
               <summary>{m.tocTitle}</summary>
-              <Toc headings={headings} />
+              <Toc headings={headings} locale={locale} />
             </details>
           )
         }
         <article id="doc-content" class="prose" data-space={space} data-page={page}>
           <slot />
         </article>
-        <Comments page={page} space={space} />
+        <Comments page={page} space={space} locale={locale} />
       </main>
 
       {
         hasRail && (
           <aside class="rail">
-            <Toc headings={headings} />
+            <Toc headings={headings} locale={locale} />
             <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations} />
           </aside>
         )
@@ -234,6 +384,76 @@ const hasRail = page != null;
 
       // Wire the shared scrim / Escape / resize-to-desktop overlay closers once.
       initShell();
+
+      // i18n chrome. Doc pages carry their locale in <html lang> → remember it as the
+      // visitor's CURRENT language. Aggregate pages ship every catalog (#notabene-i18n-all)
+      // and have no per-page locale: the head script already picked the current language
+      // into <html lang> + swapped the client catalog; here we re-localize the static chrome
+      // and wire the in-place switcher (persist + reload → the fetched lists re-render).
+      {
+        const i18nAllEl = document.getElementById("notabene-i18n-all");
+        const i18nCfg = JSON.parse(document.getElementById("notabene-i18n-config")?.textContent || "null");
+        if (i18nCfg?.enabled && !i18nAllEl) {
+          // Doc page: the switcher records the visitor's EXPLICIT language preference (the
+          // head redirect then enforces it on every page). Set it before navigating so the
+          // target page — already in that language — isn't bounced back.
+          for (const a of document.querySelectorAll<HTMLAnchorElement>(".lang-menu a[hreflang], .lang-switch-drawer a[hreflang]")) {
+            a.addEventListener("click", () => localStorage.setItem("nb-locale", a.getAttribute("hreflang") || ""));
+          }
+          // Banner: a preferred language is set but this page has no version in it (so no
+          // redirect fired) → tell the visitor, in their language, they're reading a fallback.
+          const bannerEl = document.getElementById("nb-i18n-banner");
+          const langsEl = document.getElementById("notabene-i18n-langs");
+          const pref = localStorage.getItem("nb-locale");
+          if (bannerEl && langsEl && pref && !JSON.parse(langsEl.textContent || "[]").includes(pref)) {
+            const tpl = JSON.parse(document.getElementById("notabene-i18n-banner")?.textContent || "{}");
+            const cur = document.documentElement.lang;
+            let name = cur;
+            try {
+              name = new Intl.DisplayNames([pref], { type: "language" }).of(cur) || cur;
+            } catch {}
+            bannerEl.textContent = (tpl[pref] || tpl[cur] || "").replace("{lang}", name);
+            bannerEl.hidden = false;
+          }
+        } else if (i18nAllEl) {
+          const all = JSON.parse(i18nAllEl.textContent || "{}");
+          const loc = document.documentElement.lang;
+          const cat = all[loc] || {};
+          const set = (sel: string, fn: (el: HTMLElement, v: string) => void) => {
+            for (const el of document.querySelectorAll<HTMLElement>(sel)) {
+              const k = el.getAttribute(sel.slice(1, -1));
+              if (k && cat[k] != null) fn(el, cat[k]);
+            }
+          };
+          set("[data-i18n]", (el, v) => {
+            el.textContent = v;
+          });
+          set("[data-i18n-ph]", (el, v) => el.setAttribute("placeholder", v));
+          set("[data-i18n-aria]", (el, v) => {
+            el.setAttribute("aria-label", v);
+            el.setAttribute("title", v);
+          });
+          for (const el of document.querySelectorAll<HTMLElement>("[data-i18n-date]")) {
+            const iso = el.getAttribute("data-i18n-date");
+            if (iso)
+              try {
+                el.textContent = new Date(`${iso}T00:00:00Z`).toLocaleDateString(loc, { dateStyle: "medium", timeZone: "UTC" });
+              } catch {}
+          }
+          const cur = document.getElementById("nb-lang-current");
+          if (cur) cur.textContent = loc.toUpperCase();
+          for (const btn of document.querySelectorAll<HTMLElement>("#nb-lang-client [data-locale]")) {
+            const l = btn.getAttribute("data-locale");
+            btn.classList.toggle("active", l === loc);
+            btn.addEventListener("click", () => {
+              if (l) {
+                localStorage.setItem("nb-locale", l);
+                location.reload();
+              }
+            });
+          }
+        }
+      }
 
       // Identity (name + optional email) — per-device, edited via a modal. The chips in
       // the topbar + drawer open it; on a non-loopback (LAN/`--host`/deployed) host with no
@@ -332,20 +552,25 @@ const hasRail = page != null;
         });
       }
 
-      // Export menu: a native <details> doesn't close on an outside click — wire that up
-      // (+ Escape, + closing after a scope is picked, which opens the print view in a new tab).
-      const exportMenu = document.querySelector<HTMLDetailsElement>(".export-menu");
-      if (exportMenu) {
+      // Topbar dropdowns (Export + language): a native <details> doesn't close on an outside
+      // click — wire that up (+ Escape, + close after picking an item). Opening one closes
+      // the other through the same outside-click pass.
+      const topMenus = Array.from(document.querySelectorAll<HTMLDetailsElement>(".export-menu, .lang-menu"));
+      if (topMenus.length) {
         document.addEventListener("click", (e) => {
-          if (exportMenu.open && !exportMenu.contains(e.target as Node)) exportMenu.open = false;
+          for (const menu of topMenus) {
+            if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+          }
         });
         document.addEventListener("keydown", (e) => {
-          if (e.key === "Escape") exportMenu.open = false;
+          if (e.key === "Escape") for (const menu of topMenus) menu.open = false;
         });
-        for (const a of exportMenu.querySelectorAll("a")) {
-          a.addEventListener("click", () => {
-            exportMenu.open = false;
-          });
+        for (const menu of topMenus) {
+          for (const a of menu.querySelectorAll("a")) {
+            a.addEventListener("click", () => {
+              menu.open = false;
+            });
+          }
         }
       }
 
@@ -391,6 +616,7 @@ const hasRail = page != null;
 
       interface Doc {
         space: string;
+        locale: string;
         href: string;
         title: string;
         headings: string[];
@@ -400,6 +626,9 @@ const hasRail = page != null;
       const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
         document.getElementById("notabene-roots")?.textContent || "[]",
       );
+      // Scope search to the current page's language when i18n is on.
+      const SEARCH_I18N = JSON.parse(document.getElementById("notabene-i18n-config")?.textContent || "null");
+      const searchLocale = document.documentElement.lang || SEARCH_I18N?.defaultLocale || "";
       const M: Record<string, string> = JSON.parse(
         document.getElementById("notabene-i18n")?.textContent || "{}",
       );
@@ -430,7 +659,7 @@ const hasRail = page != null;
             box.innerHTML = "";
             return;
           }
-          const data = await ensureIndex();
+          const data = (await ensureIndex()).filter((d) => !SEARCH_I18N?.enabled || d.locale === searchLocale);
           const hits = data
             .map((doc) => ({ doc, s: score(doc, q) }))
             .filter((x) => x.s > 0)

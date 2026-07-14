@@ -8,14 +8,14 @@ import { t } from "../i18n.mjs";
 const m = t(locale);
 ---
 
-<DocLayout title={m.reviewTitle}>
-  <h1>{m.reviewTitle}</h1>
-  <p class="lede">{m.reviewLede}</p>
+<DocLayout title={m.reviewTitle} i18nClientChrome>
+  <h1 data-i18n="reviewTitle">{m.reviewTitle}</h1>
+  <p class="lede" data-i18n="reviewLede">{m.reviewLede}</p>
 
   <div class="rev-toolbar">
     <div id="rev-toggle" class="diff-toggle"></div>
   </div>
-  <div id="rev-list" class="rev-list"><p class="cmt-empty">{m.loading}</p></div>
+  <div id="rev-list" class="rev-list"><p class="cmt-empty" data-i18n="loading">{m.loading}</p></div>
 </DocLayout>
 
 <script>

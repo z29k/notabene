@@ -1,10 +1,16 @@
 // @ts-check
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
-import { REPO_ROOT, host, mdxEnabled, port, roots } from "./src/config.mjs";
+import { REPO_ROOT, host, i18n, mdxEnabled, port, roots } from "./src/config.mjs";
+
+// This package directory (the Astro root). Run-from-package puts the renderer OUTSIDE the
+// consumer tree, so the consumer root alone (REPO_ROOT) does not cover the app's own source
+// (e.g. src/styles/global.css, client scripts) — Vite's fs.allow must include it too.
+const PKG_ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 // notabene renderer — a navigable site over a repo's docs + a human↔agent review
 // loop. DEV-LOCAL tool, not deployed. Plain Astro (not Starlight): content lives
@@ -39,14 +45,14 @@ export default defineConfig({
     shikiConfig: { theme: "github-dark", wrap: true },
     // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
     // [attacher, options]: unified calls remarkRewriteLinks(roots).
-    remarkPlugins: [[remarkRewriteLinks, roots]],
+    remarkPlugins: [[remarkRewriteLinks, { roots, i18n }]],
     // ```mermaid fence → <pre class="mermaid"> (rendered client-side; see lib/client/mermaid.ts).
     rehypePlugins: [rehypeMermaid],
   },
   vite: {
     // Consumer content (docs, notabene.config) lives outside the Astro root
     // (the app is in node_modules) → let Vite serve it.
-    server: { fs: { allow: [REPO_ROOT] } },
+    server: { fs: { allow: [REPO_ROOT, PKG_ROOT] } },
     // Mermaid (lazy-loaded by lib/client/mermaid.ts via `import("mermaid")`) pulls in
     // dayjs — a CommonJS module with no ESM `default` export — through its OWN internal
     // dynamic imports, which Vite's dep scanner never reaches from our single dynamic

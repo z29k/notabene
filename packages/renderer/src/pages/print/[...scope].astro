@@ -1,9 +1,8 @@
 ---
-// PDF export route — a print-optimized, concatenated view of a scope (whole doc /
-// space / folder / page). Standalone (PrintLayout, no app chrome); Paged.js paginates
-// it client-side into a book with a page-numbered TOC. Static/prerendered → present in
-// `build`/`preview` and safe to deploy (no write API). Scope parsing/ordering is the
-// pure lib/print-scope; content + nav come from the same utilities the site uses.
+// PDF export route — a print-optimized, concatenated view of a scope (whole doc / space /
+// folder / page), in a SINGLE language. i18n: an optional leading locale token in the scope
+// (`/print/fr/space/docs`) filters doc/space/folder to one locale; page scopes carry the
+// locale in their raw id. `/print` = the default locale's whole doc. Static/prerendered.
 import { getCollection, render } from "astro:content";
 import PrintLayout from "../../layouts/PrintLayout.astro";
 import { buildNav, humanize, pageTitle } from "../../lib/nav";
@@ -13,41 +12,45 @@ import {
   flattenNav,
   folderPrefixes,
   parseScope,
-  scopeParam,
   sectionId,
 } from "../../lib/print-scope";
-import { locale, pdf, roots, siteName, tagline } from "../../config.mjs";
+import { decode } from "../../lib/i18n-content.mjs";
+import { i18n, pdf, roots, siteName, tagline } from "../../config.mjs";
 import { t } from "../../i18n.mjs";
 
 export async function getStaticPaths() {
-  // pdf.enabled === false → don't build any /print pages at all.
   if (!pdf.enabled) return [];
-  const paths: { params: { scope: string | undefined } }[] = [{ params: { scope: undefined } }]; // /print = whole doc
+  const def = i18n.defaultLocale;
+  const paths: { params: { scope: string | undefined } }[] = [{ params: { scope: undefined } }]; // default-locale whole doc
+  for (const loc of i18n.locales) if (loc !== def) paths.push({ params: { scope: loc } }); // per-locale whole doc
+
   for (const root of roots) {
     const entries = await getCollection(root.key as never);
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entry.
-    const ids = entries.map((e: any) => e.id as string);
-    paths.push({ params: { scope: scopeParam({ kind: "space", space: root.key }) ?? "" } });
-    for (const folder of folderPrefixes(ids)) {
-      paths.push({ params: { scope: `folder/${root.key}/${folder}` } });
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry.
+    const decoded = (entries as any[]).map((e) => ({ raw: e.id as string, ...decode(e.id as string, i18n) }));
+    const localesInSpace = new Set(decoded.map((d) => d.locale));
+    for (const loc of i18n.locales) {
+      if (!localesInSpace.has(loc)) continue;
+      const tok = loc === def ? "" : `${loc}/`;
+      paths.push({ params: { scope: `${tok}space/${root.key}` } });
+      for (const folder of folderPrefixes(decoded.filter((d) => d.locale === loc).map((d) => d.id))) {
+        paths.push({ params: { scope: `${tok}folder/${root.key}/${folder}` } });
+      }
     }
-    for (const id of ids) {
-      paths.push({ params: { scope: `page/${root.key}/${id}` } });
-    }
+    // page scope: the RAW id already encodes the locale — no token.
+    for (const d of decoded) paths.push({ params: { scope: `page/${root.key}/${d.raw}` } });
   }
   return paths;
 }
 
+const parsed = parseScope(Astro.params.scope, i18n.locales);
+// The single locale of this bundle: a page scope encodes it in the raw id; others use the
+// token, defaulting to the default locale.
+const pageLoc = parsed && parsed.kind === "page" ? decode(parsed.id, i18n).locale : undefined;
+const locale = pageLoc ?? parsed?.locale ?? i18n.defaultLocale;
 const m = t(locale);
-const parsed = parseScope(Astro.params.scope);
-const spaces = parsed
-  ? parsed.kind === "doc"
-    ? roots
-    : roots.filter((r) => r.key === parsed.space)
-  : [];
+const spaces = parsed ? (parsed.kind === "doc" ? roots : roots.filter((r) => r.key === parsed.space)) : [];
 
-// ── Render blocks (ordered body) + TOC entries, built from the same nav/collection
-// utilities as the live site. ──
 type Rendered = Awaited<ReturnType<typeof render>>;
 interface PartBlock {
   kind: "part";
@@ -71,53 +74,58 @@ interface TocEntry {
 const blocks: Block[] = [];
 const toc: TocEntry[] = [];
 
-async function addLeaf(space: string, id: string, entry: { id: string; body?: string } | undefined, depth: number) {
+// biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry → render().
+async function addLeaf(space: string, canonicalId: string, entry: any, depth: number) {
   if (!entry) return;
-  // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry → render().
-  const { Content, headings } = await render(entry as any);
-  const title = pageTitle(entry.body, id);
-  const anchorId = sectionId(space, id);
+  const { Content, headings } = await render(entry);
+  const title = pageTitle(entry.body, canonicalId);
+  const anchorId = sectionId(space, canonicalId);
   blocks.push({ kind: "leaf", anchorId, title, Content, headings });
   toc.push({ kind: "leaf", label: title, depth, anchor: anchorId });
 }
 
-async function addSpaceItems(spaceKey: string, items: PrintItem[], entryById: Map<string, { id: string; body?: string }>) {
+// biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry map.
+async function addSpaceItems(spaceKey: string, items: PrintItem[], byCanonical: Map<string, any>) {
   for (const item of items) {
     if (item.type === "group") toc.push({ kind: "group", label: item.label, depth: item.depth });
-    else await addLeaf(spaceKey, item.id, entryById.get(item.id), item.depth);
+    else await addLeaf(spaceKey, item.id, byCanonical.get(item.id), item.depth);
   }
 }
 
 if (parsed) {
   for (const space of spaces) {
-    const entries = await getCollection(space.key as never);
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry shape.
-    const list = entries as any as { id: string; body?: string }[];
-    const entryById = new Map(list.map((e) => [e.id, e]));
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entries.
+    const entries = (await getCollection(space.key as never)) as any[];
+    // Canonical id → entry, for THIS locale only (drives the concatenated body).
+    const byCanonical = new Map<string, (typeof entries)[number]>();
+    let indexEntry: (typeof entries)[number] | undefined;
+    for (const e of entries) {
+      const d = decode(e.id, i18n);
+      if (d.locale !== locale) continue;
+      byCanonical.set(d.id, e);
+      if (/^(readme|index)$/i.test(d.id)) indexEntry = e;
+    }
 
     if (parsed.kind === "page") {
-      await addLeaf(space.key, parsed.id, entryById.get(parsed.id), 1);
+      const e = entries.find((x) => x.id === parsed.id);
+      await addLeaf(space.key, e ? decode(e.id, i18n).id : parsed.id, e, 1);
       continue;
     }
-
     if (parsed.kind === "folder") {
-      const sub = findSubtree(await buildNav(space.key), parsed.path);
-      if (sub) await addSpaceItems(space.key, flattenNav(space.key, sub), entryById);
+      const sub = findSubtree(await buildNav(space.key, locale), parsed.path);
+      if (sub) await addSpaceItems(space.key, flattenNav(space.key, sub), byCanonical);
       continue;
     }
-
     // doc / space: a part divider (doc scope only), the space home, then the nav tree.
     if (parsed.kind === "doc") {
       blocks.push({ kind: "part", label: space.label });
       toc.push({ kind: "part", label: space.label, depth: 0 });
     }
-    const index = list.find((e) => /^(readme|index)$/i.test(e.id));
-    if (index) await addLeaf(space.key, index.id, index, 1);
-    await addSpaceItems(space.key, flattenNav(space.key, await buildNav(space.key)), entryById);
+    if (indexEntry) await addLeaf(space.key, decode(indexEntry.id, i18n).id, indexEntry, 1);
+    await addSpaceItems(space.key, flattenNav(space.key, await buildNav(space.key, locale)), byCanonical);
   }
 }
 
-// ── Cover + TOC selection ──
 const leaves = blocks.filter((b): b is LeafBlock => b.kind === "leaf");
 const dateStr = new Date().toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
 
@@ -125,21 +133,19 @@ function coverOf() {
   if (!parsed || parsed.kind === "doc") return { kicker: tagline, title: siteName, sub: m.pdfCoverDoc };
   const label = spaces[0]?.label ?? parsed.space;
   if (parsed.kind === "space") return { kicker: siteName, title: label, sub: tagline };
-  if (parsed.kind === "folder") return { kicker: siteName, title: humanize(parsed.path.split("/").pop() ?? ""), sub: label };
+  if (parsed.kind === "folder")
+    return { kicker: siteName, title: humanize(parsed.path.split("/").pop() ?? ""), sub: label };
   return { kicker: siteName, title: leaves[0]?.title ?? parsed.id, sub: label };
 }
 const cover = coverOf();
 
-// TOC: the page list when there's more than one page (the "menu"); otherwise the single
-// page's own H2/H3 (like the on-page contents). None when neither is meaningful.
 const singleHeadings = leaves.length === 1 ? leaves[0].headings.filter((h) => h.depth >= 2 && h.depth <= 3) : [];
 const tocMode: "pages" | "headings" | "none" =
   leaves.length > 1 ? "pages" : singleHeadings.length >= 2 ? "headings" : "none";
-const pageTitleStr = parsed && parsed.kind === "page" ? cover.title : parsed?.kind === "folder" ? cover.title : siteName;
+const pageTitleStr = parsed && parsed.kind !== "doc" ? cover.title : siteName;
 ---
 
-<PrintLayout title={pageTitleStr}>
-  {/* ── Cover ── */}
+<PrintLayout title={pageTitleStr} locale={locale}>
   <section class="pg-cover">
     <p class="pg-cover-kicker">{cover.kicker}</p>
     <h1>{cover.title}</h1>
@@ -147,7 +153,6 @@ const pageTitleStr = parsed && parsed.kind === "page" ? cover.title : parsed?.ki
     <p class="pg-cover-meta">{m.pdfGeneratedOn} {dateStr}</p>
   </section>
 
-  {/* ── Table of contents (the "menu") ── */}
   {
     tocMode !== "none" && (
       <nav class="pg-toc" aria-label={m.pdfToc}>
@@ -173,7 +178,6 @@ const pageTitleStr = parsed && parsed.kind === "page" ? cover.title : parsed?.ki
     )
   }
 
-  {/* ── Body: part dividers + titled page sections ── */}
   {
     blocks.map((b) => {
       if (b.kind === "part") {

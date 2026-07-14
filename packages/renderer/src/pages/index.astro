@@ -6,9 +6,9 @@ import { t } from "../i18n.mjs";
 const m = t(locale);
 ---
 
-<DocLayout title="Home">
-  <h1>{siteName} {m.homeDocumentation}</h1>
-  <p class="lede">{m.homeLede}</p>
+<DocLayout title="Home" i18nClientChrome>
+  <h1>{siteName} <span data-i18n="homeDocumentation">{m.homeDocumentation}</span></h1>
+  <p class="lede" data-i18n="homeLede">{m.homeLede}</p>
 
   <div class="home-cards">
     {

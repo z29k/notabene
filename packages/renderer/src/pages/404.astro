@@ -10,16 +10,16 @@ import { t } from "../i18n.mjs";
 const m = t(locale);
 ---
 
-<DocLayout title={m.notFoundTitle}>
+<DocLayout title={m.notFoundTitle} i18nClientChrome>
   <div class="nf">
     <p class="nf-code">404</p>
-    <h1>{m.notFoundTitle}</h1>
-    <p class="lede">{m.notFoundBody}</p>
-    <p class="nf-path"><span>{m.notFoundPathLabel}</span> <code id="nf-path">—</code></p>
-    <p class="nf-actions"><a class="nf-home" href="/">{m.notFoundHome}</a></p>
+    <h1 data-i18n="notFoundTitle">{m.notFoundTitle}</h1>
+    <p class="lede" data-i18n="notFoundBody">{m.notFoundBody}</p>
+    <p class="nf-path"><span data-i18n="notFoundPathLabel">{m.notFoundPathLabel}</span> <code id="nf-path">—</code></p>
+    <p class="nf-actions"><a class="nf-home" href="/" data-i18n="notFoundHome">{m.notFoundHome}</a></p>
   </div>
 
-  <p class="nf-spaces-label">{m.notFoundSpaces}</p>
+  <p class="nf-spaces-label" data-i18n="notFoundSpaces">{m.notFoundSpaces}</p>
   <div class="home-cards">
     {
       roots.map((root) => (

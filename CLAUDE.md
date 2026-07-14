@@ -155,8 +155,37 @@ parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to 
 - **`notabene pdf`** (CLI): builds the site, serves it, and drives **headless Chromium via
   Puppeteer** (an **optional** `peerDependency`, lazy-required — falls back to `puppeteer-core`
   + a system Chrome) → a PDF with a real **bookmark outline** + running footer page numbers.
-  Flags: `--scope`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
+  Flags: `--scope`, `--locale`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
   pagination hangs in a hidden tab and can't emit a real PDF outline — see the pdf-export memory).
+
+## Architecture: content i18n (multi-language docs)
+
+Optional (`i18n: { locales, defaultLocale, strategy }` in config). **Locale is DERIVED per
+entry** — `roots[]` stay declared once. The pure resolver is `src/lib/i18n-content.mjs`
+(**`.mjs`** so `config.mjs`/`rewrite-links.mjs` can import it): `decode(rawId, i18n)` →
+`{ locale, id }` (canonical, locale-stripped), `routeFor` (default locale unprefixed `/docs/…`, others
+`/<loc>/…`), `buildEquivalence`/`switchLinks`, `makeSuffixGenerateId`. Two authoring layouts:
+`directory` (`docs/<loc>/…`) or `suffix` (`guide.md` + `guide.fr.md` — needs the custom
+`generateId` because Astro's default slugger deletes the dot). One unified route
+`src/pages/[...path].astro` (replaced `[space]/[...slug]`) emits exact prefixed paths;
+`DocLayout` takes a per-page `locale` → `t()`/`<html lang>`/injected catalog + a language
+switcher + `hreflang`. **The store `page` key is the raw locale-encoded id**, so comments are
+locale-scoped with **no schema change** (page-file/store-path resolve it unchanged). Disabled
+(one locale) → byte-identical to before. `buildNav(space, locale?)`, `makeRouteFor(roots,
+i18n?)`, `parseScope(scope, locales)` all take the i18n arg OPT-IN so mono-language + tests
+are unaffected. Search + print/PDF are per-locale (`/print/<loc>/…`, `notabene pdf --locale`).
+
+**Language preference (client-side).** The switcher records a preferred locale in
+`localStorage` (`nb-locale`) — only the switcher changes it. On doc pages a `<head>` script
+**redirects** to the preferred-locale equivalent when one exists (from the injected
+`#notabene-i18n-alts`); a page with no such translation stays on the source language and
+reveals a discreet banner (i18n key `pageNotTranslated`, injected per-locale). Pages with **no
+per-page locale** — `/comments`, `/journal`, `/review`, `/`, `404` — pass `i18nClientChrome`
+to `DocLayout`: it ships every locale's catalog (`#notabene-i18n-all`), a `<head>` script
+picks `nb-locale` (→ `<html lang>` + swaps `#notabene-i18n` so client-rendered lists/dates
+follow), and an applier re-localizes the static chrome (`[data-i18n]` / `-ph` / `-aria` /
+`-date`) and wires a client switcher (sets `nb-locale` + reloads — no URL change). No server
+locale state; disabled i18n → none of this ships.
 
 ## Safety model (keep it intact)
 

@@ -11,35 +11,40 @@
 import type { NavGroup, NavNode } from "./nav";
 
 export type PrintScope =
-  | { kind: "doc" }
-  | { kind: "space"; space: string }
-  | { kind: "folder"; space: string; path: string }
-  | { kind: "page"; space: string; id: string };
+  | { kind: "doc"; locale?: string }
+  | { kind: "space"; space: string; locale?: string }
+  | { kind: "folder"; space: string; path: string; locale?: string }
+  | { kind: "page"; space: string; id: string; locale?: string };
 
-/** Parse the `[...scope]` rest param (undefined = the whole doc). Returns null when
- *  the shape is invalid (route → 404), never throws. */
-export function parseScope(scope: string | undefined): PrintScope | null {
+/** Parse the `[...scope]` rest param (undefined = the whole doc). An OPTIONAL leading
+ *  locale token (∈ `locales`) scopes doc/space/folder to one language; page scopes encode
+ *  the locale in their raw id. Returns null when the shape is invalid (route → 404). */
+export function parseScope(scope: string | undefined, locales: string[] = []): PrintScope | null {
   if (!scope) return { kind: "doc" };
   const parts = scope.split("/").filter(Boolean);
+  let locale: string | undefined;
+  if (parts.length && locales.includes(parts[0])) locale = parts.shift();
+  if (!parts.length) return { kind: "doc", locale }; // just a locale token → whole doc in it
   const [disc, space, ...rest] = parts;
   if (!space) return null;
-  if (disc === "space" && rest.length === 0) return { kind: "space", space };
-  if (disc === "folder" && rest.length > 0) return { kind: "folder", space, path: rest.join("/") };
-  if (disc === "page" && rest.length > 0) return { kind: "page", space, id: rest.join("/") };
+  if (disc === "space" && rest.length === 0) return { kind: "space", space, locale };
+  if (disc === "folder" && rest.length > 0) return { kind: "folder", space, path: rest.join("/"), locale };
+  if (disc === "page" && rest.length > 0) return { kind: "page", space, id: rest.join("/"), locale };
   return null;
 }
 
 /** The `[...scope]` param string for a scope (undefined → the base `/print`). */
 export function scopeParam(s: PrintScope): string | undefined {
+  const loc = s.locale ? `${s.locale}/` : "";
   switch (s.kind) {
     case "doc":
-      return undefined;
+      return s.locale || undefined;
     case "space":
-      return `space/${s.space}`;
+      return `${loc}space/${s.space}`;
     case "folder":
-      return `folder/${s.space}/${s.path}`;
+      return `${loc}folder/${s.space}/${s.path}`;
     case "page":
-      return `page/${s.space}/${s.id}`;
+      return `${loc}page/${s.space}/${s.id}`;
   }
 }
 
@@ -112,14 +117,9 @@ export function flattenNav(space: string, nodes: NavNode[], depth = 1): PrintIte
       out.push({ type: "group", label: node.label, depth });
       out.push(...flattenNav(space, node.children, depth + 1));
     } else {
-      const id = leafId(space, node.href);
-      out.push({ type: "leaf", space, id, title: node.title, depth, anchorId: sectionId(space, id) });
+      // node.id is the canonical entry id (set by buildNav) — no href re-parsing needed.
+      out.push({ type: "leaf", space, id: node.id, title: node.title, depth, anchorId: sectionId(space, node.id) });
     }
   }
   return out;
-}
-
-function leafId(space: string, href: string): string {
-  const prefix = `/${space}/`;
-  return href.startsWith(prefix) ? href.slice(prefix.length) : href.replace(/^\/+/, "");
 }

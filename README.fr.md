@@ -128,7 +128,7 @@ CLI :
 | `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Build le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
 | `notabene preview` | Sert le site buildé |
-| `notabene pdf` | Exporte un PDF via Chromium headless (vrai volet de signets + numéros de page) ; `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--out`, `--chrome`. Requiert la peer dep optionnelle `puppeteer` |
+| `notabene pdf` | Exporte un PDF via Chromium headless (vrai volet de signets + numéros de page) ; `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Requiert la peer dep optionnelle `puppeteer` (ou `puppeteer-core` + `--chrome`) |
 | `notabene migrate` | Convertit le store vers le format un-fichier-par-commentaire (estampille `schemaVersion` 3) |
 | `notabene comments ls` | Liste les commentaires - `--open` `--json` `--page <p>` (pour agents/scripts) |
 | `notabene journal add` | Ajoute une entrée de journal JSON lue sur stdin |
@@ -208,6 +208,7 @@ export default {
 | `author` | git `user.name` | Auteur de commentaire par défaut ; chaque navigateur le surcharge par appareil via la **modale d'identité** (nom + email optionnel) |
 | `authorEmail` | git `user.email` | Email d'auteur par défaut ; embarqué façon git (`Name <email>`) pour des identités uniques |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | Export PDF — `enabled` active le menu Export + les routes `/print` ; `pageSize`/`margin` règlent la boîte `@page` |
+| `i18n` | — | Doc multilingue : `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` (voir plus bas). Omets pour une seule langue |
 
 ## Revue à deux temps (optionnel)
 
@@ -235,6 +236,44 @@ supprime entièrement la dépendance MDX - idéal pour un repo Markdown pur.
 > Note : le **défaut** de la config est `"mdx"` (omets la clé pour l'avoir), mais
 > `notabene init` scaffolde `"commonmark"` - le point de départ sûr, sans dépendance, le plus
 > indulgent.
+
+## Doc multilingue (i18n)
+
+Ajoute `i18n` pour servir la même doc en plusieurs langues avec des **URLs propres
+préfixées** (langue par défaut sans préfixe, autres en `/<locale>/…`), un **sélecteur de
+langue** (un menu déroulant dans l'en-tête, à côté de l'export), des alternates `hreflang`,
+et une chrome par page (une page FR rend nav/boutons/dates en français).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-i18n-demo.gif" alt="i18n notabene : ouvre le sélecteur de langue dans l'en-tête, choisis Français - la doc et la chrome passent en français, les pages agrégées suivent la langue, et une page sans traduction affiche un bandeau de repli discret" width="820" />
+</p>
+
+<p align="center"><em>Choisis une langue via le sélecteur de l'en-tête - la doc <strong>et</strong> la chrome basculent, les pages agrégées (commentaires, journal…) suivent, et une page non traduite retombe sur la langue source avec un bandeau.</em></p>
+
+```js
+i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory" },
+```
+
+Choisis l'organisation des fichiers via `strategy` :
+
+- **`directory`** (par défaut) — un dossier par langue : `docs/en/guide.md` · `docs/fr/guide.md`.
+- **`suffix`** — un seul arbre, traduit par fichier : `docs/guide.md` (défaut) ·
+  `docs/guide.fr.md`. Idéal pour rendre multilingue une doc **existante** : les fichiers de
+  la langue par défaut ne bougent pas, donc leurs URLs *et* leurs fils de commentaires sont
+  préservés.
+
+**Préférence de langue & redirection.** Le sélecteur mémorise la langue choisie par le
+visiteur ; ensuite, arriver sur une page écrite dans une autre langue qui *possède* une
+traduction **redirige** vers celle-ci — suivre n'importe quel lien te garde donc dans ta
+langue. Une page **sans** traduction retombe sur la langue source et affiche un bandeau
+discret (« pas encore disponible dans votre langue »). Les pages non liées à une langue de
+contenu — `/comments`, `/journal`, `/review`, l'**accueil** et la **404** — suivent aussi ta
+langue en cours (chrome + dates, côté client, sans changement d'URL) et portent le même
+sélecteur.
+
+Les commentaires sont **par langue** (un commentaire sur la page FR est son propre fil). La
+recherche et l'export PDF (`notabene pdf --locale fr`) sont scopés à une langue. Omets
+`i18n` pour une seule langue — comportement inchangé.
 
 ## Le contrat `.notabene`
 

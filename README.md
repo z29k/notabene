@@ -126,7 +126,7 @@ CLI:
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
-| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep |
+| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep (or `puppeteer-core` + `--chrome`) |
 | `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
 | `notabene comments ls` | List comments - `--open` `--json` `--page <p>` (for agents/scripts) |
 | `notabene journal add` | Append a JSON journal entry read from stdin |
@@ -206,6 +206,7 @@ export default {
 | `author` | git `user.name` | Default comment author; each browser overrides it per-device via the **identity dialog** (name + optional email) |
 | `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
+| `i18n` | — | Multi-language docs: `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` (see below). Omit for one language |
 
 ## Two-phase review (optional)
 
@@ -232,6 +233,42 @@ drops the MDX dependency entirely - best for a plain-Markdown repo.
 
 > Note: the config **default** is `"mdx"` (omit the key to get it), but `notabene init`
 > scaffolds `"commonmark"` - the safe, zero-dependency, most-lenient starting point.
+
+## Multi-language docs (i18n)
+
+Add `i18n` to serve the same docs in several languages with **clean prefixed URLs** (the
+default locale unprefixed, others `/<locale>/…`), a **language switcher** (a dropdown in the
+header, next to Export), `hreflang` alternates, and per-page chrome (a French page renders
+French nav/buttons/dates).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-i18n-demo.gif" alt="notabene i18n: open the header language switcher, pick Français - the docs and chrome turn French, aggregate pages follow the language, and a page with no translation shows a discreet fallback banner" width="820" />
+</p>
+
+<p align="center"><em>Pick a language from the header switcher - docs <strong>and</strong> chrome switch, aggregate pages (comments, journal…) follow, and an untranslated page falls back with a banner.</em></p>
+
+```js
+i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory" },
+```
+
+Pick how you lay out the files with `strategy`:
+
+- **`directory`** (the default) — a folder per locale: `docs/en/guide.md` · `docs/fr/guide.md`.
+- **`suffix`** — one tree, translated per file: `docs/guide.md` (default) · `docs/guide.fr.md`.
+  Best for adding languages to an **existing** doc: the default-language files don't move,
+  so their URLs *and* their comment threads are preserved.
+
+**Language preference & redirect.** The switcher records the visitor's chosen language; from
+then on, landing on a page written in another language that *has* a translation **redirects**
+to it — so following any link keeps you in your language. A page with **no** translation
+falls back to the source language and shows a discreet banner ("not available in your
+language yet"). The pages that aren't tied to a content language — `/comments`, `/journal`,
+`/review`, the **home page** and **404** — follow your current language too (chrome + dates,
+resolved client-side, no URL change) and carry the same switcher.
+
+Comments are **per language** (a comment on the FR page is its own thread). Search and PDF
+export (`notabene pdf --locale fr`) are scoped to one language. Omit `i18n` for a single
+language — behavior is unchanged.
 
 ## The `.notabene` contract
 
