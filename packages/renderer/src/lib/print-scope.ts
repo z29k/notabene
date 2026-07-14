@@ -112,14 +112,9 @@ export function flattenNav(space: string, nodes: NavNode[], depth = 1): PrintIte
       out.push({ type: "group", label: node.label, depth });
       out.push(...flattenNav(space, node.children, depth + 1));
     } else {
-      const id = leafId(space, node.href);
-      out.push({ type: "leaf", space, id, title: node.title, depth, anchorId: sectionId(space, id) });
+      // node.id is the canonical entry id (set by buildNav) — no href re-parsing needed.
+      out.push({ type: "leaf", space, id: node.id, title: node.title, depth, anchorId: sectionId(space, node.id) });
     }
   }
   return out;
-}
-
-function leafId(space: string, href: string): string {
-  const prefix = `/${space}/`;
-  return href.startsWith(prefix) ? href.slice(prefix.length) : href.replace(/^\/+/, "");
 }

@@ -80,17 +80,25 @@ const tree: NavNode[] = [
     segment: "guide",
     prefix: "/docs/guide",
     children: [
-      { type: "leaf", title: "Setup", href: "/docs/guide/setup", segment: "setup" },
+      { type: "leaf", title: "Setup", href: "/docs/guide/setup", segment: "setup", id: "guide/setup" },
       {
         type: "group",
         label: "Advanced",
         segment: "advanced",
         prefix: "/docs/guide/advanced",
-        children: [{ type: "leaf", title: "Deep", href: "/docs/guide/advanced/deep", segment: "deep" }],
+        children: [
+          {
+            type: "leaf",
+            title: "Deep",
+            href: "/docs/guide/advanced/deep",
+            segment: "deep",
+            id: "guide/advanced/deep",
+          },
+        ],
       },
     ],
   },
-  { type: "leaf", title: "About", href: "/docs/about", segment: "about" },
+  { type: "leaf", title: "About", href: "/docs/about", segment: "about", id: "about" },
 ];
 
 describe("flattenNav", () => {

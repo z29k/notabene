@@ -1,19 +1,26 @@
 ---
 import { buildNav, type Space } from "../lib/nav";
 import NavTree from "./NavTree.astro";
-import { locale, roots } from "../config.mjs";
+import { clientI18n, i18n, roots } from "../config.mjs";
+import { routeFor } from "../lib/i18n-content.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
   current?: string;
   activeSpace?: Space;
+  /** Content locale of the current page — the nav shows this locale only. */
+  locale?: string;
 }
 
+const { current = "", activeSpace, locale = clientI18n.defaultLocale } = Astro.props;
 const m = t(locale);
-const { current = "", activeSpace } = Astro.props;
-// One nav tree per space declared in notabene.config (no fixed duo).
+// One nav tree per space, filtered to the current locale (i18n) with clean prefixed hrefs.
 const spaces = await Promise.all(
-  roots.map(async (root) => ({ root, nodes: await buildNav(root.key) })),
+  roots.map(async (root) => ({
+    root,
+    nodes: await buildNav(root.key, locale),
+    home: routeFor({ space: root.key, id: "", locale }, i18n),
+  })),
 );
 ---
 
@@ -23,13 +30,13 @@ const spaces = await Promise.all(
 
 <nav class="nav">
   {
-    spaces.map(({ root, nodes }) => (
+    spaces.map(({ root, nodes, home }) => (
       <details class="space" open={!activeSpace || activeSpace === root.key}>
         <summary class="space-title">
           <span class="space-name">{root.label}</span>
           <span class="space-sub">{root.subLabel}</span>
         </summary>
-        <p class="space-link"><a href={`/${root.key}`}>{m.sidebarOverview}</a></p>
+        <p class="space-link"><a href={home}>{m.sidebarOverview}</a></p>
         <NavTree nodes={nodes} current={current} />
       </details>
     ))

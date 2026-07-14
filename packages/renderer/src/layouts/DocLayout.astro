@@ -4,10 +4,8 @@ import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import Comments from "../components/Comments.astro";
 import type { Space } from "../lib/nav";
-import { author, authorEmail, clientRoots, locale, pdf, reviewMode, siteName, tagline } from "../config.mjs";
+import { author, authorEmail, clientI18n, clientRoots, pdf, reviewMode, siteName, tagline } from "../config.mjs";
 import { t } from "../i18n.mjs";
-
-const m = t(locale);
 
 interface Heading {
   depth: number;
@@ -28,18 +26,45 @@ interface ExportScopes {
   page?: { href: string; label: string };
 }
 
+interface Alt {
+  locale: string;
+  href: string;
+  /** True when this is a REAL translation of the page (vs. a home fallback) — hreflang only. */
+  translated?: boolean;
+}
+
 interface Props {
   title: string;
   current?: string;
   space?: Space;
   /** Chemin logique repo-relatif (sans extension) — support Phase 2 commentaires. */
   page?: string;
+  /** Content locale of THIS page (per-page chrome). Aggregate pages omit it → default. */
+  locale?: string;
   headings?: Heading[];
   breadcrumb?: Crumb[];
   exportScopes?: ExportScopes;
+  /** Equivalent pages in other locales — drives the language switcher + hreflang. */
+  alternates?: Alt[];
 }
 
-const { title, current = "", space, page, headings = [], breadcrumb = [], exportScopes } = Astro.props;
+const {
+  title,
+  current = "",
+  space,
+  page,
+  locale = clientI18n.defaultLocale,
+  headings = [],
+  breadcrumb = [],
+  exportScopes,
+  alternates = [],
+} = Astro.props;
+// UI chrome follows THIS page's locale (t() falls back to English per key).
+const m = t(locale);
+const showLang = clientI18n.enabled && alternates.length > 1;
+// hreflang lists only REAL translations (+ x-default = the default locale's page).
+const hreflangs = alternates.filter((a) => a.translated);
+const xDefault = hreflangs.find((a) => a.locale === clientI18n.defaultLocale)?.href ?? hreflangs[0]?.href;
 const showExport = pdf.enabled;
 // Export links open the print view in a NEW TAB and auto-open the browser's print
 // dialog (?autoprint=1, handled by lib/client/print.ts) — as close to "save straight to
@@ -60,6 +85,9 @@ const hasRail = page != null;
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
     <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
     <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author, email: authorEmail })} />
+    <script type="application/json" id="notabene-i18n-config" is:inline set:html={JSON.stringify(clientI18n)} />
+    {showLang && hreflangs.map((a) => <link rel="alternate" hreflang={a.locale} href={a.href} />)}
+    {showLang && xDefault && <link rel="alternate" hreflang="x-default" href={xDefault} />}
   </head>
   <body>
     <header class="topbar">
@@ -83,6 +111,23 @@ const hasRail = page != null;
         {m.navReview} <span id="nav-review-badge" class="review-badge js-review-badge"></span>
       </a>
       <a href="/journal" class="topbar-link topbar-util">{m.navJournal}</a>
+      {
+        showLang && (
+          <nav class="lang-switch topbar-util" aria-label={m.language}>
+            {alternates.map((a) => (
+              <a
+                href={a.href}
+                hreflang={a.locale}
+                lang={a.locale}
+                class:list={["lang-opt", { active: a.locale === locale }]}
+                aria-current={a.locale === locale ? "true" : undefined}
+              >
+                {a.locale.toUpperCase()}
+              </a>
+            ))}
+          </nav>
+        )
+      }
       {/* Flexible gap: keeps Comments/Journal on the left, pushes the ancillary
           Export + name group to the far right (desktop only — utils collapse into the
           drawer on compact). */}
@@ -131,13 +176,30 @@ const hasRail = page != null;
 
     <div class:list={["shell", { "shell--full": !hasRail }]}>
       <aside class="sidebar" id="nb-sidebar" tabindex="-1">
-        <Sidebar current={current} activeSpace={space} />
+        <Sidebar current={current} activeSpace={space} locale={locale} />
         <nav class="drawer-util" aria-label={m.menu}>
           <a href="/comments" class="drawer-link">{m.navComments}</a>
           <a href="/review" class="drawer-link js-review-link" hidden>
             {m.navReview} <span class="review-badge js-review-badge"></span>
           </a>
           <a href="/journal" class="drawer-link">{m.navJournal}</a>
+          {
+            showLang && (
+              <nav class="lang-switch-drawer" aria-label={m.language}>
+                {alternates.map((a) => (
+                  <a
+                    href={a.href}
+                    hreflang={a.locale}
+                    lang={a.locale}
+                    class:list={["drawer-link lang-opt", { active: a.locale === locale }]}
+                    aria-current={a.locale === locale ? "true" : undefined}
+                  >
+                    🌐 {a.locale.toUpperCase()}
+                  </a>
+                ))}
+              </nav>
+            )
+          }
           {
             showExport && (
               <>
@@ -186,20 +248,20 @@ const hasRail = page != null;
           headings.length > 0 && (
             <details class="toc-inline">
               <summary>{m.tocTitle}</summary>
-              <Toc headings={headings} />
+              <Toc headings={headings} locale={locale} />
             </details>
           )
         }
         <article id="doc-content" class="prose" data-space={space} data-page={page}>
           <slot />
         </article>
-        <Comments page={page} space={space} />
+        <Comments page={page} space={space} locale={locale} />
       </main>
 
       {
         hasRail && (
           <aside class="rail">
-            <Toc headings={headings} />
+            <Toc headings={headings} locale={locale} />
             <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations} />
           </aside>
         )

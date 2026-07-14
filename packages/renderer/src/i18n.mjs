@@ -8,6 +8,7 @@ const MESSAGES = {
   en: {
     navComments: "Comments",
     navJournal: "Journal",
+    language: "Language",
     menu: "Menu",
     close: "Close",
     searchPlaceholder: "Search all docs…",
@@ -127,6 +128,7 @@ const MESSAGES = {
   fr: {
     navComments: "Commentaires",
     navJournal: "Journal",
+    language: "Langue",
     menu: "Menu",
     close: "Fermer",
     searchPlaceholder: "Rechercher dans la doc…",

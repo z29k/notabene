@@ -35,6 +35,10 @@ describe("resolveStoreDir (v2 per-page directory)", () => {
     const page = "docs/x";
     expect(`${resolveStoreDir(ROOT, page)}.json`).toBe(resolveStorePath(ROOT, page));
   });
+  it("keeps a locale-encoded page distinct (i18n threads don't collide)", () => {
+    expect(resolveStoreDir(ROOT, "docs/guide/setup.fr")).toBe(path.resolve(ROOT, "docs/guide/setup.fr"));
+    expect(resolveStoreDir(ROOT, "docs/guide/setup")).not.toBe(resolveStoreDir(ROOT, "docs/guide/setup.fr"));
+  });
   it("stays inside the store on traversal", () => {
     expect(inside(resolveStoreDir(ROOT, "../../etc/passwd"))).toBe(true);
   });

@@ -3,15 +3,16 @@
 //  - Anchored (selection) → right rail (#cmt-rail, provided by DocLayout) + highlight.
 //  - Page-wide            → discussion section at the BOTTOM of the page (rendered here).
 // Floating button + popover in position:fixed (viewport coords). Persisted via /api/comments.
-import { locale } from "../config.mjs";
+import { clientI18n } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
   page?: string;
   space?: string;
+  locale?: string;
 }
+const { page, space, locale = clientI18n.defaultLocale } = Astro.props;
 const m = t(locale);
-const { page, space } = Astro.props;
 ---
 
 {

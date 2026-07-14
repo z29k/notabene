@@ -57,6 +57,7 @@ const m = t(locale);
   const M: Record<string, string> = JSON.parse(
     document.getElementById("notabene-i18n")?.textContent || "{}",
   );
+  const I18N = JSON.parse(document.getElementById("notabene-i18n-config")?.textContent || "null");
   const spaceLabel = (key: string): string => ROOTS.find((r) => r.key === key)?.label ?? key;
 
   const listEl = document.getElementById("caf-list")!;
@@ -68,7 +69,7 @@ const m = t(locale);
 
   let all: Comment[] = [];
   const api = createApi(); // no page → global (?all=1)
-  const routeFor = makeRouteFor(ROOTS);
+  const routeFor = makeRouteFor(ROOTS, I18N ?? undefined);
 
   function render() {
     const q = searchEl.value.trim().toLowerCase();

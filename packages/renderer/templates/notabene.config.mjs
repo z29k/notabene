@@ -42,6 +42,12 @@ export default {
   // PDF export (the "Export PDF" menu + /print routes). Optional — omit for defaults.
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },
 
+  // Multi-language docs. Optional — omit for a single language. Clean prefixed URLs
+  // (default locale unprefixed, others /<locale>/…). Two authoring layouts:
+  //   "directory" → a folder per locale:  docs/en/guide.md · docs/fr/guide.md
+  //   "suffix"    → one tree, per file:    docs/guide.md · docs/guide.fr.md
+  // i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory" },
+
   // Default comment identity. Omit → the CLI uses this repo's `git config user.name` /
   // `user.email` (else "you"). Each browser overrides it per-device via the identity dialog
   // (name + optional email); the author is stored git-style as "Name <email>".
