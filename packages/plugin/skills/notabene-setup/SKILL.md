@@ -110,6 +110,8 @@ has **`docs.detected`** instead.
      host: false,               // true / --host exposes the LAN — trusted networks only
      verify: [],                // extra post-edit checks the review loop runs
      review: "auto",            // "approve" = you validate each edit (with a diff) at /review
+     // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // PDF export (optional)
+     // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name/.email)
    };
    ```
 
@@ -129,8 +131,8 @@ regenerate from the template.
    store`), then ask **what to change**.
 2. **Edit in place** (Edit tool) — leave untouched fields and comments alone, **show the
    diff, confirm**. Common changes: add/remove/rename a `roots[]` entry; `format`; `port`;
-   `review` (auto ↔ approve); `siteName`/`tagline`/`locale`; `author`; `verify[]`;
-   `host` (⚠ security — only on explicit request).
+   `review` (auto ↔ approve); `siteName`/`tagline`/`locale`; `author`/`authorEmail`; `pdf`
+   (PDF export); `verify[]`; `host` (⚠ security — only on explicit request).
 3. **Surface the consequences — never silently** (some edits orphan comments):
    - **`store` moved** → existing comments stay at the old path. Offer to move the store dir.
    - **`roots[].key` renamed** → changes URL slugs and the stored `space`/`page` prefix →

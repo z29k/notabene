@@ -51,6 +51,7 @@ const { page, space } = Astro.props;
   import { blockKey, imageLabel, matchBlockIndex, mermaidLabel } from "../lib/client/blocks";
   import {
     createApi,
+    displayName,
     esc,
     fmt,
     getAuthor,
@@ -118,9 +119,9 @@ const { page, space } = Astro.props;
     const ranges = new Map<string, Range>();
 
     const api = createApi(page);
-    // Comment author: per-device localStorage name, else the injected server default.
-    const AUTHOR_DEFAULT = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}").author || "you";
-    const me = () => getAuthor(AUTHOR_DEFAULT);
+    // Comment author: per-device identity ("Name <email>"), else the injected server default.
+    const ME_CFG = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
+    const me = () => getAuthor(ME_CFG.author || "you", ME_CFG.email || "");
 
     // ── flat text mapping (offset ⇄ DOM) ──────────────────────────────────
     // Built ONCE and reused. The article's text is immutable after render — comment
@@ -432,8 +433,8 @@ const { page, space } = Astro.props;
           ${anchorHtml}
           ${c.hold ? `<span class="cmt-hold-badge">${M.onHold}</span>` : ""}
         </div>
-        <div class="cmt-body"><b>${esc(head.author)}</b> ${esc(head.body)}</div>
-        ${replies.map((r) => `<div class="cmt-reply"><b>${esc(r.author)}</b> ${esc(r.body)}</div>`).join("")}
+        <div class="cmt-body"><b>${esc(displayName(head.author))}</b> ${esc(head.body)}</div>
+        ${replies.map((r) => `<div class="cmt-reply"><b>${esc(displayName(r.author))}</b> ${esc(r.body)}</div>`).join("")}
         ${c.resolution?.note ? `<div class="cmt-resolution">✔ ${esc(c.resolution.note)}</div>` : ""}
         <div class="cmt-actions">
           <span class="cmt-ts">${fmt(head.ts)}</span>

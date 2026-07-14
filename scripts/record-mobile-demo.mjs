@@ -61,11 +61,11 @@ function startServer() {
     });
     const to = setTimeout(() => reject(new Error("dev server did not start within 60s")), 60_000);
     const onData = (buf) => {
-      const m = String(buf).match(/http:\/\/localhost:(\d+)/);
+      const m = String(buf).match(/http:\/\/(?:localhost|127\.0\.0\.1):(\d+)/);
       if (m) {
         clearTimeout(to);
         child.stdout.off("data", onData);
-        resolve({ child, base: `http://localhost:${m[1]}` });
+        resolve({ child, base: `http://127.0.0.1:${m[1]}` });
       }
     };
     child.stdout.on("data", onData);

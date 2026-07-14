@@ -1,0 +1,199 @@
+---
+// PDF export route — a print-optimized, concatenated view of a scope (whole doc /
+// space / folder / page). Standalone (PrintLayout, no app chrome); Paged.js paginates
+// it client-side into a book with a page-numbered TOC. Static/prerendered → present in
+// `build`/`preview` and safe to deploy (no write API). Scope parsing/ordering is the
+// pure lib/print-scope; content + nav come from the same utilities the site uses.
+import { getCollection, render } from "astro:content";
+import PrintLayout from "../../layouts/PrintLayout.astro";
+import { buildNav, humanize, pageTitle } from "../../lib/nav";
+import {
+  type PrintItem,
+  findSubtree,
+  flattenNav,
+  folderPrefixes,
+  parseScope,
+  scopeParam,
+  sectionId,
+} from "../../lib/print-scope";
+import { locale, pdf, roots, siteName, tagline } from "../../config.mjs";
+import { t } from "../../i18n.mjs";
+
+export async function getStaticPaths() {
+  // pdf.enabled === false → don't build any /print pages at all.
+  if (!pdf.enabled) return [];
+  const paths: { params: { scope: string | undefined } }[] = [{ params: { scope: undefined } }]; // /print = whole doc
+  for (const root of roots) {
+    const entries = await getCollection(root.key as never);
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entry.
+    const ids = entries.map((e: any) => e.id as string);
+    paths.push({ params: { scope: scopeParam({ kind: "space", space: root.key }) ?? "" } });
+    for (const folder of folderPrefixes(ids)) {
+      paths.push({ params: { scope: `folder/${root.key}/${folder}` } });
+    }
+    for (const id of ids) {
+      paths.push({ params: { scope: `page/${root.key}/${id}` } });
+    }
+  }
+  return paths;
+}
+
+const m = t(locale);
+const parsed = parseScope(Astro.params.scope);
+const spaces = parsed
+  ? parsed.kind === "doc"
+    ? roots
+    : roots.filter((r) => r.key === parsed.space)
+  : [];
+
+// ── Render blocks (ordered body) + TOC entries, built from the same nav/collection
+// utilities as the live site. ──
+type Rendered = Awaited<ReturnType<typeof render>>;
+interface PartBlock {
+  kind: "part";
+  label: string;
+}
+interface LeafBlock {
+  kind: "leaf";
+  anchorId: string;
+  title: string;
+  Content: Rendered["Content"];
+  headings: Rendered["headings"];
+}
+type Block = PartBlock | LeafBlock;
+interface TocEntry {
+  kind: "part" | "group" | "leaf";
+  label: string;
+  depth: number;
+  anchor?: string;
+}
+
+const blocks: Block[] = [];
+const toc: TocEntry[] = [];
+
+async function addLeaf(space: string, id: string, entry: { id: string; body?: string } | undefined, depth: number) {
+  if (!entry) return;
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry → render().
+  const { Content, headings } = await render(entry as any);
+  const title = pageTitle(entry.body, id);
+  const anchorId = sectionId(space, id);
+  blocks.push({ kind: "leaf", anchorId, title, Content, headings });
+  toc.push({ kind: "leaf", label: title, depth, anchor: anchorId });
+}
+
+async function addSpaceItems(spaceKey: string, items: PrintItem[], entryById: Map<string, { id: string; body?: string }>) {
+  for (const item of items) {
+    if (item.type === "group") toc.push({ kind: "group", label: item.label, depth: item.depth });
+    else await addLeaf(spaceKey, item.id, entryById.get(item.id), item.depth);
+  }
+}
+
+if (parsed) {
+  for (const space of spaces) {
+    const entries = await getCollection(space.key as never);
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry shape.
+    const list = entries as any as { id: string; body?: string }[];
+    const entryById = new Map(list.map((e) => [e.id, e]));
+
+    if (parsed.kind === "page") {
+      await addLeaf(space.key, parsed.id, entryById.get(parsed.id), 1);
+      continue;
+    }
+
+    if (parsed.kind === "folder") {
+      const sub = findSubtree(await buildNav(space.key), parsed.path);
+      if (sub) await addSpaceItems(space.key, flattenNav(space.key, sub), entryById);
+      continue;
+    }
+
+    // doc / space: a part divider (doc scope only), the space home, then the nav tree.
+    if (parsed.kind === "doc") {
+      blocks.push({ kind: "part", label: space.label });
+      toc.push({ kind: "part", label: space.label, depth: 0 });
+    }
+    const index = list.find((e) => /^(readme|index)$/i.test(e.id));
+    if (index) await addLeaf(space.key, index.id, index, 1);
+    await addSpaceItems(space.key, flattenNav(space.key, await buildNav(space.key)), entryById);
+  }
+}
+
+// ── Cover + TOC selection ──
+const leaves = blocks.filter((b): b is LeafBlock => b.kind === "leaf");
+const dateStr = new Date().toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+
+function coverOf() {
+  if (!parsed || parsed.kind === "doc") return { kicker: tagline, title: siteName, sub: m.pdfCoverDoc };
+  const label = spaces[0]?.label ?? parsed.space;
+  if (parsed.kind === "space") return { kicker: siteName, title: label, sub: tagline };
+  if (parsed.kind === "folder") return { kicker: siteName, title: humanize(parsed.path.split("/").pop() ?? ""), sub: label };
+  return { kicker: siteName, title: leaves[0]?.title ?? parsed.id, sub: label };
+}
+const cover = coverOf();
+
+// TOC: the page list when there's more than one page (the "menu"); otherwise the single
+// page's own H2/H3 (like the on-page contents). None when neither is meaningful.
+const singleHeadings = leaves.length === 1 ? leaves[0].headings.filter((h) => h.depth >= 2 && h.depth <= 3) : [];
+const tocMode: "pages" | "headings" | "none" =
+  leaves.length > 1 ? "pages" : singleHeadings.length >= 2 ? "headings" : "none";
+const pageTitleStr = parsed && parsed.kind === "page" ? cover.title : parsed?.kind === "folder" ? cover.title : siteName;
+---
+
+<PrintLayout title={pageTitleStr}>
+  {/* ── Cover ── */}
+  <section class="pg-cover">
+    <p class="pg-cover-kicker">{cover.kicker}</p>
+    <h1>{cover.title}</h1>
+    <p class="pg-cover-sub">{cover.sub}</p>
+    <p class="pg-cover-meta">{m.pdfGeneratedOn} {dateStr}</p>
+  </section>
+
+  {/* ── Table of contents (the "menu") ── */}
+  {
+    tocMode !== "none" && (
+      <nav class="pg-toc" aria-label={m.pdfToc}>
+        <h2>{m.pdfToc}</h2>
+        <ul>
+          {tocMode === "pages"
+            ? toc.map((e) =>
+                e.kind === "leaf" ? (
+                  <li class:list={["pg-toc-leaf", `d${e.depth}`]}>
+                    <a href={`#${e.anchor}`}>{e.label}</a>
+                  </li>
+                ) : (
+                  <li class:list={["pg-toc-group", `d${e.depth}`]}>{e.label}</li>
+                ),
+              )
+            : singleHeadings.map((h) => (
+                <li class:list={["pg-toc-leaf", `d${h.depth}`]}>
+                  <a href={`#${h.slug}`}>{h.text}</a>
+                </li>
+              ))}
+        </ul>
+      </nav>
+    )
+  }
+
+  {/* ── Body: part dividers + titled page sections ── */}
+  {
+    blocks.map((b) => {
+      if (b.kind === "part") {
+        return (
+          <section class="pg-part">
+            <h1>{b.label}</h1>
+          </section>
+        );
+      }
+      const Content = b.Content;
+      return (
+        <section class="pg-doc">
+          <h1 class="pg-doc-title" id={b.anchorId}>
+            {b.title}
+          </h1>
+          <div class="prose">
+            <Content />
+          </div>
+        </section>
+      );
+    })
+  }
+</PrintLayout>

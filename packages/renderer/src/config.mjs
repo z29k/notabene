@@ -104,6 +104,22 @@ export const reviewMode = String(userConfig.review ?? "auto").toLowerCase() === 
 // `git config user.name` via NOTABENE_AUTHOR; else "you". The browser overrides this
 // per-device via localStorage (see the identity chip) — this is only the fallback.
 export const author = userConfig.author ?? process.env.NOTABENE_AUTHOR ?? "you";
+// Optional default author email — config `authorEmail` wins, else the CLI passes the repo's
+// `git config user.email` via NOTABENE_AUTHOR_EMAIL. Only a fallback; each browser sets its
+// own via the identity dialog. Embedded git-style ("Name <email>") into comment authors.
+export const authorEmail = userConfig.authorEmail ?? process.env.NOTABENE_AUTHOR_EMAIL ?? "";
+
+// PDF export (§ /print routes). Optional, backward-compatible (zero-config → defaults).
+//   enabled  — show the Export menu + serve /print (default true).
+//   pageSize — @page size keyword or dimensions ("A4", "Letter", "210mm 297mm").
+//   margin   — @page margin (a single CSS length applied to all sides).
+// Consumed by the print route + PrintLayout (injected as an inline @page rule).
+const pdfCfg = userConfig.pdf ?? {};
+export const pdf = {
+  enabled: pdfCfg.enabled ?? true,
+  pageSize: pdfCfg.pageSize ?? "A4",
+  margin: pdfCfg.margin ?? "18mm",
+};
 
 /**
  * @typedef {Object} Root
@@ -160,6 +176,8 @@ export default {
   verify,
   reviewMode,
   author,
+  authorEmail,
+  pdf,
   roots,
   storeRel,
   storeAbs,

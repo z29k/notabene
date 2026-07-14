@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  MDX <strong>and</strong> CommonMark/GFM · Mermaid diagrams · dev-local · zero backend · responsive · <strong>your data stays in git</strong>
+  MDX <strong>and</strong> CommonMark/GFM · Mermaid diagrams · PDF export · dev-local · zero backend · responsive · <strong>your data stays in git</strong>
 </p>
 
 <p align="center"><strong>English</strong> · <a href="https://github.com/z29k/notabene/blob/main/README.fr.md">Français</a></p>
@@ -55,6 +55,10 @@ the docs, marks them resolved, and writes a journal entry linking *what changed*
 - **Diagrams, first-class & commentable.** Write **Mermaid** (flowcharts, sequence, ER…)
   in a fenced ` ```mermaid ` block - rendered inline. **Comment or enlarge** any diagram
   *or image* as a whole (a block comment in the rail), not only text.
+- **Export a polished PDF.** From the **Export PDF** menu, turn any page, folder, space, or
+  the whole doc into a print-ready view (cover + clickable contents) → your browser's *Save
+  as PDF*, no dependency. For a book-quality file with a real **bookmark outline**, run
+  `notabene pdf` (headless Chromium, optional).
 - **Dev-local & safe by default.** The write API only runs under `notabene dev`,
   binds loopback (`127.0.0.1`) by default, and never ships in a build.
 - **Phone, tablet & touch.** The viewer is fully responsive: below 1024px the nav
@@ -84,6 +88,12 @@ the docs, marks them resolved, and writes a journal entry linking *what changed*
 </p>
 
 <p align="center"><em>Diagrams are first-class - render <strong>Mermaid</strong>, <strong>enlarge</strong> any diagram or image, and <strong>comment the whole block</strong> (it lands in the rail like a text comment).</em></p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-pdf-demo.gif" alt="notabene: open the Export PDF menu, pick a scope, and get a print-ready view with a cover and a clickable table of contents" width="820" />
+</p>
+
+<p align="center"><em>Export any scope to PDF - a <strong>page</strong>, <strong>section</strong>, <strong>space</strong>, or the <strong>whole doc</strong> - into a print-ready view with a cover and a clickable table of contents (→ your browser's <em>Save as PDF</em>, or <code>notabene pdf</code> for a bookmarked file).</em></p>
 
 ## Install
 
@@ -116,13 +126,14 @@ CLI:
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
-| `notabene migrate` | Convert the store to one file per comment (schema v2) |
+| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep |
+| `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
 | `notabene comments ls` | List comments - `--open` `--json` `--page <p>` (for agents/scripts) |
 | `notabene journal add` | Append a JSON journal entry read from stdin |
 
 Flags: `--port <n>` · `--detach` (dev: background daemon) · `--detect` (init: auto-detect
-roots) · `--config <path>` · `--root <path>` · `--host` (expose on the LAN - trusted
-networks only).
+roots) · `--scope`/`--out`/`--chrome` (pdf) · `--config <path>` · `--root <path>` · `--host`
+(expose on the LAN - trusted networks only).
 
 ### 2 · The Claude Code plugin - setup + review
 
@@ -175,6 +186,9 @@ export default {
   host: false,               // loopback only - the write API edits your git
   verify: [],                // consumer checks your agent runs after editing
   review: "auto",            // "auto" (agent resolves) | "approve" (you validate - see below)
+
+  // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name / user.email)
+  // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // PDF export (Export menu + /print)
 };
 ```
 
@@ -189,7 +203,9 @@ export default {
 | `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` exposes the write API to the LAN |
 | `verify[]` | `[]` | Post-edit checks the agent runs (the renderer build always runs) |
 | `review` | `"auto"` | `"auto"` = agent resolves comments; `"approve"` = agent proposes (`addressed`), you validate each at `/review` with a diff |
-| `author` | git `user.name` | Default comment author; each browser overrides it per-device via the header name field |
+| `author` | git `user.name` | Default comment author; each browser overrides it per-device via the **identity dialog** (name + optional email) |
+| `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
+| `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
 
 ## Two-phase review (optional)
 
@@ -234,6 +250,10 @@ your data stays portable and diffable. A comment:
 
 A journal entry: `{ id, date, title, summary, changes[] { page, commentIds[], what, why } }`.
 
+> The `anchor` shown is a text-quote selector; a **block-scoped** comment (a whole diagram or
+> image) carries a block anchor instead. `thread[].author` is a plain string that may be
+> git-style **`Name <email>`** — split on the trailing `<…>` for the display name.
+
 ## How it's different
 
 - **Starlight / Docusaurus** render docs beautifully - but there's no commenting and no
@@ -257,6 +277,9 @@ The comments API writes into your git. So:
   `x-notabene-token`. Setting a token is **recommended when you use `--host`**.
 - The agent skill **never commits without asking** and **never bulk-deletes** the
   store.
+- On a **non-loopback host** (LAN via `--host`, or a deployed build), each visitor is asked
+  to set their **identity** (name + optional email) before browsing, so comments are
+  attributed to a real person rather than the repo owner's git default.
 
 ## Repo layout
 

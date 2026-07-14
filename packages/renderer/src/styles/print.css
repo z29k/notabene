@@ -1,0 +1,226 @@
+/* notabene — print / PDF stylesheet for the /print routes. Loaded AFTER global.css
+   (which supplies `.prose` typography), so it wins on the layout + page rules. This is
+   NATIVE browser print (no pagination library): the browser's "Save as PDF" renders it,
+   and `notabene pdf` drives the same page headlessly for the high-fidelity artifact
+   (real PDF bookmark outline from the heading structure, running headers/footers). */
+
+/* ── Force a LIGHT palette for print output (PDF on white paper), whatever the
+   viewer's system theme. Same specificity as global.css's dark block, loaded later
+   → overrides it in both light and dark. Code blocks stay dark on purpose: Shiki
+   bakes light-on-dark token colors inline, so a light code bg would hide them. ── */
+:root {
+  --bg: #ffffff;
+  --bg-soft: #f6f7f9;
+  --bg-elev: #ffffff;
+  --border: #d7dbe0;
+  --text: #14181d;
+  --text-soft: #454b54;
+  --text-faint: #6b727c;
+  --accent: #1a4fbd;
+  --accent-soft: #e8f0ff;
+  --ref: #1a4fbd;
+  --work: #8a4a12;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #ffffff;
+    --bg-soft: #f6f7f9;
+    --bg-elev: #ffffff;
+    --border: #d7dbe0;
+    --text: #14181d;
+    --text-soft: #454b54;
+    --text-faint: #6b727c;
+    --accent: #1a4fbd;
+    --accent-soft: #e8f0ff;
+    --ref: #1a4fbd;
+    --work: #8a4a12;
+  }
+}
+
+body {
+  margin: 0;
+  background: #ffffff;
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+/* Center the document to a readable measure on screen; print uses the @page box. */
+#pg-content {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+}
+
+/* ── Screen-only toolbar (hidden when printing) ── */
+.pg-toolbar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: #14181d;
+  color: #fff;
+  font-size: 14px;
+}
+.pg-toolbar button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  background: var(--accent);
+  color: #fff;
+}
+.pg-toolbar a {
+  color: #cfd6df;
+  text-decoration: none;
+}
+.pg-toolbar .pg-status {
+  margin-left: auto;
+  color: #9aa0a6;
+  font-size: 12px;
+}
+
+@media print {
+  .pg-toolbar,
+  .no-print {
+    display: none !important;
+  }
+  #pg-content {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+/* ── Page geometry. `@page { size; margin }` is injected from config by PrintLayout.
+   Chrome's native print ignores @page margin-box content (running headers) — those
+   come from `notabene pdf`'s header/footer templates instead. ── */
+
+/* ── Cover ── */
+.pg-cover {
+  break-after: page;
+  padding-top: 22%;
+  text-align: center;
+}
+.pg-cover .pg-cover-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 10pt;
+  color: var(--text-faint);
+  margin-bottom: 1.5rem;
+}
+.pg-cover h1 {
+  font-size: 30pt;
+  line-height: 1.15;
+  margin: 0 0 0.75rem;
+  color: var(--text);
+}
+.pg-cover .pg-cover-sub {
+  font-size: 15pt;
+  color: var(--text-soft);
+  margin: 0;
+}
+.pg-cover .pg-cover-meta {
+  margin-top: 2.5rem;
+  font-size: 10pt;
+  color: var(--text-faint);
+}
+
+/* ── Table of contents (the in-document "menu": clickable internal links). Native
+   print can't number a TOC (no target-counter) — the CLI's PDF bookmark outline is the
+   page-navigable menu; this stays a clean, clickable list. ── */
+.pg-toc {
+  break-after: page;
+}
+.pg-toc h2 {
+  font-size: 18pt;
+  margin: 0 0 1.25rem;
+}
+.pg-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.pg-toc li {
+  margin: 0.15rem 0;
+  break-inside: avoid;
+}
+.pg-toc .pg-toc-group {
+  font-weight: 600;
+  margin-top: 0.9rem;
+  color: var(--text);
+}
+.pg-toc .pg-toc-leaf a {
+  text-decoration: none;
+  color: var(--accent);
+}
+.pg-toc .d2 {
+  padding-left: 1.2em;
+}
+.pg-toc .d3 {
+  padding-left: 2.4em;
+}
+.pg-toc .d4 {
+  padding-left: 3.6em;
+}
+
+/* ── Part divider (doc scope: one per space) ── */
+.pg-part {
+  break-before: page;
+  text-align: center;
+  padding-top: 32%;
+}
+.pg-part h1 {
+  font-size: 26pt;
+  color: var(--text);
+}
+
+/* ── Per-page section. The visible, anchored `.pg-doc-title` (h1) is both the TOC
+   link target and the entry the PDF outline picks up; the imported doc's own leading
+   H1 is hidden to avoid a duplicate (and to keep the outline clean). ── */
+.pg-doc {
+  break-before: page;
+}
+.pg-doc-title {
+  font-size: 20pt;
+  line-height: 1.2;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+.pg-doc > .prose > h1:first-child {
+  display: none;
+}
+.pg-doc .prose {
+  max-width: none;
+}
+
+/* ── Break hygiene: keep atomic blocks whole, don't orphan headings, and print the
+   dark code / diagram / table-header backgrounds (browsers strip them otherwise). ── */
+.prose pre,
+.prose table,
+.prose figure,
+.prose img,
+.prose blockquote {
+  break-inside: avoid;
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  break-after: avoid;
+}
+.prose pre,
+.prose pre code,
+.prose pre.mermaid,
+.prose th {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.prose img {
+  max-width: 100%;
+  height: auto;
+}

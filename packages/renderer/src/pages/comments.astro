@@ -44,6 +44,7 @@ const m = t(locale);
     type Comment,
     type CommentAnchor,
     createApi,
+    displayName,
     esc,
     fmt,
     makeRouteFor,
@@ -116,7 +117,7 @@ const m = t(locale);
                 ${c.hold ? `<span class="cmt-hold-badge">${M.onHold}</span>` : ""}
                 ${c.thread.length > 1 ? `<span class="caf-replies">${c.thread.length - 1} ${M.repliesSuffix}</span>` : ""}
               </div>
-              <div class="caf-body"><b>${esc(head.author)}</b> ${esc(head.body)}</div>
+              <div class="caf-body"><b>${esc(displayName(head.author))}</b> ${esc(head.body)}</div>
               ${c.resolution?.note ? `<div class="cmt-resolution">✔ ${esc(c.resolution.note)}</div>` : ""}
               <div class="caf-actions">
                 <span class="cmt-ts">${fmt(c.updatedAt)}</span>

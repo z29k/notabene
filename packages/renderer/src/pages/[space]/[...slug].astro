@@ -3,7 +3,8 @@ import { getCollection, render } from "astro:content";
 import DocLayout from "../../layouts/DocLayout.astro";
 import SpaceIndex from "../../components/SpaceIndex.astro";
 import { buildNav, humanize, pageTitle, type NavNode } from "../../lib/nav";
-import { roots } from "../../config.mjs";
+import { scopeToPath } from "../../lib/print-scope";
+import { pdf, roots } from "../../config.mjs";
 
 export async function getStaticPaths() {
   const groups = await Promise.all(
@@ -62,6 +63,26 @@ if (entry) {
 }
 
 const current = entry ? `/${spaceKey}/${entry.id}` : `/${spaceKey}`;
+
+// Contextual PDF export targets: always the space; plus the page's folder + the page
+// itself when viewing a real entry. The whole-doc target is added by DocLayout.
+let exportScopes:
+  | { space?: { href: string; label: string }; folder?: { href: string; label: string }; page?: { href: string; label: string } }
+  | undefined;
+if (pdf.enabled) {
+  exportScopes = { space: { href: scopeToPath({ kind: "space", space: spaceKey }), label: spaceLabel } };
+  if (entry) {
+    const idParts = entry.id.split("/");
+    if (idParts.length > 1) {
+      const folderPath = idParts.slice(0, -1).join("/");
+      exportScopes.folder = {
+        href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath }),
+        label: humanize(idParts[idParts.length - 2]),
+      };
+    }
+    exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: entry.id }), label: title };
+  }
+}
 ---
 
 <DocLayout
@@ -71,6 +92,7 @@ const current = entry ? `/${spaceKey}/${entry.id}` : `/${spaceKey}`;
   page={page}
   headings={headings}
   breadcrumb={entry ? breadcrumb : []}
+  exportScopes={exportScopes}
 >
   {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} />}
 </DocLayout>

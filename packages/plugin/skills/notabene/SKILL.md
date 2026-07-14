@@ -81,6 +81,10 @@ If the CLI isn't available, read the store with your file tools directly: each
 `<store>/**/*.json` (except `journal.json`/`meta.json`) is **one comment** (v2) or a
 **legacy array** (v1); keep those with `status == "open"` **and** `hold != true`.
 
+A `thread[].author` is a plain string that may be git-style **`Name <email>`** (the browser
+embeds the reviewer's email for a unique identity) — treat the whole string as the author;
+split on the trailing `<…>` only if you need the bare display name.
+
 ## Step 2 — Locate the source page
 
 `page` (= `data-page`) → source file, via `roots[]`: a `page` starting with

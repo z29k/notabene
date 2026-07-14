@@ -6,13 +6,16 @@
 let initialized = false;
 let idSeq = 0;
 
-export async function renderMermaid(): Promise<void> {
+// `forceLight` pins the light ("default") theme regardless of the system color scheme —
+// used on the /print route, which forces a white page: a dark-themed diagram (dark nodes,
+// light text) would otherwise be unreadable on white paper / in the PDF.
+export async function renderMermaid(opts?: { forceLight?: boolean }): Promise<void> {
   const blocks = Array.from(document.querySelectorAll<HTMLElement>("pre.mermaid:not([data-nb-mermaid])"));
   if (!blocks.length) return;
 
   const { default: mermaid } = await import("mermaid");
   if (!initialized) {
-    const dark = window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    const dark = !opts?.forceLight && (window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false);
     mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: dark ? "dark" : "default" });
     initialized = true;
   }

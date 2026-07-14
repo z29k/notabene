@@ -8,7 +8,8 @@
 //   notabene dev           start the review server (astro dev) over the current repo
 //   notabene build         build the site (Node standalone; no write API in the artifact)
 //   notabene preview       serve the built site
-//   notabene migrate       convert the store to one file per comment (schema v2)
+//   notabene pdf           export a PDF via headless Chromium (optional Puppeteer dep)
+//   notabene migrate       convert the store to one file per comment (schemaVersion 3)
 //   notabene comments ls   list comments [--open] [--json] [--page <p>]
 //   notabene journal add   append a JSON journal entry read from stdin
 //
@@ -18,6 +19,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import http from "node:http";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs";
@@ -58,6 +60,21 @@ function gitUserName(cwd) {
   try {
     return (
       execFileSync("git", ["-C", cwd, "config", "user.name"], {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim() || null
+    );
+  } catch {
+    return null;
+  }
+}
+
+// Best-effort default author email from the repo's git identity (a fallback for the
+// per-device identity dialog). Never throws.
+function gitUserEmail(cwd) {
+  try {
+    return (
+      execFileSync("git", ["-C", cwd, "config", "user.email"], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
       }).trim() || null
@@ -324,32 +341,22 @@ function workDirFor(root) {
   return path.join(os.tmpdir(), "notabene", createHash("sha1").update(root).digest("hex").slice(0, 16));
 }
 
-async function runAstro(astroCmd) {
-  // Zero-config is opt-in (NOTABENE_ALLOW_DEFAULTS=1, set by the plugin forwarder): bare
-  // `notabene dev` still fails with a useful message; config.mjs applies its defaults.
-  const allowDefaults = process.env.NOTABENE_ALLOW_DEFAULTS === "1";
-  if (!fs.existsSync(configPath) && !allowDefaults) {
-    fail(`no config at ${configPath}. Run \`notabene init\` first (or pass --config).`);
-  }
-  // Astro CLI entry, resolved from this package's deps. Astro's `exports` blocks
-  // deep subpaths, so resolve via package.json + its `bin` field.
+// Shared Astro launch prep (used by `runAstro` and `buildForPdf`): resolve the Astro CLI
+// entry, prepare a writable per-consumer outDir/cacheDir off the (possibly read-only)
+// package, symlink node_modules beside it so the bundled server resolves deps, and build
+// the env the app reads. See the long-form comments in the original `runAstro`.
+function astroSetup() {
+  // Astro's `exports` blocks deep subpaths → resolve the bin via package.json + `bin`.
   const astroPkgPath = require.resolve("astro/package.json");
   const astroPkg = JSON.parse(fs.readFileSync(astroPkgPath, "utf8"));
   const binRel = typeof astroPkg.bin === "string" ? astroPkg.bin : astroPkg.bin.astro;
   const astroBin = path.join(path.dirname(astroPkgPath), binRel);
-  // Build/cache output must NOT go under the installed package (<APP_DIR>): that dir
-  // can be read-only (pnpm strict store, Nix, Docker read-only layers, cached CI
-  // node_modules) and the loop's "verify" step depends on `build` succeeding. Redirect
-  // Astro's outDir + cacheDir to a per-consumer, writable temp dir (stable across
-  // build→preview so preview finds the artifact). astro.config.mjs reads these.
   const workDir = workDirFor(repoRoot);
   fs.mkdirSync(workDir, { recursive: true });
-  // The Node adapter's prerender step runs the bundled server from outDir, which
-  // imports the renderer's runtime deps by bare specifier. Those must be resolvable
-  // by walking up from outDir — so expose the real node_modules (the one holding
-  // astro) as a sibling symlink. Without this, moving outDir off the package breaks
-  // `build` ("Cannot find package …"). "junction" makes it work on Windows too.
-  const realNodeModules = path.dirname(path.dirname(astroPkgPath)); // <…>/node_modules
+  // Expose the real node_modules (the one holding astro) as a sibling of outDir so the
+  // Node adapter's prerender step can resolve runtime deps by bare specifier. "junction"
+  // works on Windows too.
+  const realNodeModules = path.dirname(path.dirname(astroPkgPath));
   const nmLink = path.join(workDir, "node_modules");
   try {
     fs.unlinkSync(nmLink);
@@ -361,6 +368,30 @@ async function runAstro(astroCmd) {
   } catch {
     /* best-effort: if it fails, Astro falls back to its default resolution */
   }
+  const gitAuthor = process.env.NOTABENE_AUTHOR || gitUserName(repoRoot);
+  const gitEmail = process.env.NOTABENE_AUTHOR_EMAIL || gitUserEmail(repoRoot);
+  const env = {
+    ...process.env,
+    NOTABENE_ROOT: repoRoot,
+    NOTABENE_CONFIG: configPath,
+    NOTABENE_OUT_DIR: path.join(workDir, "dist"),
+    NOTABENE_CACHE_DIR: path.join(workDir, "cache"),
+    ...(gitAuthor ? { NOTABENE_AUTHOR: gitAuthor } : {}),
+    ...(gitEmail ? { NOTABENE_AUTHOR_EMAIL: gitEmail } : {}),
+    ...(exposeHost ? { NOTABENE_HOST: "1" } : {}),
+  };
+  return { astroBin, workDir, env };
+}
+
+async function runAstro(astroCmd) {
+  // Zero-config is opt-in (NOTABENE_ALLOW_DEFAULTS=1, set by the plugin forwarder): bare
+  // `notabene dev` still fails with a useful message; config.mjs applies its defaults.
+  const allowDefaults = process.env.NOTABENE_ALLOW_DEFAULTS === "1";
+  if (!fs.existsSync(configPath) && !allowDefaults) {
+    fail(`no config at ${configPath}. Run \`notabene init\` first (or pass --config).`);
+  }
+  // Shared prep: Astro bin + writable outDir/cacheDir + node_modules symlink + env.
+  const { astroBin, workDir, env } = astroSetup();
   const args = [astroBin, astroCmd, "--root", APP_DIR];
   // `dev` gets a DETERMINISTIC port: honor an explicit --port, else pre-probe a free one,
   // so Astro doesn't silently auto-increment and the pidfile's port stays authoritative.
@@ -371,16 +402,6 @@ async function runAstro(astroCmd) {
     args.push("--port", String(devPort));
   }
   if (exposeHost) args.push("--host");
-  const gitAuthor = process.env.NOTABENE_AUTHOR || gitUserName(repoRoot);
-  const env = {
-    ...process.env,
-    NOTABENE_ROOT: repoRoot,
-    NOTABENE_CONFIG: configPath,
-    NOTABENE_OUT_DIR: path.join(workDir, "dist"),
-    NOTABENE_CACHE_DIR: path.join(workDir, "cache"),
-    ...(gitAuthor ? { NOTABENE_AUTHOR: gitAuthor } : {}),
-    ...(exposeHost ? { NOTABENE_HOST: "1" } : {}),
-  };
 
   // Detached daemon (`dev --detach`) — survives this process so `status`/`stop` work
   // across sessions. Idempotent: reuse a live daemon rather than starting a second one.
@@ -450,6 +471,191 @@ function doStop() {
   );
 }
 
+// ── `notabene pdf` — high-fidelity PDF export via headless Chromium ──────────────────
+// Renders the static /print route (built here) with Puppeteer (an OPTIONAL peer dep) to a
+// PDF that carries a real bookmark outline (the navigable "menu"), running header/footer
+// and page numbers — things browser print-to-PDF can't produce. The in-browser "Export
+// PDF" button needs none of this; this is the reproducible, CI-friendly artifact.
+
+// --scope value → /print URL. doc | space:<key> | folder:<key>/<path> | page:<key>/<id>.
+function scopeToUrl(scope) {
+  if (scope === "doc") return "/print";
+  const m = scope.match(/^(space|folder|page):(.+)$/);
+  if (!m) {
+    fail(`--scope must be one of: doc | space:<key> | folder:<key>/<path> | page:<key>/<id> (got "${scope}")`);
+  }
+  return `/print/${m[1]}/${m[2].replace(/^\/+|\/+$/g, "")}`;
+}
+
+// Best-effort path to a system Chrome/Chromium/Edge (for puppeteer-core, which ships no
+// browser). Full `puppeteer` bundles its own, so this is only a fallback.
+function detectChrome() {
+  const byPlatform = {
+    darwin: [
+      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "/Applications/Chromium.app/Contents/MacOS/Chromium",
+      "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    ],
+    win32: [
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    ],
+    linux: [
+      "/usr/bin/google-chrome",
+      "/usr/bin/google-chrome-stable",
+      "/usr/bin/chromium",
+      "/usr/bin/chromium-browser",
+    ],
+  };
+  return (byPlatform[process.platform] || []).find((p) => {
+    try {
+      return fs.existsSync(p);
+    } catch {
+      return false;
+    }
+  });
+}
+
+// Minimal read-only static server over the built client dir (loopback, ephemeral port).
+// Maps a directory request to its index.html; refuses paths that escape the root.
+function serveStatic(clientDir) {
+  const TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".mjs": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".json": "application/json; charset=utf-8",
+    ".svg": "image/svg+xml",
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".woff": "font/woff",
+    ".woff2": "font/woff2",
+    ".ttf": "font/ttf",
+    ".ico": "image/x-icon",
+    ".map": "application/json",
+  };
+  return new Promise((resolve) => {
+    const server = http.createServer((req, res) => {
+      try {
+        const rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
+        let file = path.resolve(clientDir, `.${rel}`);
+        if (file !== clientDir && !file.startsWith(clientDir + path.sep)) {
+          res.writeHead(403).end();
+          return;
+        }
+        if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
+        if (!fs.existsSync(file)) {
+          res.writeHead(404).end("Not found");
+          return;
+        }
+        res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream" });
+        fs.createReadStream(file).pipe(res);
+      } catch {
+        res.writeHead(500).end();
+      }
+    });
+    server.listen(0, "127.0.0.1", () => resolve({ server, port: server.address().port }));
+  });
+}
+
+// Build the site into the writable workdir and return its client dir (static /print pages).
+function buildForPdf() {
+  const { astroBin, workDir, env } = astroSetup();
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [astroBin, "build", "--root", APP_DIR], {
+      stdio: "inherit",
+      cwd: repoRoot,
+      env,
+    });
+    child.on("error", reject);
+    child.on("exit", (code) =>
+      code === 0
+        ? resolve(path.join(workDir, "dist", "client"))
+        : reject(new Error(`astro build failed (exit ${code})`)),
+    );
+  });
+}
+
+async function doPdf() {
+  const allowDefaults = process.env.NOTABENE_ALLOW_DEFAULTS === "1";
+  if (!fs.existsSync(configPath) && !allowDefaults) {
+    fail(`no config at ${configPath}. Run \`notabene init\` first (or pass --config).`);
+  }
+
+  // Puppeteer is an OPTIONAL peer dep — lazy-load `puppeteer` (bundles Chromium) or
+  // `puppeteer-core` (needs a system Chrome). Absent → a helpful install hint, not a crash.
+  let puppeteer;
+  for (const mod of ["puppeteer", "puppeteer-core"]) {
+    try {
+      puppeteer = require(mod);
+      break;
+    } catch {
+      /* not installed — try the next */
+    }
+  }
+  if (!puppeteer) {
+    fail(
+      "`notabene pdf` needs Puppeteer (an optional dependency). Install one:\n" +
+        "    npm i -D puppeteer         # bundles Chromium (simplest)\n" +
+        "    npm i -D puppeteer-core    # then pass --chrome <path> or set PUPPETEER_EXECUTABLE_PATH\n" +
+        "  (The in-browser “Export PDF” button needs none of this — `pdf` is the high-fidelity artifact.)",
+    );
+  }
+
+  const scope = flag("--scope") && flag("--scope") !== true ? String(flag("--scope")).trim() : "doc";
+  const urlPath = scopeToUrl(scope);
+  const outFlag = flag("--out");
+  const outPath = path.resolve(
+    repoRoot,
+    outFlag && outFlag !== true ? String(outFlag) : `notabene-${scope.replace(/[:/]+/g, "-")}.pdf`,
+  );
+  const chromePath =
+    (flag("--chrome") && flag("--chrome") !== true && String(flag("--chrome"))) ||
+    process.env.PUPPETEER_EXECUTABLE_PATH ||
+    detectChrome();
+
+  console.log(`notabene: building the site for PDF export (scope ${scope})…`);
+  const clientDir = await buildForPdf();
+  const { server, port } = await serveStatic(clientDir);
+  const url = `http://127.0.0.1:${port}${urlPath}`;
+
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      executablePath: chromePath || undefined,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+    console.log(`notabene: rendering ${url} …`);
+    await page.goto(url, { waitUntil: "networkidle0", timeout: 90_000 });
+    // print.ts flips this once Mermaid diagrams are rendered and the page is capture-ready.
+    await page.waitForSelector("body[data-pg-ready]", { timeout: 90_000 }).catch(() => {});
+    await page.pdf({
+      path: outPath,
+      printBackground: true,
+      preferCSSPageSize: true, // honor the @page { size; margin } from PrintLayout
+      tagged: true, // required for the bookmark outline
+      outline: true, // real PDF bookmark tree from the heading structure (the "menu")
+      displayHeaderFooter: true,
+      headerTemplate: "<div></div>",
+      footerTemplate:
+        '<div style="width:100%;font-size:8px;color:#8a929e;text-align:center;">' +
+        '<span class="pageNumber"></span> / <span class="totalPages"></span></div>',
+    });
+  } catch (err) {
+    fail(`PDF render failed: ${err instanceof Error ? err.message : err}`);
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+    server.close();
+  }
+  const kb = Math.round(fs.statSync(outPath).size / 1024);
+  console.log(`notabene: wrote ${path.relative(repoRoot, outPath) || outPath} (${kb} KB).`);
+}
+
 switch (cmd) {
   case "doctor":
     doDoctor().catch((e) => fail(e instanceof Error ? e.message : String(e)));
@@ -467,6 +673,9 @@ switch (cmd) {
     break;
   case "stop":
     doStop();
+    break;
+  case "pdf":
+    doPdf().catch((e) => fail(e instanceof Error ? e.message : String(e)));
     break;
   case "migrate":
     doMigrate();
@@ -495,7 +704,8 @@ switch (cmd) {
         "  notabene stop            stop the detached server\n" +
         "  notabene build           build the site (Node standalone)\n" +
         "  notabene preview         serve the built site\n" +
-        "  notabene migrate         convert the store to one file per comment (v2)\n" +
+        "  notabene pdf             export a PDF (headless Chromium)  [--scope doc|space:K|folder:K/P|page:K/I] [--out F] [--chrome P]\n" +
+        "  notabene migrate         convert the store to one file per comment (schemaVersion 3)\n" +
         "  notabene comments ls     list comments  [--open] [--json] [--page <p>]\n" +
         "  notabene journal add     append a JSON journal entry from stdin\n\n" +
         "Flags: --config <path>  --root <path>  --host",

@@ -39,7 +39,12 @@ export default {
   // /review or via the "to validate" filter on /comments, then resolve or reject.
   review: "auto",
 
-  // Default comment author. Omit → the CLI uses this repo's `git config user.name`
-  // (else "you"). Each browser overrides it per-device via the name field in the header.
+  // PDF export (the "Export PDF" menu + /print routes). Optional — omit for defaults.
+  // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },
+
+  // Default comment identity. Omit → the CLI uses this repo's `git config user.name` /
+  // `user.email` (else "you"). Each browser overrides it per-device via the identity dialog
+  // (name + optional email); the author is stored git-style as "Name <email>".
   // author: "Alex",
+  // authorEmail: "alex@example.com",
 };
