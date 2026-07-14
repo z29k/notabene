@@ -11,7 +11,8 @@ edits. The viewer is the support; **the protocol (the review skill) is the produ
 Two installable pieces, one npm workspace:
 
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro renderer
-  + the `notabene` CLI (`init` / `dev` / `build` / `preview`). Published to npm.
+  + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf`, plus `doctor` /
+  `status` / `stop` / `migrate` / `comments` / `journal`). Published to npm.
 - **`packages/plugin`** — the Claude Code plugin. Its single skill
   (`skills/notabene/SKILL.md`) doubles as the agent-agnostic protocol spec.
 
@@ -80,31 +81,40 @@ the consumer: `notabene.config.mjs` + the `.notabene/` store + the docs themselv
 ## Architecture: the `.notabene` store is a public data contract
 
 The store (comments + journal, **one file per comment** at `<store>/<page>/<id>.json`
-— v2 — plus `journal.json` and `meta.json`) is **committed in consumer repos and read by
-agents**. Treat its shape as a public API:
+— schema v3 — plus `journal.json` and `meta.json`) is **committed in consumer repos and read
+by agents**. Treat its shape as a public API:
 
-- Versioned by a sidecar `<store>/meta.json` (`{ "schemaVersion": n }`, currently **2**).
+- Versioned by a sidecar `<store>/meta.json` (`{ "schemaVersion": n }`, currently **3**).
   **Any shape change bumps `schemaVersion` and ships a migrator — never a silent
   mutation.** Types and `SCHEMA_VERSION` live in `src/lib/comment-types.ts`; the guard that
   refuses a store *newer* than the renderer is `src/lib/store-meta.ts` (called on every read).
-- **v2 = one file per comment** (`<store>/<page>/<id>.json`) → conflict-free git merges.
-  Readers stay **backward-compatible** with v1 (one array per page, `<store>/<page>.json`);
-  any write migrates that page to v2, and `notabene migrate` converts a whole store eagerly.
-  `write()` never recurses into sub-page dirs when clearing a page.
+- **Version ladder:** v1 (one array per page, `<store>/<page>.json`) → **v2** (one file per
+  comment, `<store>/<page>/<id>.json` → conflict-free git merges) → **v3** (block-scoped
+  comments on diagrams/images — see `BlockAnchor`). Readers stay **backward-compatible** with
+  v1; any write migrates that page to the per-comment layout, and `notabene migrate` converts
+  a whole store eagerly and stamps `schemaVersion` 3. `write()` never recurses into sub-page
+  dirs when clearing a page.
 - `src/lib/comments.ts` is the server-only I/O layer (dev-only). Writes are **atomic**
   (temp file + `rename`) so the agent never reads a truncated JSON; page paths/dirs are
   resolved + traversal-guarded by `src/lib/store-path.ts` (`resolveStorePath`/`resolveStoreDir`). Anchors use a W3C
   TextQuoteSelector (`quote` + `prefix`/`suffix` context + nearest `section` heading) —
   the prefix/suffix are load-bearing for re-anchoring rendered text back to source; the
-  client capture side lives in `src/components/Comments.astro`. Browser-side comment
-  helpers shared across the two comment UIs live in `src/lib/client/comments-client.ts`.
+  client capture side lives in `src/components/Comments.astro`. A **block-scoped** comment
+  (`scope: "block"`, a whole diagram or image) uses a `BlockAnchor` (`kind: "mermaid"|"image"`
+  + `key`/`label`) instead of a text-quote anchor. Browser-side comment helpers shared across
+  the two comment UIs live in `src/lib/client/comments-client.ts`.
 - A comment has `status: open|addressed|resolved` and `hold: boolean`. The agent
   processes only `open` **and not on hold**; held comments are the user's WIP. `addressed`
   is the two-phase-review state (see below): agent-proposed, awaiting human validation.
-- Comment/reply **author** resolves as: per-device `localStorage` name (set via the header
-  field, sent with each write) → config `author` → the repo's `git config user.name` (the
-  CLI passes it as `NOTABENE_AUTHOR`) → `"you"`. So it's never a bare "you" out of the box,
-  and a `--host` deployment attributes per person. Fallback lives in `config.mjs` (`author`).
+- Comment/reply **author** is a plain string carrying the per-device **identity** — name +
+  optional **email** — composed git-style as `Name <email>` (`composeAuthor` in
+  `comments-client.ts`; readers strip the email via `displayName`). Identity is set in a
+  **modal dialog** (the header shows a chip that opens it), stored in `localStorage`.
+  Resolution: `localStorage` name/email → config `author`/`authorEmail` → the repo's
+  `git config user.name`/`user.email` (the CLI passes `NOTABENE_AUTHOR`/`NOTABENE_AUTHOR_EMAIL`)
+  → `"you"`. **Identity gate:** on a non-loopback host (LAN via `--host`, or a deployed build)
+  with no identity set, the dialog is forced before browsing, so comments attribute per person
+  (client-side nudge — `isLoopbackHost` in `comments-client.ts`, wired in `DocLayout`).
 
 ## Architecture: the review loop (the product)
 
@@ -128,6 +138,25 @@ surface a multi-page cascade. Approve → `resolved`; reject → `open` + the re
 reply (the agent re-reads it next pass). Diff renders unified/side-by-side
 (`src/lib/client/diff.ts`, mode persisted in `localStorage`). `reviewMode` is exported
 from `config.mjs` and injected to the client via `DocLayout` (`#notabene-review`).
+
+## Architecture: PDF export
+
+Static `src/pages/print/[...scope].astro` routes render a print-optimized, concatenated view
+of a scope (whole doc / `space/<key>` / `folder/<key>/<path>` / `page/<key>/<id>`) — cover +
+clickable TOC, via `PrintLayout` (no app chrome), styled by `src/styles/print.css` (forced
+light; Mermaid forced light too, so dark-mode diagrams stay readable on white). Scope
+parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to a PDF:
+
+- **In-browser** (zero deps): the header **Export PDF** menu opens a `/print` route in a new
+  tab and auto-triggers the browser's *Save as PDF* (`?autoprint=1`, handled by
+  `src/lib/client/print.ts`). The routes are static → present in `dev` **and** the build (no
+  write API → safe to deploy). Toggled by config `pdf.enabled`; page size/margin from
+  `pdf.pageSize`/`pdf.margin`.
+- **`notabene pdf`** (CLI): builds the site, serves it, and drives **headless Chromium via
+  Puppeteer** (an **optional** `peerDependency`, lazy-required — falls back to `puppeteer-core`
+  + a system Chrome) → a PDF with a real **bookmark outline** + running footer page numbers.
+  Flags: `--scope`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
+  pagination hangs in a hidden tab and can't emit a real PDF outline — see the pdf-export memory).
 
 ## Safety model (keep it intact)
 

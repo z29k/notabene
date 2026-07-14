@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  MDX <strong>et</strong> CommonMark/GFM · diagrammes Mermaid · dev-local · zéro backend · responsive · <strong>tes données restent dans git</strong>
+  MDX <strong>et</strong> CommonMark/GFM · diagrammes Mermaid · export PDF · dev-local · zéro backend · responsive · <strong>tes données restent dans git</strong>
 </p>
 
 <p align="center"><a href="https://github.com/z29k/notabene#readme">English</a> · <strong>Français</strong></p>
@@ -55,6 +55,10 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
   séquence, ER…) dans une fence ` ```mermaid ` - rendu inline. **Commente ou agrandis**
   n'importe quel diagramme *ou image* en entier (un commentaire de bloc dans le rail), pas
   seulement du texte.
+- **Exporte un PDF soigné.** Depuis le menu **Export PDF**, transforme une page, un dossier,
+  un espace ou toute la doc en une vue prête à imprimer (page de garde + sommaire cliquable) →
+  le *Enregistrer en PDF* de ton navigateur, sans dépendance. Pour un fichier qualité livre
+  avec un vrai **volet de signets**, lance `notabene pdf` (Chromium headless, optionnel).
 - **Dev-local & sûr par défaut.** L'API d'écriture ne tourne que sous `notabene dev`, bind en
   loopback (`127.0.0.1`) par défaut, et n'est jamais embarquée dans un build.
 - **Mobile, tablette & tactile.** Le viewer est entièrement responsive : en dessous de 1024px
@@ -87,6 +91,12 @@ les marque résolus, et écrit une entrée de journal reliant *ce qui a changé*
 
 <p align="center"><em>Les diagrammes sont de première classe - rendu <strong>Mermaid</strong>, <strong>agrandis</strong> n'importe quel diagramme ou image, et <strong>commente le bloc entier</strong> (il arrive dans le rail comme un commentaire de texte).</em></p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-pdf-demo.gif" alt="notabene : ouvre le menu Export PDF, choisis une portée, et obtiens une vue prête à imprimer avec une page de garde et un sommaire cliquable" width="820" />
+</p>
+
+<p align="center"><em>Exporte n'importe quelle portée en PDF - une <strong>page</strong>, une <strong>section</strong>, un <strong>espace</strong> ou <strong>toute la doc</strong> - en une vue prête à imprimer avec page de garde et sommaire cliquable (→ le <em>Enregistrer en PDF</em> du navigateur, ou <code>notabene pdf</code> pour un fichier avec signets).</em></p>
+
 ## Installation
 
 notabene, c'est **deux briques installables** : le **renderer** (un package npm + CLI) et le
@@ -118,13 +128,14 @@ CLI :
 | `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Build le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
 | `notabene preview` | Sert le site buildé |
-| `notabene migrate` | Convertit le store en un fichier par commentaire (schéma v2) |
+| `notabene pdf` | Exporte un PDF via Chromium headless (vrai volet de signets + numéros de page) ; `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--out`, `--chrome`. Requiert la peer dep optionnelle `puppeteer` |
+| `notabene migrate` | Convertit le store vers le format un-fichier-par-commentaire (estampille `schemaVersion` 3) |
 | `notabene comments ls` | Liste les commentaires - `--open` `--json` `--page <p>` (pour agents/scripts) |
 | `notabene journal add` | Ajoute une entrée de journal JSON lue sur stdin |
 
 Flags : `--port <n>` · `--detach` (dev : daemon en arrière-plan) · `--detect` (init : détecte
-les roots) · `--config <path>` · `--root <path>` · `--host` (exposer sur le LAN - réseaux de
-confiance uniquement).
+les roots) · `--scope`/`--out`/`--chrome` (pdf) · `--config <path>` · `--root <path>` · `--host`
+(exposer sur le LAN - réseaux de confiance uniquement).
 
 ### 2 · Le plugin Claude Code - setup + revue
 
@@ -177,6 +188,9 @@ export default {
   host: false,               // loopback uniquement - l'API d'écriture édite ton git
   verify: [],                // checks du consommateur que l'agent lance après édition
   review: "auto",            // "auto" (l'agent résout) | "approve" (tu valides - voir plus bas)
+
+  // author: "Alex", authorEmail: "alex@x.io",  // identité de commentaire par défaut (sinon git user.name / user.email)
+  // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // export PDF (menu Export + /print)
 };
 ```
 
@@ -191,7 +205,9 @@ export default {
 | `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` expose l'API d'écriture au LAN |
 | `verify[]` | `[]` | Checks post-édition lancés par l'agent (le build renderer tourne toujours) |
 | `review` | `"auto"` | `"auto"` = l'agent résout ; `"approve"` = l'agent propose (`addressed`), tu valides chaque édit sur `/review` avec un diff |
-| `author` | git `user.name` | Auteur de commentaire par défaut ; chaque navigateur le surcharge par appareil via le champ nom de l'en-tête |
+| `author` | git `user.name` | Auteur de commentaire par défaut ; chaque navigateur le surcharge par appareil via la **modale d'identité** (nom + email optionnel) |
+| `authorEmail` | git `user.email` | Email d'auteur par défaut ; embarqué façon git (`Name <email>`) pour des identités uniques |
+| `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | Export PDF — `enabled` active le menu Export + les routes `/print` ; `pageSize`/`margin` règlent la boîte `@page` |
 
 ## Revue à deux temps (optionnel)
 
@@ -237,6 +253,10 @@ données restent portables et diffables. Un commentaire :
 
 Une entrée de journal : `{ id, date, title, summary, changes[] { page, commentIds[], what, why } }`.
 
+> L'`anchor` montrée est un sélecteur texte-citation ; un commentaire **de bloc** (un
+> diagramme ou une image en entier) porte une ancre de bloc à la place. `thread[].author` est
+> une string qui peut être façon git **`Name <email>`** — coupe sur le `<…>` final pour le nom.
+
 ## En quoi c'est différent
 
 - **Starlight / Docusaurus** rendent superbement les docs - mais pas de commentaires ni de
@@ -260,6 +280,9 @@ L'API des commentaires écrit dans ton git. Donc :
   Poser un token est **recommandé avec `--host`**.
 - Le skill agent **ne committe jamais sans demander** et **ne supprime jamais en masse** le
   store.
+- Sur un hôte **non-loopback** (LAN via `--host`, ou un build déployé), chaque visiteur doit
+  renseigner son **identité** (nom + email optionnel) avant de naviguer, pour que les
+  commentaires soient attribués à une vraie personne plutôt qu'au git du propriétaire du repo.
 
 ## Organisation du repo
 

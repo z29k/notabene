@@ -1,0 +1,39 @@
+---
+// Standalone layout for the /print routes — NO app chrome (sidebar, comments, write
+// API). global.css supplies `.prose` typography; print.css (loaded after) forces a
+// light palette + adds the @page rules; the inline @page below injects the page size
+// + margin from config. Paged.js (lib/client/print.ts) paginates client-side.
+import "../styles/global.css";
+import "../styles/print.css";
+import { locale, pdf, siteName } from "../config.mjs";
+import { t } from "../i18n.mjs";
+
+interface Props {
+  title: string;
+}
+const { title } = Astro.props;
+const m = t(locale);
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · {siteName}</title>
+    <style is:inline set:html={`@page { size: ${pdf.pageSize}; margin: ${pdf.margin}; }`}></style>
+  </head>
+  <body>
+    <div class="pg-toolbar no-print">
+      <button id="pg-print" type="button">{m.printSave}</button>
+      <a href="/">← {m.pdfBack}</a>
+      <span id="pg-status" class="pg-status">{m.loading}</span>
+    </div>
+    <main id="pg-content">
+      <slot />
+    </main>
+    <script>
+      import "../lib/client/print";
+    </script>
+  </body>
+</html>

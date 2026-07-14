@@ -6,7 +6,8 @@ a human↔agent review protocol. Contributions are welcome.
 ## Repo layout
 
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro
-  renderer + the `notabene` CLI (`init` / `dev` / `build` / `preview`). Runs
+  renderer + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf`, plus
+  `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Runs
   *from the package* against a consumer repo (`NOTABENE_ROOT` / `NOTABENE_CONFIG`).
 - **`packages/plugin`** — the Claude Code plugin (the review skill). The skill file
   doubles as the agent-agnostic protocol spec.
@@ -123,7 +124,7 @@ GitHub Environment. The channel is chosen by what you push:
 
 - **Staging** (`develop`): each push runs the gates and publishes a prerelease to `dev`.
   Keep `packages/renderer/package.json` at the **in-progress next version** on develop so
-  prereleases read e.g. `0.4.0-dev.N`.
+  prereleases read e.g. `0.6.0-dev.N`.
 - **Production** (tag): bump all three files to the same version, sync the lockfile, commit,
   tag, push — CI verifies tag == version, publishes stable, and cuts a GitHub Release:
 

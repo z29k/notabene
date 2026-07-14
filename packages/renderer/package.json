@@ -42,6 +42,14 @@
     "astro": "^6.0.0",
     "mermaid": "^11.16.0"
   },
+  "peerDependencies": {
+    "puppeteer": ">=23"
+  },
+  "peerDependenciesMeta": {
+    "puppeteer": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
     "@biomejs/biome": "^2.0.0",

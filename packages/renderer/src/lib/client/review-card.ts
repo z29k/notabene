@@ -3,7 +3,7 @@
 // "to validate" filter). Browser-side. Data flow:
 //   comments (?all=1) + journal (/api/journal) → for each `addressed` comment, invert the
 //   journal to its changed pages (cascade included) → diffs (/api/diff, one batched call).
-import { createApi, esc, getAuthor, type Comment } from "./comments-client";
+import { createApi, displayName, esc, getAuthor, type Comment } from "./comments-client";
 import { type DiffMode, effectiveDiffMode, getDiffMode, renderDiff, setDiffMode } from "./diff";
 
 interface JournalChange {
@@ -97,7 +97,7 @@ export function renderReviewCard(
         : `<span class="cmt-scope">${m.scopePage}</span>`;
   return `<article class="rev-card" data-id="${c.id}" data-page="${esc(c.page)}">
     <header class="rev-head"><a class="rev-page" href="${href}">${esc(c.page)}</a> ${head}</header>
-    <div class="rev-thread">${c.thread.map((t) => `<div class="rev-msg"><b>${esc(t.author)}</b> ${esc(t.body)}</div>`).join("")}</div>
+    <div class="rev-thread">${c.thread.map((t) => `<div class="rev-msg"><b>${esc(displayName(t.author))}</b> ${esc(t.body)}</div>`).join("")}</div>
     <div class="rev-agent">${m.proposedByAgent}${c.resolution?.note ? ` — ${esc(c.resolution.note)}` : ""}</div>
     <div class="rev-diffs">${changes.length ? changes.map((ch) => renderChange(ch, diffs, byId, m, mode)).join("") : `<p class="cmt-empty">${m.noChangesRecorded}</p>`}</div>
     <div class="rev-actions">
@@ -134,7 +134,7 @@ export async function mountReviewList(
   let byId = new Map<string, Comment>();
   let diffs = new Map<string, DiffResult>();
   const api = createApi(); // PATCH carries the token from localStorage
-  const authorDefault = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}").author || "you";
+  const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
 
   // Side-by-side is unreadable on phones → coerce to unified below 640px (the toggle is
   // CSS-hidden there); the stored preference is preserved for wider screens.
@@ -215,7 +215,7 @@ export async function mountReviewList(
       page,
       id: form.dataset.id,
       status: "open",
-      reply: { author: getAuthor(authorDefault), body },
+      reply: { author: getAuthor(meCfg.author || "you", meCfg.email || ""), body },
     });
     await reload();
   });

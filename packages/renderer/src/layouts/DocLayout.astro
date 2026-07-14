@@ -4,7 +4,7 @@ import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import Comments from "../components/Comments.astro";
 import type { Space } from "../lib/nav";
-import { author, clientRoots, locale, reviewMode, siteName, tagline } from "../config.mjs";
+import { author, authorEmail, clientRoots, locale, pdf, reviewMode, siteName, tagline } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -20,6 +20,14 @@ interface Crumb {
   href?: string;
 }
 
+/** Contextual PDF export targets for the current page (built by the page route from
+ *  its space + entry id). The whole-doc target (/print) is always offered. */
+interface ExportScopes {
+  space?: { href: string; label: string };
+  folder?: { href: string; label: string };
+  page?: { href: string; label: string };
+}
+
 interface Props {
   title: string;
   current?: string;
@@ -28,9 +36,15 @@ interface Props {
   page?: string;
   headings?: Heading[];
   breadcrumb?: Crumb[];
+  exportScopes?: ExportScopes;
 }
 
-const { title, current = "", space, page, headings = [], breadcrumb = [] } = Astro.props;
+const { title, current = "", space, page, headings = [], breadcrumb = [], exportScopes } = Astro.props;
+const showExport = pdf.enabled;
+// Export links open the print view in a NEW TAB and auto-open the browser's print
+// dialog (?autoprint=1, handled by lib/client/print.ts) — as close to "save straight to
+// PDF" as a browser allows. The silent file-export path is the `notabene pdf` CLI.
+const printHref = (href: string) => `${href}?autoprint=1`;
 // Doc pages (page set) carry the TOC + anchored-comment rail. App pages (review / comments /
 // journal) pass no page → no rail; drop the empty third column so they use the full width.
 const hasRail = page != null;
@@ -45,7 +59,7 @@ const hasRail = page != null;
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
     <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
-    <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author })} />
+    <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author, email: authorEmail })} />
   </head>
   <body>
     <header class="topbar">
@@ -69,10 +83,47 @@ const hasRail = page != null;
         {m.navReview} <span id="nav-review-badge" class="review-badge js-review-badge"></span>
       </a>
       <a href="/journal" class="topbar-link topbar-util">{m.navJournal}</a>
-      <label class="topbar-me topbar-util" title={m.yourNameHint}>
+      {/* Flexible gap: keeps Comments/Journal on the left, pushes the ancillary
+          Export + name group to the far right (desktop only — utils collapse into the
+          drawer on compact). */}
+      <div class="topbar-spacer topbar-util" aria-hidden="true"></div>
+      {
+        showExport && (
+          <details class="export-menu topbar-util">
+            <summary class="topbar-link export-summary" aria-label={m.exportPdf} title={m.exportPdf}>
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 6 2 18 2 18 9" />
+                <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+            </summary>
+            <div class="export-menu-pop">
+              {exportScopes?.page && (
+                <a href={printHref(exportScopes.page.href)} target="_blank" rel="noopener">
+                  {m.exportThisPage}
+                </a>
+              )}
+              {exportScopes?.folder && (
+                <a href={printHref(exportScopes.folder.href)} target="_blank" rel="noopener">
+                  {m.exportThisFolder}
+                </a>
+              )}
+              {exportScopes?.space && (
+                <a href={printHref(exportScopes.space.href)} target="_blank" rel="noopener">
+                  {m.exportThisSpace}
+                </a>
+              )}
+              <a href={printHref("/print")} target="_blank" rel="noopener">
+                {m.exportWholeDoc}
+              </a>
+            </div>
+          </details>
+        )
+      }
+      <button id="nb-identity-chip" class="topbar-me topbar-util" type="button" title={m.identityHint} aria-label={m.identityHint}>
         <span aria-hidden="true">👤</span>
-        <input id="me-input" type="text" placeholder={m.yourName} autocomplete="off" aria-label={m.yourName} />
-      </label>
+        <span class="nb-identity-name"></span>
+      </button>
       <button id="nb-cmt-sheet-btn" class="nb-cmt-sheet-btn" type="button" hidden aria-label={m.annotations}>
         <span aria-hidden="true">💬</span> <span id="nb-cmt-sheet-count" class="nb-cmt-sheet-count"></span>
       </button>
@@ -87,16 +138,34 @@ const hasRail = page != null;
             {m.navReview} <span class="review-badge js-review-badge"></span>
           </a>
           <a href="/journal" class="drawer-link">{m.navJournal}</a>
-          <label class="drawer-me" title={m.yourNameHint}>
+          {
+            showExport && (
+              <>
+                {exportScopes?.page && (
+                  <a href={printHref(exportScopes.page.href)} target="_blank" rel="noopener" class="drawer-link">
+                    🖨 {m.exportThisPage}
+                  </a>
+                )}
+                {exportScopes?.folder && (
+                  <a href={printHref(exportScopes.folder.href)} target="_blank" rel="noopener" class="drawer-link">
+                    🖨 {m.exportThisFolder}
+                  </a>
+                )}
+                {exportScopes?.space && (
+                  <a href={printHref(exportScopes.space.href)} target="_blank" rel="noopener" class="drawer-link">
+                    🖨 {m.exportThisSpace}
+                  </a>
+                )}
+                <a href={printHref("/print")} target="_blank" rel="noopener" class="drawer-link">
+                  🖨 {m.exportWholeDoc}
+                </a>
+              </>
+            )
+          }
+          <button id="nb-identity-chip-drawer" class="drawer-me" type="button" aria-label={m.identityHint}>
             <span aria-hidden="true">👤</span>
-            <input
-              id="me-input-drawer"
-              type="text"
-              placeholder={m.yourName}
-              autocomplete="off"
-              aria-label={m.yourName}
-            />
-          </label>
+            <span class="nb-identity-name"></span>
+          </button>
         </nav>
       </aside>
 
@@ -139,27 +208,105 @@ const hasRail = page != null;
 
     <div id="nb-scrim" class="nb-scrim" hidden></div>
 
+    <dialog id="nb-identity-dialog" class="nb-dialog">
+      <form id="nb-identity-form" class="nb-identity-form" method="dialog" novalidate>
+        <h2>{m.identityTitle}</h2>
+        <p id="nb-identity-lede" class="nb-identity-lede">{m.identityLede}</p>
+        <label class="nb-field">
+          <span class="nb-field-label">{m.identityName}</span>
+          <input id="nb-identity-name" type="text" required autocomplete="name" placeholder={m.yourName} />
+        </label>
+        <label class="nb-field">
+          <span class="nb-field-label">{m.identityEmail} <em>{m.identityEmailOptional}</em></span>
+          <input id="nb-identity-email" type="email" autocomplete="email" placeholder="you@example.com" />
+          <small class="nb-hint">{m.identityEmailHint}</small>
+        </label>
+        <div class="nb-identity-actions">
+          <button type="button" id="nb-identity-cancel" class="nb-btn-ghost">{m.cancel}</button>
+          <button type="submit" id="nb-identity-save" class="nb-btn">{m.save}</button>
+        </div>
+      </form>
+    </dialog>
+
     <script>
-      import { getAuthor, setAuthor } from "../lib/client/comments-client";
+      import { getIdentity, hasIdentity, isLoopbackHost, setIdentity } from "../lib/client/comments-client";
       import { closeOverlay, currentOverlay, initShell, openOverlay } from "../lib/client/shell";
 
       // Wire the shared scrim / Escape / resize-to-desktop overlay closers once.
       initShell();
 
-      // Identity: the top-bar AND drawer name inputs are the per-device comment author
-      // (localStorage), pre-filled with the server default (config author / git user.name /
-      // "you") and kept in sync with each other.
+      // Identity (name + optional email) — per-device, edited via a modal. The chips in
+      // the topbar + drawer open it; on a non-loopback (LAN/`--host`/deployed) host with no
+      // identity set yet, it's forced open before the visitor can interact, so comments are
+      // attributed to a real person rather than the repo owner's git default.
       const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
-      const meInputs = Array.from(
-        document.querySelectorAll<HTMLInputElement>("#me-input, #me-input-drawer"),
-      );
-      for (const el of meInputs) {
-        el.value = getAuthor(meCfg.author || "you");
-        el.addEventListener("change", () => {
-          setAuthor(el.value);
-          for (const other of meInputs) if (other !== el) other.value = el.value;
-        });
-      }
+      const M = JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}");
+      const defName = meCfg.author || "you";
+      const defEmail = meCfg.email || "";
+
+      const dialog = document.getElementById("nb-identity-dialog") as HTMLDialogElement | null;
+      const form = document.getElementById("nb-identity-form") as HTMLFormElement | null;
+      const nameInput = document.getElementById("nb-identity-name") as HTMLInputElement | null;
+      const emailInput = document.getElementById("nb-identity-email") as HTMLInputElement | null;
+      const cancelBtn = document.getElementById("nb-identity-cancel") as HTMLButtonElement | null;
+      const lede = document.getElementById("nb-identity-lede");
+      const chips = Array.from(document.querySelectorAll("#nb-identity-chip, #nb-identity-chip-drawer"));
+      const nameLabels = Array.from(document.querySelectorAll<HTMLElement>(".nb-identity-name"));
+
+      let forced = false;
+
+      const refreshChips = () => {
+        const { name } = getIdentity(defName, defEmail);
+        for (const el of nameLabels) el.textContent = name;
+      };
+      refreshChips();
+
+      const openIdentity = (force = false) => {
+        if (!dialog) return;
+        forced = force;
+        const known = hasIdentity();
+        const cur = getIdentity(defName, defEmail);
+        // On a forced remote prompt with nothing stored, start blank so the visitor
+        // enters THEIR identity rather than accepting the repo owner's git default.
+        if (nameInput) nameInput.value = force && !known ? "" : cur.name;
+        if (emailInput) emailInput.value = force && !known ? "" : cur.email;
+        if (lede) lede.textContent = force ? M.identityNudge : M.identityLede;
+        if (cancelBtn) cancelBtn.hidden = force;
+        if (!dialog.open) dialog.showModal();
+        nameInput?.focus();
+      };
+
+      form?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const name = nameInput?.value.trim() || "";
+        const email = emailInput?.value.trim() || "";
+        if (!name) {
+          nameInput?.setCustomValidity(M.identityNameRequired || "Required");
+          nameInput?.reportValidity();
+          return;
+        }
+        if (email && emailInput && !emailInput.checkValidity()) {
+          emailInput.reportValidity();
+          return;
+        }
+        setIdentity({ name, email });
+        refreshChips();
+        forced = false;
+        dialog?.close();
+      });
+
+      nameInput?.addEventListener("input", () => nameInput.setCustomValidity(""));
+      cancelBtn?.addEventListener("click", () => {
+        if (!forced) dialog?.close();
+      });
+      // Block Escape / backdrop dismissal while the identity is being forced.
+      dialog?.addEventListener("cancel", (e) => {
+        if (forced) e.preventDefault();
+      });
+      for (const chip of chips) chip.addEventListener("click", () => openIdentity(false));
+
+      // Gate: remote host + no identity yet → force the dialog before browsing.
+      if (!isLoopbackHost(location.hostname) && !hasIdentity()) openIdentity(true);
 
       // Hamburger → off-canvas nav drawer (compact only; the button is CSS-hidden on
       // desktop). Uses the shared overlay machinery (scrim, inert, scroll-lock, Escape).
@@ -183,6 +330,23 @@ const hasRail = page != null;
         sidebar.addEventListener("click", (e) => {
           if ((e.target as HTMLElement).closest("a") && currentOverlay() === "drawer") closeOverlay();
         });
+      }
+
+      // Export menu: a native <details> doesn't close on an outside click — wire that up
+      // (+ Escape, + closing after a scope is picked, which opens the print view in a new tab).
+      const exportMenu = document.querySelector<HTMLDetailsElement>(".export-menu");
+      if (exportMenu) {
+        document.addEventListener("click", (e) => {
+          if (exportMenu.open && !exportMenu.contains(e.target as Node)) exportMenu.open = false;
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") exportMenu.open = false;
+        });
+        for (const a of exportMenu.querySelectorAll("a")) {
+          a.addEventListener("click", () => {
+            exportMenu.open = false;
+          });
+        }
       }
 
       // Review badge: reveal every "Review" link (topbar + drawer) + a count of
