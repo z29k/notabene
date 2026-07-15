@@ -9,19 +9,19 @@ const m = t(locale);
 const entries = (await readJournal()).slice().reverse(); // most recent first
 ---
 
-<DocLayout title={m.journalTitle}>
-  <h1>{m.journalHeading}</h1>
-  <p class="lede">{m.journalLede}</p>
+<DocLayout title={m.journalTitle} i18nClientChrome>
+  <h1 data-i18n="journalHeading">{m.journalHeading}</h1>
+  <p class="lede" data-i18n="journalLede">{m.journalLede}</p>
 
   {
     entries.length === 0 ? (
-      <p class="cmt-empty">{m.journalEmpty}</p>
+      <p class="cmt-empty" data-i18n="journalEmpty">{m.journalEmpty}</p>
     ) : (
       <div class="journal">
         {entries.map((e) => (
           <section class="journal-entry">
             <header class="journal-head">
-              <span class="journal-date">
+              <span class="journal-date" data-i18n-date={e.date}>
                 {new Date(`${e.date}T00:00:00Z`).toLocaleDateString(locale, { dateStyle: "medium", timeZone: "UTC" })}
               </span>
               <h2>{e.title}</h2>
@@ -36,7 +36,7 @@ const entries = (await readJournal()).slice().reverse(); // most recent first
                   <span class="journal-what"> — {c.what}</span>
                   <div class="journal-why">{c.why}</div>
                   {c.commentIds.length > 0 && (
-                    <div class="journal-cids">{m.journalComments} {c.commentIds.join(", ")}</div>
+                    <div class="journal-cids"><span data-i18n="journalComments">{m.journalComments}</span> {c.commentIds.join(", ")}</div>
                   )}
                 </li>
               ))}

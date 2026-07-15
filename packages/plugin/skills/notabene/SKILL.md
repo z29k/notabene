@@ -29,13 +29,21 @@ to be running.
 Read **`notabene.config.mjs`** at the repo root to learn:
 
 - **`store`** — comments + journal folder (e.g. `docs/.notabene`). **One file per
-  comment**: `<store>/<page>/<id>.json` (v2, so branches don't conflict on merge).
+  comment**: `<store>/<page>/<id>.json` (so branches don't conflict on merge).
   Journal: `<store>/journal.json`. Schema version: `<store>/meta.json`
-  (`{ "schemaVersion": <n> }`). Older stores keep one array per page
-  (`<store>/<page>.json`) — both are read; `notabene migrate` converts v1 → v2.
+  (`{ "schemaVersion": <n> }`, currently **3**). Older stores keep one array per page
+  (`<store>/<page>.json`) — both are read; `notabene migrate` upgrades a store to the current
+  schema (v3, one file per comment).
 - **`roots[]`** — the doc spaces: `{ key, label, path, exclude }`. A comment's `page`
   field is prefixed by a root's `path` (e.g. root `docs/plans` → `page:
   "docs/plans/services/x"`).
+- **`i18n`** (optional, `{ locales, defaultLocale, strategy }`) — the doc is multi-language
+  and a comment's `page` key is **locale-encoded**, mapping straight to that language's file:
+  `strategy: "directory"` → `page: "docs/fr/guide/x"` = file `docs/fr/guide/x.md`;
+  `strategy: "suffix"` → `page: "docs/guide/x.fr"` = file `docs/guide/x.fr.md` (the default
+  locale is unsuffixed: `page: "docs/guide/x"` = `docs/guide/x.md`). Edit **that** file — a
+  comment belongs to one language; don't touch the other language's file or auto-translate
+  unless asked.
 - **`verify[]`** — project-specific checks to run after editing.
 - **`review`** — `"auto"` (default) or `"approve"`. In **approve** mode you don't resolve
   comments yourself: you edit, mark them **`addressed`**, and a human validates them (with
@@ -78,8 +86,9 @@ A comment reopened after a **rejection** (approve mode) carries the human's reas
 later `thread` replies — **read them** and adjust accordingly before editing.
 
 If the CLI isn't available, read the store with your file tools directly: each
-`<store>/**/*.json` (except `journal.json`/`meta.json`) is **one comment** (v2) or a
-**legacy array** (v1); keep those with `status == "open"` **and** `hold != true`.
+`<store>/**/*.json` (except `journal.json`/`meta.json`) is **one comment**, or — in older
+v1 stores — a **legacy array** of comments; keep those with `status == "open"` **and**
+`hold != true`.
 
 A `thread[].author` is a plain string that may be git-style **`Name <email>`** (the browser
 embeds the reviewer's email for a unique identity) — treat the whole string as the author;
@@ -101,7 +110,8 @@ text…). To find it in the source, search tolerantly, using `anchor.prefix`/`su
 page-wide comment, no anchor.
 
 **Block comments** (`scope: "block"`, store v3) target a **diagram or image**, not text —
-the anchor is `{ kind, key, label, section }` (no quote). `kind: "image"` → find the
+the anchor is `{ kind, key, label, section, index }` (no quote; `index` disambiguates
+repeated blocks with the same key). `kind: "image"` → find the
 `![…](…)` whose src matches `key`/`label` and act on it; `kind: "mermaid"` → find the
 ` ```mermaid ` fence for that diagram (its source hashes to `key`; `label` = the diagram
 type + first line) and edit the **diagram source**. `anchor.section` narrows the search.

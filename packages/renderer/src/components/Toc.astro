@@ -1,5 +1,5 @@
 ---
-import { locale } from "../config.mjs";
+import { clientI18n } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 interface Heading {
@@ -10,10 +10,11 @@ interface Heading {
 
 interface Props {
   headings: Heading[];
+  locale?: string;
 }
 
+const { headings, locale = clientI18n.defaultLocale } = Astro.props;
 const m = t(locale);
-const { headings } = Astro.props;
 const items = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 ---
 

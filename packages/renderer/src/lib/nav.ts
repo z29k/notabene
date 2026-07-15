@@ -1,5 +1,6 @@
 import { getCollection } from "astro:content";
-import { locale } from "../config.mjs";
+import { i18n, locale } from "../config.mjs";
+import { decode, routeFor } from "./i18n-content.mjs";
 
 // A space = the `key` of a notabene.config root (no fixed duo). Free string.
 export type Space = string;
@@ -9,6 +10,9 @@ export interface NavLeaf {
   title: string;
   href: string;
   segment: string;
+  /** Canonical (locale-stripped) entry id — lets consumers (e.g. print-scope) avoid
+   *  re-parsing it out of the now-locale-prefixed href. */
+  id: string;
 }
 
 export interface NavGroup {
@@ -136,15 +140,29 @@ async function entriesOf(space: Space): Promise<Entry[]> {
   return getCollection(space as never) as unknown as Promise<Entry[]>;
 }
 
-/** Builds a space's navigation tree from the slash-separated ids. */
-export async function buildNav(space: Space): Promise<NavNode[]> {
+/**
+ * Builds a space's navigation tree from the slash-separated ids. When `locale` is given
+ * (i18n), only that locale's entries are kept, the tree is built on CANONICAL ids, and
+ * hrefs are clean prefixed routes. Omitting `locale` = the pre-i18n behavior (all entries,
+ * raw ids) — used where the tree spans locales (e.g. the print route in an early phase).
+ */
+export async function buildNav(space: Space, locale?: string): Promise<NavNode[]> {
   const entries = await entriesOf(space);
   const rootChildren: NavNode[] = [];
 
   for (const entry of entries) {
-    // ROOT README/index = the space home page, not a nav leaf.
-    if (/^(readme|index)$/i.test(entry.id)) continue;
-    const parts = entry.id.split("/");
+    // Canonical id + href depend on whether we filter by locale.
+    let id = entry.id;
+    let href = `/${space}/${entry.id}`;
+    if (locale !== undefined) {
+      const d = decode(entry.id, i18n);
+      if (d.locale !== locale) continue;
+      id = d.id;
+      href = routeFor({ space, id, locale }, i18n);
+    }
+    // ROOT README/index (canonical) = the space home page, not a nav leaf.
+    if (/^(readme|index)$/i.test(id)) continue;
+    const parts = id.split("/");
     let children = rootChildren;
 
     for (let i = 0; i < parts.length - 1; i++) {
@@ -163,15 +181,10 @@ export async function buildNav(space: Space): Promise<NavNode[]> {
       children = group.children;
     }
 
-    children.push({
-      type: "leaf",
-      title: navLabel(entry.id),
-      href: `/${space}/${entry.id}`,
-      segment: parts[parts.length - 1],
-    });
+    children.push({ type: "leaf", title: navLabel(id), href, segment: parts[parts.length - 1], id });
   }
 
-  sortNodes(rootChildren);
+  sortNodes(rootChildren, locale);
   return rootChildren;
 }
 
@@ -182,13 +195,13 @@ function rank(node: NavNode): number {
   return 2;
 }
 
-function sortNodes(nodes: NavNode[]): void {
+function sortNodes(nodes: NavNode[], collation: string = locale): void {
   nodes.sort((a, b) => {
     const r = rank(a) - rank(b);
     if (r !== 0) return r;
     const an = a.type === "group" ? a.label : a.title;
     const bn = b.type === "group" ? b.label : b.title;
-    return an.localeCompare(bn, locale);
+    return an.localeCompare(bn, collation);
   });
-  for (const n of nodes) if (n.type === "group") sortNodes(n.children);
+  for (const n of nodes) if (n.type === "group") sortNodes(n.children, collation);
 }

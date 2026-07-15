@@ -35,6 +35,16 @@ describe("resolvePageFile", () => {
   it("uses the most specific root (nested wins)", () => {
     expect(resolvePageFile("docs/plans/svc", roots, ext, has(P("docs/plans/svc.md")))).toBe(P("docs/plans/svc.md"));
   });
+  it("resolves an i18n SUFFIX page unchanged (docs/guide/setup.fr → setup.fr.md)", () => {
+    expect(resolvePageFile("docs/guide/setup.fr", roots, ext, has(P("docs/guide/setup.fr.md")))).toBe(
+      P("docs/guide/setup.fr.md"),
+    );
+  });
+  it("resolves an i18n DIRECTORY page unchanged (docs/fr/guide/setup → fr/guide/setup.md)", () => {
+    expect(resolvePageFile("docs/fr/guide/setup", roots, ext, has(P("docs/fr/guide/setup.md")))).toBe(
+      P("docs/fr/guide/setup.md"),
+    );
+  });
   it("returns null when nothing exists", () => {
     expect(resolvePageFile("docs/missing", roots, ext, has())).toBe(null);
   });

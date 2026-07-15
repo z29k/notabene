@@ -6,32 +6,32 @@ import { t } from "../i18n.mjs";
 const m = t(locale);
 ---
 
-<DocLayout title={m.allCommentsTitle}>
-  <h1>{m.allCommentsTitle}</h1>
-  <p class="lede">{m.allCommentsLede}</p>
+<DocLayout title={m.allCommentsTitle} i18nClientChrome>
+  <h1 data-i18n="allCommentsTitle">{m.allCommentsTitle}</h1>
+  <p class="lede" data-i18n="allCommentsLede">{m.allCommentsLede}</p>
 
   <div class="caf-filters">
-    <input id="caf-search" type="search" placeholder={m.searchCommentsPlaceholder} />
+    <input id="caf-search" type="search" placeholder={m.searchCommentsPlaceholder} data-i18n-ph="searchCommentsPlaceholder" />
     <select id="caf-status">
-      <option value="active">{m.stActive}</option>
-      <option value="open">{m.stOpen}</option>
-      <option value="addressed">{m.filterToValidate}</option>
-      <option value="resolved">{m.stResolved}</option>
-      <option value="all">{m.stAll}</option>
+      <option value="active" data-i18n="stActive">{m.stActive}</option>
+      <option value="open" data-i18n="stOpen">{m.stOpen}</option>
+      <option value="addressed" data-i18n="filterToValidate">{m.filterToValidate}</option>
+      <option value="resolved" data-i18n="stResolved">{m.stResolved}</option>
+      <option value="all" data-i18n="stAll">{m.stAll}</option>
     </select>
     <select id="caf-space">
-      <option value="all">{m.spAll}</option>
+      <option value="all" data-i18n="spAll">{m.spAll}</option>
       {roots.map((r) => <option value={r.key}>{r.label}</option>)}
     </select>
     <select id="caf-hold">
-      <option value="all">{m.holdAll}</option>
-      <option value="active">{m.holdActive}</option>
-      <option value="hold">{m.holdOnly}</option>
+      <option value="all" data-i18n="holdAll">{m.holdAll}</option>
+      <option value="active" data-i18n="holdActive">{m.holdActive}</option>
+      <option value="hold" data-i18n="holdOnly">{m.holdOnly}</option>
     </select>
     <span id="caf-count" class="cmt-count"></span>
   </div>
 
-  <div id="caf-list" class="caf-list"><p class="cmt-empty">{m.loading}</p></div>
+  <div id="caf-list" class="caf-list"><p class="cmt-empty" data-i18n="loading">{m.loading}</p></div>
 
   <div id="caf-review-toolbar" class="rev-toolbar" hidden><div id="caf-diff-toggle" class="diff-toggle"></div></div>
   <div id="caf-review" class="rev-list" hidden></div>
@@ -57,6 +57,7 @@ const m = t(locale);
   const M: Record<string, string> = JSON.parse(
     document.getElementById("notabene-i18n")?.textContent || "{}",
   );
+  const I18N = JSON.parse(document.getElementById("notabene-i18n-config")?.textContent || "null");
   const spaceLabel = (key: string): string => ROOTS.find((r) => r.key === key)?.label ?? key;
 
   const listEl = document.getElementById("caf-list")!;
@@ -68,7 +69,7 @@ const m = t(locale);
 
   let all: Comment[] = [];
   const api = createApi(); // no page → global (?all=1)
-  const routeFor = makeRouteFor(ROOTS);
+  const routeFor = makeRouteFor(ROOTS, I18N ?? undefined);
 
   function render() {
     const q = searchEl.value.trim().toLowerCase();

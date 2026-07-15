@@ -8,6 +8,8 @@ const MESSAGES = {
   en: {
     navComments: "Comments",
     navJournal: "Journal",
+    language: "Language",
+    pageNotTranslated: "This page isn't available in your language yet — showing the {lang} version.",
     menu: "Menu",
     close: "Close",
     searchPlaceholder: "Search all docs…",
@@ -127,6 +129,8 @@ const MESSAGES = {
   fr: {
     navComments: "Commentaires",
     navJournal: "Journal",
+    language: "Langue",
+    pageNotTranslated: "Cette page n'est pas encore disponible dans votre langue — version en {lang} affichée.",
     menu: "Menu",
     close: "Fermer",
     searchPlaceholder: "Rechercher dans la doc…",

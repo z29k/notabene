@@ -33,6 +33,30 @@ describe("parseScope", () => {
   });
 });
 
+describe("parseScope — i18n locale token", () => {
+  const locales = ["en", "fr"];
+  it("peels a leading locale token for doc/space/folder", () => {
+    expect(parseScope("fr", locales)).toEqual({ kind: "doc", locale: "fr" });
+    expect(parseScope("fr/space/docs", locales)).toEqual({ kind: "space", space: "docs", locale: "fr" });
+    expect(parseScope("fr/folder/docs/guide", locales)).toEqual({
+      kind: "folder",
+      space: "docs",
+      path: "guide",
+      locale: "fr",
+    });
+  });
+  it("no token → locale undefined (the route defaults it)", () => {
+    expect(parseScope("space/docs", locales)).toEqual({ kind: "space", space: "docs", locale: undefined });
+  });
+  it("round-trips through scopeParam", () => {
+    for (const c of ["fr", "fr/space/docs", "fr/folder/docs/guide"]) {
+      const p = parseScope(c, locales);
+      if (!p) throw new Error(`expected "${c}" to parse`);
+      expect(scopeParam(p)).toBe(c);
+    }
+  });
+});
+
 describe("scopeParam / scopeToPath round-trip", () => {
   const cases = ["space/docs", "folder/docs/guide/advanced", "page/docs/guide/setup"];
   it("undefined ↔ /print", () => {
@@ -80,17 +104,25 @@ const tree: NavNode[] = [
     segment: "guide",
     prefix: "/docs/guide",
     children: [
-      { type: "leaf", title: "Setup", href: "/docs/guide/setup", segment: "setup" },
+      { type: "leaf", title: "Setup", href: "/docs/guide/setup", segment: "setup", id: "guide/setup" },
       {
         type: "group",
         label: "Advanced",
         segment: "advanced",
         prefix: "/docs/guide/advanced",
-        children: [{ type: "leaf", title: "Deep", href: "/docs/guide/advanced/deep", segment: "deep" }],
+        children: [
+          {
+            type: "leaf",
+            title: "Deep",
+            href: "/docs/guide/advanced/deep",
+            segment: "deep",
+            id: "guide/advanced/deep",
+          },
+        ],
       },
     ],
   },
-  { type: "leaf", title: "About", href: "/docs/about", segment: "about" },
+  { type: "leaf", title: "About", href: "/docs/about", segment: "about", id: "about" },
 ];
 
 describe("flattenNav", () => {

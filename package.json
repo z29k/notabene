@@ -7,11 +7,13 @@
   "license": "MIT",
   "scripts": {
     "demo": "node scripts/gen-fixture.mjs --git && node packages/renderer/bin/notabene.mjs dev --root .demo",
+    "demo:i18n": "node scripts/gen-fixture.mjs --git --i18n directory && node packages/renderer/bin/notabene.mjs dev --root .demo",
     "gen:fixture": "node scripts/gen-fixture.mjs",
     "gen:hero-gif": "node scripts/record-hero-demo.mjs",
     "gen:mobile-gif": "node scripts/record-mobile-demo.mjs",
     "gen:diagrams-gif": "node scripts/record-diagrams-demo.mjs",
-    "gen:pdf-gif": "node scripts/record-pdf-demo.mjs"
+    "gen:pdf-gif": "node scripts/record-pdf-demo.mjs",
+    "gen:i18n-gif": "node scripts/record-i18n-demo.mjs"
   },
   "workspaces": [
     "packages/renderer"

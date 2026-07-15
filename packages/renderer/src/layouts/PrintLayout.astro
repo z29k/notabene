@@ -5,13 +5,15 @@
 // + margin from config. Paged.js (lib/client/print.ts) paginates client-side.
 import "../styles/global.css";
 import "../styles/print.css";
-import { locale, pdf, siteName } from "../config.mjs";
+import { clientI18n, pdf, siteName } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
   title: string;
+  /** Content locale of this print bundle (single-locale) — drives chrome + <html lang>. */
+  locale?: string;
 }
-const { title } = Astro.props;
+const { title, locale = clientI18n.defaultLocale } = Astro.props;
 const m = t(locale);
 ---
 

@@ -1,15 +1,16 @@
 ---
 import type { NavNode, NavLeaf, Space } from "../lib/nav";
-import { locale, roots } from "../config.mjs";
+import { clientI18n, roots } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
   nodes: NavNode[];
   space: Space;
+  locale?: string;
 }
 
+const { nodes, space, locale = clientI18n.defaultLocale } = Astro.props;
 const m = t(locale);
-const { nodes, space } = Astro.props;
 const root = roots.find((r) => r.key === space);
 const label = root?.label ?? space;
 const blurb = root?.description || `${root?.subLabel ?? space}`;

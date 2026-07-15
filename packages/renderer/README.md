@@ -113,7 +113,7 @@ CLI:
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene preview` | Serve the built site |
-| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep |
+| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep (or `puppeteer-core` + `--chrome`) |
 | `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
 | `notabene comments ls` | List comments - `--open` `--json` `--page <p>` (for agents/scripts) |
 | `notabene journal add` | Append a JSON journal entry read from stdin |
@@ -185,6 +185,7 @@ export default {
 | `author` | git `user.name` | Default comment author; each browser overrides it per-device via the **identity dialog** (name + optional email) |
 | `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
+| `i18n` | — | Multi-language docs: `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` — clean prefixed URLs, a switcher that sets a language preference (redirects to the equivalent, banner + fallback when untranslated), hreflang, per-page chrome (aggregate pages `/comments`·`/journal`·`/review`·`/`·`404` follow it client-side). Omit for one language |
 
 ## Two-phase review (optional)
 

@@ -1,0 +1,139 @@
+---
+// Unified doc route. Replaces [space]/[...slug].astro to support i18n: clean, prefixed
+// URLs (default locale unprefixed `/docs/…`, others `/fr/docs/…`). getStaticPaths derives
+// (locale, canonical id) from each entry via the resolver and emits the exact path string;
+// no `[locale]`/`[space]` ambiguity. With i18n disabled every entry stays at `/<space>/<id>`
+// exactly as before (parity). The `page` (store key) stays the RAW locale-encoded id.
+import { getCollection, render } from "astro:content";
+import DocLayout from "../layouts/DocLayout.astro";
+import SpaceIndex from "../components/SpaceIndex.astro";
+import { buildNav, humanize, pageTitle, type NavNode } from "../lib/nav";
+import { buildEquivalence, decode, isSpaceHomeId, routeFor, switchLinks } from "../lib/i18n-content.mjs";
+import { scopeToPath } from "../lib/print-scope";
+import { i18n, pdf, roots } from "../config.mjs";
+
+export async function getStaticPaths() {
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entries.
+  const all: any[] = [];
+  for (const root of roots) {
+    const entries = await getCollection(root.key as never);
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry.
+    for (const entry of entries as any[]) {
+      const { locale, id } = decode(entry.id, i18n);
+      all.push({ space: root.key, entry, rawId: entry.id, locale, id });
+    }
+  }
+  const equivalence = buildEquivalence(
+    all.map((x) => ({ space: x.space, rawId: x.rawId })),
+    i18n,
+  );
+  const localesBySpace: Record<string, Set<string>> = {};
+  for (const x of all) (localesBySpace[x.space] ??= new Set()).add(x.locale);
+
+  // biome-ignore lint/suspicious/noExplicitAny: Astro path descriptor.
+  const paths: any[] = [];
+  // One route per entry (readme/index entries keep their own id → /docs/index).
+  for (const x of all) {
+    paths.push({
+      params: { path: routeFor({ space: x.space, id: x.id, locale: x.locale }, i18n).slice(1) },
+      props: {
+        spaceKey: x.space,
+        entry: x.entry,
+        locale: x.locale,
+        canonicalId: x.id,
+        isHome: false,
+        alternates: switchLinks(x.space, x.id, equivalence, [...localesBySpace[x.space]], i18n),
+      },
+    });
+  }
+  // Synthetic space home per (space × locale-with-content): /docs, /fr/docs …
+  for (const space of Object.keys(localesBySpace)) {
+    for (const locale of localesBySpace[space]) {
+      const readme = all.find((x) => x.space === space && x.locale === locale && isSpaceHomeId(x.id));
+      const homeAlternates = i18n.locales
+        .filter((l: string) => localesBySpace[space].has(l))
+        .map((l: string) => ({ locale: l, href: routeFor({ space, id: "", locale: l }, i18n), translated: true }));
+      paths.push({
+        params: { path: routeFor({ space, id: "", locale }, i18n).slice(1) },
+        props: {
+          spaceKey: space,
+          entry: readme?.entry,
+          locale,
+          canonicalId: readme?.id ?? "",
+          isHome: true,
+          alternates: homeAlternates,
+        },
+      });
+    }
+  }
+  return paths;
+}
+
+const { spaceKey, entry, locale, canonicalId, isHome, alternates } = Astro.props;
+const root = roots.find((r) => r.key === spaceKey)!;
+const spaceLabel = root.label;
+const baseDir = root.path;
+
+let Content: Awaited<ReturnType<typeof render>>["Content"] | null = null;
+let headings: { depth: number; slug: string; text: string }[] = [];
+let nodes: NavNode[] = [];
+let page: string | undefined;
+let title = spaceLabel;
+const homeHref = routeFor({ space: spaceKey, id: "", locale }, i18n);
+const breadcrumb: { label: string; href?: string }[] = [{ label: spaceLabel, href: homeHref }];
+
+if (entry) {
+  const rendered = await render(entry);
+  Content = rendered.Content;
+  headings = rendered.headings;
+  // Title/labels use the CANONICAL id (no locale marker); `page` uses the RAW id (store key).
+  title = pageTitle(entry.body, canonicalId);
+  page = `${baseDir}/${entry.id}`;
+  if (!isHome) {
+    const parts = canonicalId.split("/");
+    for (let i = 0; i < parts.length - 1; i++) breadcrumb.push({ label: humanize(parts[i]) });
+    breadcrumb.push({ label: title });
+  }
+} else {
+  // Space home with no README/index in this locale → the index cards.
+  nodes = await buildNav(spaceKey, locale);
+}
+
+const current = isHome ? homeHref : routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
+
+// Contextual PDF export targets, locale-scoped: the locale token prefixes non-default
+// space/folder scopes and the folder path is CANONICAL; a page scope carries the locale in
+// its raw id (no token).
+let exportScopes:
+  | { space?: { href: string; label: string }; folder?: { href: string; label: string }; page?: { href: string; label: string } }
+  | undefined;
+if (pdf.enabled) {
+  const scLoc = locale === i18n.defaultLocale ? undefined : locale;
+  exportScopes = { space: { href: scopeToPath({ kind: "space", space: spaceKey, locale: scLoc }), label: spaceLabel } };
+  if (entry && !isHome) {
+    const cparts = canonicalId.split("/");
+    if (cparts.length > 1) {
+      const folderPath = cparts.slice(0, -1).join("/");
+      exportScopes.folder = {
+        href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath, locale: scLoc }),
+        label: humanize(cparts[cparts.length - 2]),
+      };
+    }
+    exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: entry.id }), label: title };
+  }
+}
+---
+
+<DocLayout
+  title={title}
+  current={current}
+  space={spaceKey}
+  page={page}
+  locale={locale}
+  headings={headings}
+  breadcrumb={entry && !isHome ? breadcrumb : []}
+  exportScopes={exportScopes}
+  alternates={alternates}
+>
+  {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
+</DocLayout>

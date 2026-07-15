@@ -7,6 +7,7 @@
 // Types come from the canonical store contract (lib/comment-types) so the client and
 // server can't disagree on the shape.
 export type { BlockAnchor, Comment, CommentAnchor, CommentReply, CommentScope, CommentStatus } from "../comment-types";
+import { decode, routeFor } from "../i18n-content.mjs";
 
 /** HTML-escape for building card markup from user text. */
 export const esc = (s: string): string =>
@@ -53,16 +54,31 @@ export function createApi(page?: string): (method: string, body?: unknown) => Pr
   };
 }
 
+/** Minimal i18n config as injected client-side via `#notabene-i18n-config` (clientI18n). */
+export interface ClientI18n {
+  locales: string[];
+  defaultLocale: string;
+  strategy: "directory" | "suffix";
+  enabled: boolean;
+}
+
 /**
- * Logical `page` path → site route, given the client-visible roots. Most specific
- * root (longest `path`) first, mirroring config.routeForPage on the server.
+ * Logical `page` path → site route, given the client-visible roots. Most specific root
+ * (longest `path`) first, mirroring config.routeForPage on the server. Pass `i18n`
+ * (clientI18n) to emit clean prefixed URLs for a locale-encoded page; omit it for the
+ * pre-i18n behavior (`route.test.ts`, mono-language sites).
  */
-export function makeRouteFor(roots: { key: string; path: string }[]): (page: string) => string {
+export function makeRouteFor(roots: { key: string; path: string }[], i18n?: ClientI18n): (page: string) => string {
   const ordered = [...roots].sort((a, b) => b.path.length - a.path.length);
   return (page: string): string => {
     for (const r of ordered) {
-      if (page === r.path) return `/${r.key}`;
-      if (page.startsWith(`${r.path}/`)) return `/${r.key}/${page.slice(r.path.length + 1)}`;
+      let rawId: string | null = null;
+      if (page === r.path) rawId = "";
+      else if (page.startsWith(`${r.path}/`)) rawId = page.slice(r.path.length + 1);
+      if (rawId === null) continue;
+      if (!i18n?.enabled) return rawId ? `/${r.key}/${rawId}` : `/${r.key}`;
+      const { locale, id } = decode(rawId, i18n);
+      return routeFor({ space: r.key, id, locale }, i18n);
     }
     return "#";
   };
