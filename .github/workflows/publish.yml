@@ -1,11 +1,18 @@
 name: Publish
 
-# One workflow, two channels (npm allows a single Trusted Publisher per package, so both
-# must run from this file — the one registered on npmjs.com):
+# One workflow, two channels × two registries (npm allows a single Trusted Publisher per
+# package, so both channels must run from this file — the one registered on npmjs.com):
 #   • push to `develop`      → prerelease `X.Y.Z-dev.N` on the `dev` dist-tag   (staging)
 #   • push a `vX.Y.Z` tag    → stable `X.Y.Z` on `latest` + a GitHub Release    (production)
-# Auth is npm trusted publishing (OIDC) — no stored token, provenance automatic. The job
-# runs in the `production` GitHub Environment to match the Trusted Publisher config.
+#
+# Each publish runs twice, once per registry:
+#   • npmjs.org           → canonical, anonymously installable. Auth = trusted publishing
+#                           (OIDC) — no stored token, provenance automatic.
+#   • npm.pkg.github.com  → mirror that fills the repo's Packages section. Auth = the built-in
+#                           GITHUB_TOKEN (`packages: write`). No provenance, and installing from
+#                           it needs a GitHub PAT (`read:packages`) even though it's public — so
+#                           npmjs stays the real distribution channel; this one is a vitrine.
+# The job runs in the `production` GitHub Environment to match the Trusted Publisher config.
 #
 # One-time setup (owner): npmjs.com → @z29k/notabene → Settings → Trusted Publisher →
 # repo `z29k/notabene`, workflow `publish.yml`, environment `production`.
@@ -22,6 +29,7 @@ jobs:
     permissions:
       contents: write # create the GitHub Release
       id-token: write # OIDC for npm trusted publishing + provenance
+      packages: write # publish the mirror to GitHub Packages (npm.pkg.github.com)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -75,6 +83,22 @@ jobs:
           else
             npm publish --access public
           fi
+      # Mirror the same stable tarball to GitHub Packages so the repo's Packages section
+      # tracks releases. Auth is the built-in token; no provenance on this registry.
+      - name: Mirror stable to GitHub Packages
+        if: github.ref_type == 'tag'
+        working-directory: packages/renderer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          npm config set @z29k:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "${NODE_AUTH_TOKEN}"
+          if npm view "@z29k/notabene@$PKG" --registry https://npm.pkg.github.com version >/dev/null 2>&1; then
+            echo "@z29k/notabene@$PKG already on GitHub Packages — skipping."
+          else
+            npm publish --registry https://npm.pkg.github.com --no-provenance
+          fi
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
         env:
@@ -97,3 +121,13 @@ jobs:
           echo "publishing $VER to @dev"
           npm version "$VER" --no-git-tag-version
           npm publish --tag dev --access public
+      # Mirror the just-bumped prerelease (package.json now holds X.Y.Z-dev.N) to GitHub Packages.
+      - name: Mirror prerelease to GitHub Packages (@dev)
+        if: github.ref_type == 'branch' && github.ref_name == 'develop'
+        working-directory: packages/renderer
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm config set @z29k:registry https://npm.pkg.github.com
+          npm config set //npm.pkg.github.com/:_authToken "${NODE_AUTH_TOKEN}"
+          npm publish --tag dev --registry https://npm.pkg.github.com --no-provenance
