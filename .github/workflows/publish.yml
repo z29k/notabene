@@ -84,7 +84,9 @@ jobs:
             npm publish --access public
           fi
       # Mirror the same stable tarball to GitHub Packages so the repo's Packages section
-      # tracks releases. Auth is the built-in token; no provenance on this registry.
+      # tracks releases. Registry + auth go via CLI flags (highest precedence) rather than
+      # `npm config set`, which errors ENOWORKSPACES from inside a workspace member. No
+      # provenance on this registry.
       - name: Mirror stable to GitHub Packages
         if: github.ref_type == 'tag'
         working-directory: packages/renderer
@@ -92,12 +94,11 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PKG=$(node -p "require('./package.json').version")
-          npm config set @z29k:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "${NODE_AUTH_TOKEN}"
-          if npm view "@z29k/notabene@$PKG" --registry https://npm.pkg.github.com version >/dev/null 2>&1; then
+          AUTH="--//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}"
+          if npm view "@z29k/notabene@$PKG" --registry https://npm.pkg.github.com "$AUTH" version >/dev/null 2>&1; then
             echo "@z29k/notabene@$PKG already on GitHub Packages — skipping."
           else
-            npm publish --registry https://npm.pkg.github.com --no-provenance
+            npm publish --registry https://npm.pkg.github.com "$AUTH" --no-provenance
           fi
       - name: Create GitHub Release
         if: github.ref_type == 'tag'
@@ -128,6 +129,5 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm config set @z29k:registry https://npm.pkg.github.com
-          npm config set //npm.pkg.github.com/:_authToken "${NODE_AUTH_TOKEN}"
-          npm publish --tag dev --registry https://npm.pkg.github.com --no-provenance
+          AUTH="--//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}"
+          npm publish --tag dev --registry https://npm.pkg.github.com "$AUTH" --no-provenance
