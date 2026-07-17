@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-logo.jpg" width="150" alt="notabene - an ink bottle stamped N.B." />
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-logo.jpg" width="150" alt="notabene - logo" />
 </p>
 
 <h1 align="center">notabene</h1>
@@ -26,9 +26,8 @@
 
 ---
 
-**notabene renders your repo's Markdown/MDX as a navigable site with review comments right
-on the page, and ships the human↔agent review protocol that turns those comments into
-edits. The viewer is the support - the protocol is the product.**
+**Iterate on your docs with an LLM - leave feedback anywhere, not squeezed into one prompt.**
+A navigable doc site with multi-user comments, self-hosted in your git - no SaaS.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-demo.gif" alt="notabene demo: comment a passage, the agent applies the edit, you approve the real diff" width="900" />
@@ -36,35 +35,28 @@ edits. The viewer is the support - the protocol is the product.**
 
 ## Why
 
-Doc review today is scattered across PR line-comments, chat threads, and "can you
-fix the wording in section 3." The feedback is disconnected from the doc, and
-applying it is manual and lossy.
+Fixing or writing docs with an AI agent means turning every change into prose: quote the
+passage, name the section - *"can you fix the wording in section 3"* - then hope the agent
+re-finds the exact spot in the source. Past a couple of changes it's a wall of instructions,
+and the whole exchange lives in one chat input, back and forth. The real instruction was
+always simpler: *this passage - change it like so.*
 
-notabene puts the comments **on the rendered doc**, stores them **in your git**
-(no SaaS, no database), and closes the loop: your agent reads the comments, edits
-the docs, marks them resolved, and writes a journal entry linking *what changed* to
-*why*.
+notabene makes that the interface. Select the exact text on the rendered page - or a whole
+diagram or image - and leave a comment right there. The anchored comment **is** the
+instruction: located, unambiguous, nothing to quote. The agent reads the comments, edits the
+source faithfully, marks each resolved, and journals *what changed & why* - as a Claude Code
+skill, or a plain-text protocol any agent can follow.
 
-- **Stateless tool, data in your git.** Comments and journal are JSON files under
-  `.notabene/`. They travel with your repo, diff in PRs, and are readable by your
-  agent. No account, no server to deploy, no central state.
-- **Agent-native.** The review loop ships as a Claude Code skill - and as a
-  plain-text protocol any agent can follow.
-- **MDX *and* CommonMark/GFM.** Point it at `.md` (lenient) or `.mdx` (strict), or
-  mix them - selectable via config.
-- **Diagrams, first-class & commentable.** Write **Mermaid** (flowcharts, sequence, ER…)
-  in a fenced ` ```mermaid ` block - rendered inline. **Comment or enlarge** any diagram
-  *or image* as a whole (a block comment in the rail), not only text.
-- **Export a polished PDF.** From the **Export PDF** menu, turn any page, folder, space, or
-  the whole doc into a print-ready view (cover + clickable contents) → your browser's *Save
-  as PDF*, no dependency. For a book-quality file with a real **bookmark outline**, run
-  `notabene pdf` (headless Chromium, optional).
-- **Dev-local & safe by default.** The write API only runs under `notabene dev`,
-  binds loopback (`127.0.0.1`) by default, and never ships in a build.
-- **Phone, tablet & touch.** The viewer is fully responsive: below 1024px the nav
-  folds into a drawer and the TOC and anchored comments become bottom sheets, and you
-  can **select text and comment with your thumb** from a docked action bar (≥44px
-  controls, keyboard-safe compose). Review the docs from the couch; desktop is unchanged.
+That core loop pulled the rest in:
+
+- **A shared comment layer.** Several people annotate the same docs - threads, resolve, hold,
+  a global `/comments` view - so it's no longer one person prompting alone.
+- **A real, navigable doc site.** Your whole repo's Markdown/MDX, rendered and browsable - MDX
+  *and* CommonMark/GFM, commentable Mermaid diagrams, PDF export, phone-ready - not one file at
+  a time.
+- **Self-hosted, in your git.** No SaaS, no database, no extra tooling to run. Comments and
+  journal are JSON under `.notabene/` that travel with the repo and diff in PRs; the write API
+  is dev-local and loopback by default.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-mobile-demo.gif" alt="notabene on a phone: touch-select a passage, the action bar docks at the bottom, leave a comment" width="300" />
@@ -291,14 +283,22 @@ A journal entry: `{ id, date, title, summary, changes[] { page, commentIds[], wh
 > image) carries a block anchor instead. `thread[].author` is a plain string that may be
 > git-style **`Name <email>`** — split on the trailing `<…>` for the display name.
 
-## How it's different
+## Read it. Comment it. Ship it.
 
-- **Starlight / Docusaurus** render docs beautifully - but there's no commenting and no
-  review loop.
-- **PR line-comments & chat threads** capture feedback - but it lives *away* from the doc,
-  and applying it is manual and lossy.
-- **notabene** is the missing middle: annotate your **repo's** docs in the browser, keep
-  **everything in git**, and let your **agent** close the loop.
+Point notabene at your repo and you get three things in one tool:
+
+- **Read** your whole repo's docs as a real, navigable site - nav, spaces & folders,
+  rewritten inter-doc links, search, Mermaid diagrams, dark mode, PDF export, multi-language.
+- **Comment** any passage - or a whole diagram or image - right on the rendered page,
+  Google-Docs-style.
+- **Ship the edits** - your agent reads the comments, applies them, resolves the threads, and
+  journals *what changed & why*. Comments and journal are **plain JSON committed in your git**
+  (no SaaS, no database), and the review protocol is **file-I/O-first**: no running server, no
+  port, no MCP - any agent can follow it.
+
+The viewer is the support, the protocol is the product: a **repo-wide navigable doc site + a
+git-native comment store + a serverless agent review protocol**, self-hosted from your own
+`node_modules`.
 
 ## Safety
 
