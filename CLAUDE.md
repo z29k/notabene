@@ -220,8 +220,10 @@ The comments API (`src/pages/api/comments.ts`) writes into the consumer's git, s
   the pre-frontmatter alphabetical order, so no-frontmatter output is unchanged). Groups and
   pages share one ordering. A **folder** is labeled/ordered by its landing page — Astro
   collapses `<folder>/index.md` to the id `<folder>` (kept as `<folder>/readme.md`
-  otherwise); `assembleNav` folds it into a single group with an "Overview" child (no
-  duplicate sibling leaf) and `liftGroup`s its frontmatter. `folderLabels()` mirrors the same
+  otherwise); `assembleNav` folds it into a single group with an *Overview* child (no
+  duplicate sibling leaf) and `liftGroup`s its frontmatter. That child's label is the
+  **localized** `navOverview` (`t(locale)`, passed by `buildNav`) — FR *Aperçu* — overridable
+  per page via `sidebar.indexLabel`. `folderLabels()` mirrors the same
   rule so breadcrumbs (`[...path].astro`) + PDF covers (`print/[...scope].astro`) stay in
   sync. `pageTitle`/search-index also prefer frontmatter `title`. **No config knob, no
   `.notabene` schema change** — labels/order never touch page ids or store keys.

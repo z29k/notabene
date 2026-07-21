@@ -206,7 +206,8 @@ sidebar:
   after the ordered ones. Groups and pages share one ordering, so a numbered folder slots
   into the numbered page sequence.
 - A **folder** is named and positioned by its landing page — `<folder>/index.md` (or
-  `<folder>/readme.md`) — whose `sidebar` frontmatter applies to the whole group.
+  `<folder>/readme.md`) — whose `sidebar` frontmatter applies to the whole group. That page
+  shows as a localized *Overview* entry inside the group; rename it with `sidebar.indexLabel`.
 - These labels flow through to breadcrumbs and PDF export as well.
 
 ## Two-phase review (optional)

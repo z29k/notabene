@@ -73,7 +73,8 @@ sidebar:
   numbered folder slots into a numbered page sequence without any file-name prefix.
 - **A folder** is named and ordered by its **landing page** — `<folder>/index.md` (whose id
   collapses to the folder path) or `<folder>/readme.md`. Put the `sidebar` frontmatter there
-  and it applies to the whole group; that page becomes the group's *Overview* entry.
+  and it applies to the whole group; that page becomes the group's *Overview* entry (label
+  localized per UI language, e.g. FR *Aperçu* — override it with `sidebar.indexLabel`).
 - Frontmatter is **optional**: with none, the sidebar shows humanized file names sorted
   alphabetically (unchanged). Only `title` and `sidebar` are interpreted — any other keys pass
   through untouched.

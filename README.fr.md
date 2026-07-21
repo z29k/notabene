@@ -221,7 +221,9 @@ sidebar:
   alphabétiquement, après celles ordonnées. Groupes et pages partagent un même ordre : un
   dossier numéroté s'insère ainsi dans la séquence numérotée des pages.
 - Un **dossier** est nommé et positionné par sa page d'accueil — `<dossier>/index.md` (ou
-  `<dossier>/readme.md`) — dont le frontmatter `sidebar` s'applique au groupe entier.
+  `<dossier>/readme.md`) — dont le frontmatter `sidebar` s'applique au groupe entier. Cette
+  page apparaît comme une entrée *Aperçu* localisée dans le groupe ; renommez-la avec
+  `sidebar.indexLabel`.
 - Ces libellés se répercutent aussi sur le fil d'Ariane et l'export PDF.
 
 ## Revue à deux temps (optionnel)

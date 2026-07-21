@@ -17,6 +17,7 @@ const MESSAGES = {
     tocTitle: "On this page",
     sidebarFilter: "Filter…",
     sidebarOverview: "Overview →",
+    navOverview: "Overview",
     subsections: "+ subsections…",
 
     discussion: "Discussion",
@@ -138,6 +139,7 @@ const MESSAGES = {
     tocTitle: "Sur cette page",
     sidebarFilter: "Filtrer…",
     sidebarOverview: "Aperçu →",
+    navOverview: "Aperçu",
     subsections: "+ sous-sections…",
 
     discussion: "Discussion",

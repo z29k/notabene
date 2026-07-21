@@ -1,5 +1,6 @@
 import { getCollection } from "astro:content";
 import { i18n, locale } from "../config.mjs";
+import { t } from "../i18n.mjs";
 import { decode, routeFor } from "./i18n-content.mjs";
 
 // A space = the `key` of a notabene.config root (no fixed duo). Free string.
@@ -137,15 +138,17 @@ export function navLabel(id: string): string {
  *  YAML flows through untouched; we read only the keys we own and coerce defensively. */
 export type FrontMatter = Record<string, unknown> | undefined;
 
-/** `sidebar: { label?, order? }` — the per-page nav override. A non-string label or a
- *  non-numeric order is ignored (a generic renderer must never choke on a repo's YAML). */
-function sidebarMeta(data: FrontMatter): { label?: string; order?: number } {
+/** `sidebar: { label?, order?, indexLabel? }` — the per-page nav override. A non-string
+ *  label/indexLabel or a non-numeric order is ignored (a generic renderer must never choke
+ *  on a repo's YAML). `indexLabel` overrides a folder's landing-page leaf (default: the
+ *  localized "Overview"); `label`/`order` on a landing page apply to the whole GROUP. */
+function sidebarMeta(data: FrontMatter): { label?: string; order?: number; indexLabel?: string } {
   const s = (data as { sidebar?: unknown } | undefined)?.sidebar;
   if (typeof s !== "object" || s === null) return {};
   const rec = s as Record<string, unknown>;
-  const label = typeof rec.label === "string" && rec.label.trim() ? rec.label.trim() : undefined;
+  const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
   const n = typeof rec.order === "number" ? rec.order : typeof rec.order === "string" ? Number(rec.order) : Number.NaN;
-  return { label, order: Number.isFinite(n) ? n : undefined };
+  return { label: str(rec.label), indexLabel: str(rec.indexLabel), order: Number.isFinite(n) ? n : undefined };
 }
 
 /** `title:` — overrides the H1 for the page title and is a sidebar-label fallback. */
@@ -230,9 +233,16 @@ function liftGroup(group: NavGroup, data: FrontMatter): void {
  *
  * Astro collapses `<folder>/index.md` to the id `<folder>` and keeps `<folder>/readme.md`
  * as `<folder>/readme` — both are the folder's LANDING page: they name + order the GROUP
- * (via frontmatter) and become its "Overview" child, never a duplicate sibling leaf.
+ * (via frontmatter) and become its landing child, never a duplicate sibling leaf. That
+ * child is labeled `overviewLabel` (localized "Overview", passed by buildNav) unless the
+ * page sets `sidebar.indexLabel`.
  */
-export function assembleNav(sources: NavSource[], space: Space, collation: string = locale): NavNode[] {
+export function assembleNav(
+  sources: NavSource[],
+  space: Space,
+  collation: string = locale,
+  overviewLabel = "Overview",
+): NavNode[] {
   const rootChildren: NavNode[] = [];
   // An id is a "folder" when some other id is nested beneath it (`<id>/…`).
   const isFolder = (id: string): boolean => sources.some((s) => s.id.startsWith(`${id}/`));
@@ -270,12 +280,24 @@ export function assembleNav(sources: NavSource[], space: Space, collation: strin
       // `<folder>/index.md` → id is the folder path itself: configure its own group.
       const group = groupAt(parts);
       liftGroup(group, data);
-      group.children.push({ type: "leaf", title: "Overview", href, segment: "index", id });
+      group.children.push({
+        type: "leaf",
+        title: sidebarMeta(data).indexLabel ?? overviewLabel,
+        href,
+        segment: "index",
+        id,
+      });
     } else if (parts.length > 1 && /^(readme|index)$/i.test(seg)) {
       // `<folder>/readme.md` → the landing page of its PARENT group.
       const group = groupAt(parts.slice(0, -1));
       liftGroup(group, data);
-      group.children.push({ type: "leaf", title: navLabel(id), href, segment: seg, id });
+      group.children.push({
+        type: "leaf",
+        title: sidebarMeta(data).indexLabel ?? overviewLabel,
+        href,
+        segment: seg,
+        id,
+      });
     } else {
       // Regular page → a leaf under its parent group (or the root).
       const children = parts.length > 1 ? groupAt(parts.slice(0, -1)).children : rootChildren;
@@ -314,7 +336,8 @@ export async function buildNav(space: Space, locale?: string): Promise<NavNode[]
     }
     sources.push({ id, href, data: entry.data });
   }
-  return assembleNav(sources, space, locale);
+  // The folder landing leaf's default label follows the rendered locale ("Overview"/"Aperçu"/…).
+  return assembleNav(sources, space, locale, t(locale).navOverview);
 }
 
 /** Effective sort position. Explicit frontmatter `order` wins; otherwise a readme/index

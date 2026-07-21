@@ -127,6 +127,25 @@ describe("assembleNav ordering + labels", () => {
     expect(group.children.map(label)).toEqual(["Overview", "Page"]);
   });
 
+  it("localizes the folder landing leaf via overviewLabel (e.g. FR 'Aperçu')", () => {
+    const nodes = assembleNav([src("guide/page"), src("guide")], "docs", "fr", "Aperçu");
+    const group = nodes[0];
+    if (group.type !== "group") throw new Error("expected a group");
+    expect(group.children.map(label)).toEqual(["Aperçu", "Page"]);
+  });
+
+  it("lets sidebar.indexLabel override the folder landing leaf (group name stays from sidebar.label)", () => {
+    const nodes = assembleNav(
+      [src("guide/page"), src("guide", { sidebar: { label: "Guide", indexLabel: "Introduction" } })],
+      "docs",
+      "en",
+      "Overview",
+    );
+    expect(nodes.map(label)).toEqual(["Guide"]);
+    const group = nodes[0];
+    if (group.type === "group") expect(group.children.map(label)).toEqual(["Introduction", "Page"]);
+  });
+
   it("lifts a folder index's frontmatter (label + order) onto the group, positioning it among siblings", () => {
     const nodes = assembleNav(
       [
