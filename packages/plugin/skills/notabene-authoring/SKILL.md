@@ -47,8 +47,36 @@ called out at the end.
   (`[see setup](../guide/setup.md)`) — they're auto-rewritten to site routes. External/absolute/
   anchor links are left as-is.
 - **Images**: standard Markdown `![alt](path)` (also good for embedding a pre-rendered SVG — see MCD below).
-- **Headings drive the page**: the **first `# H1`** becomes the page title (else the filename), and
-  headings build the table of contents + anchor links. Use **one H1** per page.
+- **Headings drive the page**: the **first `# H1`** becomes the page title (unless frontmatter
+  `title` overrides it — see *Page metadata* below), and headings build the table of contents +
+  anchor links. Use **one H1** per page.
+
+## Page metadata: title, sidebar label & order (frontmatter)
+
+Optional YAML frontmatter at the very top of a page controls how it appears in the **sidebar**,
+**breadcrumb** and **page `<title>`** — so you don't have to encode ordering as numeric
+file-name prefixes:
+
+```yaml
+---
+title: Cartographie du réseau interne   # page <title> + breadcrumb (overrides the H1)
+sidebar:
+  label: Cartographie                   # sidebar text (else title, else humanized file name)
+  order: 9                              # position among siblings (ascending)
+---
+```
+
+- **Sidebar label** resolves `sidebar.label` → `title` → humanized file name. Set
+  `sidebar.label` to keep a short sidebar entry while the H1 / `title` stays verbose.
+- **`order`** sorts siblings ascending. Entries **without** `order` keep sorting
+  alphabetically, after the ordered ones — and groups and pages share one ordering, so a
+  numbered folder slots into a numbered page sequence without any file-name prefix.
+- **A folder** is named and ordered by its **landing page** — `<folder>/index.md` (whose id
+  collapses to the folder path) or `<folder>/readme.md`. Put the `sidebar` frontmatter there
+  and it applies to the whole group; that page becomes the group's *Overview* entry.
+- Frontmatter is **optional**: with none, the sidebar shows humanized file names sorted
+  alphabetically (unchanged). Only `title` and `sidebar` are interpreted — any other keys pass
+  through untouched.
 
 ## Mermaid diagrams (logigrammes, séquences, ER…)
 

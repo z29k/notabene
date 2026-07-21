@@ -13,6 +13,8 @@ export interface NavLeaf {
   /** Canonical (locale-stripped) entry id — lets consumers (e.g. print-scope) avoid
    *  re-parsing it out of the now-locale-prefixed href. */
   id: string;
+  /** Explicit sidebar position from frontmatter `sidebar.order`; unset → sorts by label. */
+  order?: number;
 }
 
 export interface NavGroup {
@@ -21,6 +23,8 @@ export interface NavGroup {
   segment: string;
   prefix: string;
   children: NavNode[];
+  /** Explicit position from the folder's index/readme `sidebar.order`; unset → by label. */
+  order?: number;
 }
 
 export type NavNode = NavLeaf | NavGroup;
@@ -129,8 +133,44 @@ export function navLabel(id: string): string {
   return humanize(seg);
 }
 
-/** Page title = first H1 (descriptive), else the nav label. */
-export function pageTitle(body: string | undefined, id: string): string {
+/** Loose frontmatter — the glob loader parses it with no schema, so a consumer's arbitrary
+ *  YAML flows through untouched; we read only the keys we own and coerce defensively. */
+export type FrontMatter = Record<string, unknown> | undefined;
+
+/** `sidebar: { label?, order? }` — the per-page nav override. A non-string label or a
+ *  non-numeric order is ignored (a generic renderer must never choke on a repo's YAML). */
+function sidebarMeta(data: FrontMatter): { label?: string; order?: number } {
+  const s = (data as { sidebar?: unknown } | undefined)?.sidebar;
+  if (typeof s !== "object" || s === null) return {};
+  const rec = s as Record<string, unknown>;
+  const label = typeof rec.label === "string" && rec.label.trim() ? rec.label.trim() : undefined;
+  const n = typeof rec.order === "number" ? rec.order : typeof rec.order === "string" ? Number(rec.order) : Number.NaN;
+  return { label, order: Number.isFinite(n) ? n : undefined };
+}
+
+/** `title:` — overrides the H1 for the page title and is a sidebar-label fallback. */
+function frontMatterTitle(data: FrontMatter): string | undefined {
+  const t = (data as { title?: unknown } | undefined)?.title;
+  return typeof t === "string" && t.trim() ? t.trim() : undefined;
+}
+
+/** Sidebar label for a PAGE leaf: `sidebar.label` → `title` → humanized file name.
+ *  (A readme/index leaf keeps "Overview"; a folder's frontmatter names the GROUP instead —
+ *  see resolveGroupLabel.) */
+export function resolveNavLabel(id: string, data?: FrontMatter): string {
+  return sidebarMeta(data).label ?? frontMatterTitle(data) ?? navLabel(id);
+}
+
+/** Label lifted onto a GROUP from its folder's index/readme frontmatter:
+ *  `sidebar.label` → `title` → undefined (keep the humanized folder segment). */
+export function resolveGroupLabel(data?: FrontMatter): string | undefined {
+  return sidebarMeta(data).label ?? frontMatterTitle(data);
+}
+
+/** Page title = frontmatter `title` → first H1 (descriptive) → the nav label. */
+export function pageTitle(body: string | undefined, id: string, data?: FrontMatter): string {
+  const t = frontMatterTitle(data);
+  if (t) return t;
   const m = body?.match(/^#\s+(.+?)\s*$/m);
   if (m) return m[1].replace(/[*_`]/g, "").trim();
   return navLabel(id);
@@ -138,9 +178,120 @@ export function pageTitle(body: string | undefined, id: string): string {
 
 // Collections are declared dynamically (name = space key, cf. content.config.ts), so
 // `getCollection` can't be statically typed here — assert the minimal entry shape we use.
-type Entry = { id: string; body?: string };
+type Entry = { id: string; body?: string; data?: FrontMatter };
 async function entriesOf(space: Space): Promise<Entry[]> {
   return getCollection(space as never) as unknown as Promise<Entry[]>;
+}
+
+/** `folderPath → display label` for a space, taken from each folder's landing page
+ *  frontmatter (`<folder>/index.md` → id `<folder>`, or `<folder>/readme.md`); folders with
+ *  no label are absent. Lets breadcrumbs and PDF covers show the same folder name as the
+ *  sidebar. Locale-filtered exactly like buildNav. */
+export async function folderLabels(space: Space, locale?: string): Promise<Map<string, string>> {
+  const canon: { id: string; data: FrontMatter }[] = [];
+  for (const entry of await entriesOf(space)) {
+    let id = entry.id;
+    if (locale !== undefined) {
+      const d = decode(entry.id, i18n);
+      if (d.locale !== locale) continue;
+      id = d.id;
+    }
+    canon.push({ id, data: entry.data });
+  }
+  const isFolder = (id: string) => canon.some((c) => c.id.startsWith(`${id}/`));
+  const out = new Map<string, string>();
+  for (const { id, data } of canon) {
+    const label = resolveGroupLabel(data);
+    if (!label) continue;
+    const parts = id.split("/");
+    if (isFolder(id))
+      out.set(id, label); // <folder>/index.md → id is the folder path
+    else if (parts.length > 1 && /^(readme|index)$/i.test(parts[parts.length - 1]))
+      out.set(parts.slice(0, -1).join("/"), label);
+  }
+  return out;
+}
+
+/** One nav entry, already resolved to a CANONICAL (locale-stripped) id + final href. */
+export type NavSource = { id: string; href: string; data?: FrontMatter };
+
+/** Lift a folder landing page's frontmatter (label + order) onto its group. */
+function liftGroup(group: NavGroup, data: FrontMatter): void {
+  const label = resolveGroupLabel(data);
+  if (label) group.label = label;
+  const order = sidebarMeta(data).order;
+  if (order !== undefined) group.order = order;
+}
+
+/**
+ * Pure tree assembler: canonical ids → a sorted NavNode tree. Split out of buildNav so the
+ * label / order / group-lifting rules are unit-testable without the astro:content layer.
+ * `space` only feeds the (informational) group `prefix`; `collation` sorts labels.
+ *
+ * Astro collapses `<folder>/index.md` to the id `<folder>` and keeps `<folder>/readme.md`
+ * as `<folder>/readme` — both are the folder's LANDING page: they name + order the GROUP
+ * (via frontmatter) and become its "Overview" child, never a duplicate sibling leaf.
+ */
+export function assembleNav(sources: NavSource[], space: Space, collation: string = locale): NavNode[] {
+  const rootChildren: NavNode[] = [];
+  // An id is a "folder" when some other id is nested beneath it (`<id>/…`).
+  const isFolder = (id: string): boolean => sources.some((s) => s.id.startsWith(`${id}/`));
+
+  // Find-or-create the group at a segment path, materializing every ancestor group.
+  const groupAt = (segs: string[]): NavGroup => {
+    let children = rootChildren;
+    let group!: NavGroup;
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      let g = children.find((c): c is NavGroup => c.type === "group" && c.segment === seg);
+      if (!g) {
+        g = {
+          type: "group",
+          label: humanize(seg),
+          segment: seg,
+          prefix: `/${space}/${segs.slice(0, i + 1).join("/")}`,
+          children: [],
+        };
+        children.push(g);
+      }
+      group = g;
+      children = g.children;
+    }
+    return group;
+  };
+
+  for (const { id, href, data } of sources) {
+    // ROOT README/index (canonical) = the space home page, not a nav leaf.
+    if (/^(readme|index)$/i.test(id)) continue;
+    const parts = id.split("/");
+    const seg = parts[parts.length - 1];
+
+    if (isFolder(id)) {
+      // `<folder>/index.md` → id is the folder path itself: configure its own group.
+      const group = groupAt(parts);
+      liftGroup(group, data);
+      group.children.push({ type: "leaf", title: "Overview", href, segment: "index", id });
+    } else if (parts.length > 1 && /^(readme|index)$/i.test(seg)) {
+      // `<folder>/readme.md` → the landing page of its PARENT group.
+      const group = groupAt(parts.slice(0, -1));
+      liftGroup(group, data);
+      group.children.push({ type: "leaf", title: navLabel(id), href, segment: seg, id });
+    } else {
+      // Regular page → a leaf under its parent group (or the root).
+      const children = parts.length > 1 ? groupAt(parts.slice(0, -1)).children : rootChildren;
+      children.push({
+        type: "leaf",
+        title: resolveNavLabel(id, data),
+        href,
+        segment: seg,
+        id,
+        order: sidebarMeta(data).order,
+      });
+    }
+  }
+
+  sortNodes(rootChildren, collation);
+  return rootChildren;
 }
 
 /**
@@ -150,10 +301,8 @@ async function entriesOf(space: Space): Promise<Entry[]> {
  * raw ids) — used where the tree spans locales (e.g. the print route in an early phase).
  */
 export async function buildNav(space: Space, locale?: string): Promise<NavNode[]> {
-  const entries = await entriesOf(space);
-  const rootChildren: NavNode[] = [];
-
-  for (const entry of entries) {
+  const sources: NavSource[] = [];
+  for (const entry of await entriesOf(space)) {
     // Canonical id + href depend on whether we filter by locale.
     let id = entry.id;
     let href = `/${space}/${entry.id}`;
@@ -163,45 +312,26 @@ export async function buildNav(space: Space, locale?: string): Promise<NavNode[]
       id = d.id;
       href = routeFor({ space, id, locale }, i18n);
     }
-    // ROOT README/index (canonical) = the space home page, not a nav leaf.
-    if (/^(readme|index)$/i.test(id)) continue;
-    const parts = id.split("/");
-    let children = rootChildren;
-
-    for (let i = 0; i < parts.length - 1; i++) {
-      const seg = parts[i];
-      let group = children.find((c): c is NavGroup => c.type === "group" && c.segment === seg);
-      if (!group) {
-        group = {
-          type: "group",
-          label: humanize(seg),
-          segment: seg,
-          prefix: `/${space}/${parts.slice(0, i + 1).join("/")}`,
-          children: [],
-        };
-        children.push(group);
-      }
-      children = group.children;
-    }
-
-    children.push({ type: "leaf", title: navLabel(id), href, segment: parts[parts.length - 1], id });
+    sources.push({ id, href, data: entry.data });
   }
-
-  sortNodes(rootChildren, locale);
-  return rootChildren;
+  return assembleNav(sources, space, locale);
 }
 
-function rank(node: NavNode): number {
-  // README / index first; groups and pages sort TOGETHER by label so a numbered
-  // folder (e.g. 09-cartographie/) slots into the numbered sequence of pages.
-  if (node.type === "leaf" && /^(readme|index)$/i.test(node.segment)) return 0;
-  return 1;
+/** Effective sort position. Explicit frontmatter `order` wins; otherwise a readme/index
+ *  leaf stays first (−∞) and unordered nodes sort last (+∞) — i.e. alphabetically among
+ *  themselves, the pre-frontmatter behavior. Groups and pages share one ordering, so a
+ *  numbered folder slots into the numbered page sequence without a filename prefix. */
+function orderKey(node: NavNode): number {
+  if (typeof node.order === "number") return node.order;
+  if (node.type === "leaf" && /^(readme|index)$/i.test(node.segment)) return Number.NEGATIVE_INFINITY;
+  return Number.POSITIVE_INFINITY;
 }
 
 function sortNodes(nodes: NavNode[], collation: string = locale): void {
   nodes.sort((a, b) => {
-    const r = rank(a) - rank(b);
-    if (r !== 0) return r;
+    const oa = orderKey(a);
+    const ob = orderKey(b);
+    if (oa !== ob) return oa < ob ? -1 : 1; // NaN-safe (avoids ∞−∞); ties → alphabetical
     const an = a.type === "group" ? a.label : a.title;
     const bn = b.type === "group" ? b.label : b.title;
     return an.localeCompare(bn, collation);

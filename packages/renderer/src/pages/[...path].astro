@@ -7,7 +7,7 @@
 import { getCollection, render } from "astro:content";
 import DocLayout from "../layouts/DocLayout.astro";
 import SpaceIndex from "../components/SpaceIndex.astro";
-import { buildNav, humanize, pageTitle, type NavNode } from "../lib/nav";
+import { buildNav, folderLabels, humanize, pageTitle, type NavNode } from "../lib/nav";
 import { buildEquivalence, decode, isSpaceHomeId, routeFor, switchLinks } from "../lib/i18n-content.mjs";
 import { scopeToPath } from "../lib/print-scope";
 import { i18n, pdf, roots } from "../config.mjs";
@@ -73,6 +73,9 @@ const { spaceKey, entry, locale, canonicalId, isHome, alternates } = Astro.props
 const root = roots.find((r) => r.key === spaceKey)!;
 const spaceLabel = root.label;
 const baseDir = root.path;
+// Folder → display label (from each folder's index/readme frontmatter): keeps breadcrumbs
+// and PDF export labels in sync with the sidebar's group names.
+const folders = await folderLabels(spaceKey, locale);
 
 let Content: Awaited<ReturnType<typeof render>>["Content"] | null = null;
 let headings: { depth: number; slug: string; text: string }[] = [];
@@ -87,11 +90,12 @@ if (entry) {
   Content = rendered.Content;
   headings = rendered.headings;
   // Title/labels use the CANONICAL id (no locale marker); `page` uses the RAW id (store key).
-  title = pageTitle(entry.body, canonicalId);
+  title = pageTitle(entry.body, canonicalId, entry.data);
   page = `${baseDir}/${entry.id}`;
   if (!isHome) {
     const parts = canonicalId.split("/");
-    for (let i = 0; i < parts.length - 1; i++) breadcrumb.push({ label: humanize(parts[i]) });
+    for (let i = 0; i < parts.length - 1; i++)
+      breadcrumb.push({ label: folders.get(parts.slice(0, i + 1).join("/")) ?? humanize(parts[i]) });
     breadcrumb.push({ label: title });
   }
 } else {
@@ -116,7 +120,7 @@ if (pdf.enabled) {
       const folderPath = cparts.slice(0, -1).join("/");
       exportScopes.folder = {
         href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath, locale: scLoc }),
-        label: humanize(cparts[cparts.length - 2]),
+        label: folders.get(folderPath) ?? humanize(cparts[cparts.length - 2]),
       };
     }
     exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: entry.id }), label: title };

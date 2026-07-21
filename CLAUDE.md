@@ -214,5 +214,16 @@ The comments API (`src/pages/api/comments.ts`) writes into the consumer's git, s
 - Inter-doc relative `.md`/`.mdx` links are rewritten to site routes by
   `src/remark/rewrite-links.mjs` (mapping derived from `roots[]`; most-specific root wins).
   The same longest-path-first rule governs `routeForPage` in `config.mjs`.
+- **Sidebar labels & order are frontmatter-driven** (`src/lib/nav.ts`, all resolution is
+  pure + unit-tested). A page's leaf label resolves `sidebar.label` → `title` → humanized
+  file name; `sidebar.order` sorts siblings ascending (unset → `±Infinity` sentinels, i.e.
+  the pre-frontmatter alphabetical order, so no-frontmatter output is unchanged). Groups and
+  pages share one ordering. A **folder** is labeled/ordered by its landing page — Astro
+  collapses `<folder>/index.md` to the id `<folder>` (kept as `<folder>/readme.md`
+  otherwise); `assembleNav` folds it into a single group with an "Overview" child (no
+  duplicate sibling leaf) and `liftGroup`s its frontmatter. `folderLabels()` mirrors the same
+  rule so breadcrumbs (`[...path].astro`) + PDF covers (`print/[...scope].astro`) stay in
+  sync. `pageTitle`/search-index also prefer frontmatter `title`. **No config knob, no
+  `.notabene` schema change** — labels/order never touch page ids or store keys.
 - Keep the `.notabene` contract and the CLI surface stable; call out changes to either
   explicitly in PRs.

@@ -29,17 +29,22 @@ export const GET: APIRoute = async () => {
   for (const root of roots) {
     const space = root.key;
     // Dynamic collection (name = space key) → assert the entry shape we read.
-    const entries = (await getCollection(space as never)) as unknown as Array<{ id: string; body?: string }>;
+    const entries = (await getCollection(space as never)) as unknown as Array<{
+      id: string;
+      body?: string;
+      data?: { title?: unknown };
+    }>;
     for (const entry of entries) {
       const body = entry.body ?? "";
       const { locale, id } = decode(entry.id, i18n);
+      const fmTitle = typeof entry.data?.title === "string" && entry.data.title.trim() ? entry.data.title.trim() : "";
       const titleMatch = body.match(/^#\s+(.+?)\s*$/m);
       const headings = [...body.matchAll(/^#{2,4}\s+(.+?)\s*$/gm)].map((m) => m[1].replace(/[*_`]/g, "").trim());
       out.push({
         space,
         locale,
         href: routeFor({ space, id, locale }, i18n),
-        title: titleMatch ? titleMatch[1].replace(/[*_`]/g, "").trim() : id,
+        title: fmTitle || (titleMatch ? titleMatch[1].replace(/[*_`]/g, "").trim() : id),
         headings,
         text: strip(body).slice(0, 1500),
       });

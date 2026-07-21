@@ -5,7 +5,7 @@
 // locale in their raw id. `/print` = the default locale's whole doc. Static/prerendered.
 import { getCollection, render } from "astro:content";
 import PrintLayout from "../../layouts/PrintLayout.astro";
-import { buildNav, humanize, pageTitle } from "../../lib/nav";
+import { buildNav, folderLabels, humanize, pageTitle } from "../../lib/nav";
 import {
   type PrintItem,
   findSubtree,
@@ -78,7 +78,7 @@ const toc: TocEntry[] = [];
 async function addLeaf(space: string, canonicalId: string, entry: any, depth: number) {
   if (!entry) return;
   const { Content, headings } = await render(entry);
-  const title = pageTitle(entry.body, canonicalId);
+  const title = pageTitle(entry.body, canonicalId, entry.data);
   const anchorId = sectionId(space, canonicalId);
   blocks.push({ kind: "leaf", anchorId, title, Content, headings });
   toc.push({ kind: "leaf", label: title, depth, anchor: anchorId });
@@ -128,13 +128,16 @@ if (parsed) {
 
 const leaves = blocks.filter((b): b is LeafBlock => b.kind === "leaf");
 const dateStr = new Date().toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" });
+// Folder cover title: prefer the folder's frontmatter label (same source as the sidebar).
+const folderCoverLabel =
+  parsed?.kind === "folder" && spaces[0] ? (await folderLabels(spaces[0].key, locale)).get(parsed.path) : undefined;
 
 function coverOf() {
   if (!parsed || parsed.kind === "doc") return { kicker: tagline, title: siteName, sub: m.pdfCoverDoc };
   const label = spaces[0]?.label ?? parsed.space;
   if (parsed.kind === "space") return { kicker: siteName, title: label, sub: tagline };
   if (parsed.kind === "folder")
-    return { kicker: siteName, title: humanize(parsed.path.split("/").pop() ?? ""), sub: label };
+    return { kicker: siteName, title: folderCoverLabel ?? humanize(parsed.path.split("/").pop() ?? ""), sub: label };
   return { kicker: siteName, title: leaves[0]?.title ?? parsed.id, sub: label };
 }
 const cover = coverOf();

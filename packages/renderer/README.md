@@ -187,6 +187,28 @@ export default {
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
 | `i18n` | — | Multi-language docs: `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` — clean prefixed URLs, a switcher that sets a language preference (redirects to the equivalent, banner + fallback when untranslated), hreflang, per-page chrome (aggregate pages `/comments`·`/journal`·`/review`·`/`·`404` follow it client-side). Omit for one language |
 
+### Sidebar labels & ordering
+
+By default a page's sidebar entry is its **humanized file name** and siblings sort
+alphabetically. Override either per page with frontmatter — so you don't have to prefix file
+names with numbers:
+
+```yaml
+---
+title: Cartographie du réseau interne   # page <title> + breadcrumb (overrides the H1)
+sidebar:
+  label: Cartographie                   # sidebar text (else title, else file name)
+  order: 9                              # position among siblings (ascending)
+---
+```
+
+- `order` sorts ascending; entries **without** an `order` keep sorting alphabetically,
+  after the ordered ones. Groups and pages share one ordering, so a numbered folder slots
+  into the numbered page sequence.
+- A **folder** is named and positioned by its landing page — `<folder>/index.md` (or
+  `<folder>/readme.md`) — whose `sidebar` frontmatter applies to the whole group.
+- These labels flow through to breadcrumbs and PDF export as well.
+
 ## Two-phase review (optional)
 
 By default the agent resolves comments directly. Set `review: "approve"` for a

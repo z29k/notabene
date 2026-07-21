@@ -202,6 +202,28 @@ export default {
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | Export PDF — `enabled` active le menu Export + les routes `/print` ; `pageSize`/`margin` règlent la boîte `@page` |
 | `i18n` | — | Doc multilingue : `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` (voir plus bas). Omettre pour une seule langue |
 
+### Libellés et ordre de la barre latérale
+
+Par défaut, l'entrée d'une page dans la barre latérale est son **nom de fichier humanisé**,
+et les entrées voisines sont triées par ordre alphabétique. On peut redéfinir l'un ou
+l'autre par page via le frontmatter — sans préfixer les noms de fichiers par des chiffres :
+
+```yaml
+---
+title: Cartographie du réseau interne   # <title> de la page + fil d'Ariane (prime sur le H1)
+sidebar:
+  label: Cartographie                   # texte de la barre latérale (sinon title, sinon fichier)
+  order: 9                              # position parmi les voisins (croissant)
+---
+```
+
+- `order` trie en ordre croissant ; les entrées **sans** `order` restent triées
+  alphabétiquement, après celles ordonnées. Groupes et pages partagent un même ordre : un
+  dossier numéroté s'insère ainsi dans la séquence numérotée des pages.
+- Un **dossier** est nommé et positionné par sa page d'accueil — `<dossier>/index.md` (ou
+  `<dossier>/readme.md`) — dont le frontmatter `sidebar` s'applique au groupe entier.
+- Ces libellés se répercutent aussi sur le fil d'Ariane et l'export PDF.
+
 ## Revue à deux temps (optionnel)
 
 Par défaut, l'agent résout les commentaires directement. `review: "approve"` active une boucle
