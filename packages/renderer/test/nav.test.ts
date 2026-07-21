@@ -9,6 +9,9 @@ describe("humanize", () => {
   it("upcases known acronyms", () => {
     expect(humanize("api-reference")).toBe("API Reference");
     expect(humanize("dns-and-tls")).toBe("DNS and TLS");
+    expect(humanize("evaluation-irn")).toBe("Evaluation IRN");
+    expect(humanize("import-cmdb")).toBe("Import CMDB");
+    expect(humanize("import-xls")).toBe("Import XLS");
   });
   it("keeps small words lowercase (except first)", () => {
     expect(humanize("state-of-the-art")).toBe("State of the Art");

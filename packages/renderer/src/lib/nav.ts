@@ -79,6 +79,9 @@ const ACRONYMS = new Set([
   "doh",
   "do53",
   "svcb",
+  "irn",
+  "cmdb",
+  "xls",
 ]);
 const SMALL_WORDS = new Set([
   "and",
@@ -189,10 +192,10 @@ export async function buildNav(space: Space, locale?: string): Promise<NavNode[]
 }
 
 function rank(node: NavNode): number {
-  // README / index first, then groups, then other pages.
+  // README / index first; groups and pages sort TOGETHER by label so a numbered
+  // folder (e.g. 09-cartographie/) slots into the numbered sequence of pages.
   if (node.type === "leaf" && /^(readme|index)$/i.test(node.segment)) return 0;
-  if (node.type === "group") return 1;
-  return 2;
+  return 1;
 }
 
 function sortNodes(nodes: NavNode[], collation: string = locale): void {
