@@ -1,24 +1,8 @@
 ---
-import DocLayout from "../layouts/DocLayout.astro";
-import { locale, roots, siteName } from "../config.mjs";
-import { t } from "../i18n.mjs";
-
-const m = t(locale);
+// Site home for the DEFAULT locale (`/`). Non-default-locale homes (`/en`, …) are emitted by
+// the site-home branch of `[...path].astro`. Both render the shared, per-locale SiteHome.
+import SiteHome from "../components/SiteHome.astro";
+import { i18n } from "../config.mjs";
 ---
 
-<DocLayout title="Home" i18nClientChrome>
-  <h1>{siteName} <span data-i18n="homeDocumentation">{m.homeDocumentation}</span></h1>
-  <p class="lede" data-i18n="homeLede">{m.homeLede}</p>
-
-  <div class="home-cards">
-    {
-      roots.map((root) => (
-        <a class="home-card" href={`/${root.key}`}>
-          <h2>{root.label}</h2>
-          <p><code>{root.subLabel}</code></p>
-          {root.description && <p>{root.description}</p>}
-        </a>
-      ))
-    }
-  </div>
-</DocLayout>
+<SiteHome locale={i18n.defaultLocale} />

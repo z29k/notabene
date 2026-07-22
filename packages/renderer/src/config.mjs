@@ -12,7 +12,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { decode as decodeLocale, routeFor as i18nRouteFor } from "./lib/i18n-content.mjs";
+import { decode as decodeLocale, routeFor as i18nRouteFor, localizeField } from "./lib/i18n-content.mjs";
 
 export const REPO_ROOT = process.env.NOTABENE_ROOT ? path.resolve(process.env.NOTABENE_ROOT) : process.cwd();
 
@@ -69,13 +69,24 @@ export const mdxEnabled = format === "mdx";
 export const extensions = mdxEnabled ? ["md", "mdx"] : ["md", "markdown"];
 const extGlob = extensions.length === 1 ? extensions[0] : `{${extensions.join(",")}}`;
 
-function normalizeRoot(root) {
+// `label`/`description` are per-locale-aware: each is a plain string OR a `{ <locale>: string }`
+// map (see localizeField). `label`/`description` below are the DEFAULT-locale resolution — a
+// stable string for locale-agnostic consumers (CLI doctor, the `key` fallback). Locale-aware
+// surfaces (sidebar, space index, breadcrumbs, print, and the client re-localizers) resolve the
+// raw `labelI18n`/`descriptionI18n` against the rendered locale instead.
+function normalizeRoot(root, defaultLocale) {
   const rel = String(root.path).replace(/\\/g, "/").replace(/\/+$/, "");
   const abs = path.resolve(REPO_ROOT, rel);
+  const rawLabel = root.label ?? rel;
+  const rawDescription = root.description ?? "";
   return {
-    key: root.key ?? slugify(root.label ?? rel),
-    label: root.label ?? rel,
-    description: root.description ?? "",
+    // The `key` is a URL segment → derive it from a stable value, never a per-locale map.
+    key: root.key ?? slugify(typeof root.label === "string" ? root.label : rel),
+    label: localizeField(rawLabel, defaultLocale, defaultLocale) ?? rel,
+    description: localizeField(rawDescription, defaultLocale, defaultLocale) ?? "",
+    // Raw (possibly per-locale) values for locale-aware rendering.
+    labelI18n: rawLabel,
+    descriptionI18n: rawDescription,
     // Logical repo-relative path (= prefix of a comment's `page` field).
     path: rel,
     // Sidebar sub-title (e.g. "docs/").
@@ -122,32 +133,16 @@ export const pdf = {
   margin: pdfCfg.margin ?? "18mm",
 };
 
-/**
- * @typedef {Object} Root
- * @property {string} key
- * @property {string} label
- * @property {string} description
- * @property {string} path
- * @property {string} subLabel
- * @property {string[]} exclude
- * @property {string} abs
- * @property {URL} baseUrl
- * @property {string[]} pattern
- */
-
-/** @type {Root[]} — `userConfig` is untyped (loaded dynamically), so annotate the
- *  resolved shape here; importers (nav, pages, remark) rely on this being typed. */
-export const roots = (userConfig.roots ?? [{ label: "Docs", path: "docs" }]).map(normalizeRoot);
-
 // Content i18n (multi-language docs). Optional, backward-compatible: no `i18n` block →
 // one locale (the global `locale`), `enabled:false` → identical to a mono-language site.
 //   locales       — content languages, e.g. ["en","fr"]; order = switcher order.
 //   defaultLocale — the UNPREFIXED language (route /docs/…); others get /<locale>/….
 //   strategy      — "directory" (docs/<loc>/…) | "suffix" (guide.md + guide.fr.md).
 // The pure resolver lives in lib/i18n-content.mjs. The global `locale` is the DEFAULT UI
-// language; per-doc pages follow their own locale, and aggregate pages (/comments, /journal,
-// /review, home, 404) re-localize to the visitor's chosen language client-side (DocLayout
-// `i18nClientChrome`).
+// language; per-doc pages (and the per-locale site home, /<locale>) follow their own locale,
+// while the cross-locale aggregate pages (/comments, /journal, /review, 404) re-localize to the
+// visitor's chosen language client-side (DocLayout `i18nClientChrome`). Computed BEFORE roots:
+// normalizeRoot resolves each root's default-locale label/description against `defaultLocale`.
 const i18nCfg = userConfig.i18n ?? {};
 const i18nLocales = Array.isArray(i18nCfg.locales) && i18nCfg.locales.length ? i18nCfg.locales.map(String) : [locale];
 const i18nDefault =
@@ -162,6 +157,28 @@ export const i18n = {
   strategy: i18nCfg.strategy === "suffix" ? "suffix" : "directory",
   enabled: i18nLocales.length > 1,
 };
+
+/**
+ * @typedef {Object} Root
+ * @property {string} key
+ * @property {string} label default-locale label (stable, locale-agnostic)
+ * @property {string} description default-locale description
+ * @property {string|Record<string,string>} labelI18n raw label — string or per-locale map
+ * @property {string|Record<string,string>} descriptionI18n raw description — string or per-locale map
+ * @property {string} path
+ * @property {string} subLabel
+ * @property {string[]} exclude
+ * @property {string} abs
+ * @property {URL} baseUrl
+ * @property {string[]} pattern
+ */
+
+/** @type {Root[]} — `userConfig` is untyped (loaded dynamically), so annotate the
+ *  resolved shape here; importers (nav, pages, remark) rely on this being typed. */
+export const roots = (userConfig.roots ?? [{ label: "Docs", path: "docs" }]).map((r) =>
+  normalizeRoot(r, i18n.defaultLocale),
+);
+
 // A locale key must never collide with a space key (both occupy the URL's first segment).
 if (i18n.enabled) {
   const keys = new Set(roots.map((r) => r.key));
@@ -180,11 +197,14 @@ export const clientI18n = {
 export const storeRel = (userConfig.store ?? "docs/.notabene").replace(/\\/g, "/").replace(/\/+$/, "");
 export const storeAbs = path.resolve(REPO_ROOT, storeRel);
 
-// Serializable roots for client scripts (no absolute paths / node:* leak).
+// Serializable roots for client scripts (no absolute paths / node:* leak). The raw per-locale
+// label/description maps ride along ONLY when i18n is enabled, so a mono-language site's
+// serialized `#notabene-roots` stays byte-identical (client resolves via localizeField).
 export const clientRoots = roots.map((r) => ({
   key: r.key,
   label: r.label,
   path: r.path,
+  ...(i18n.enabled ? { labelI18n: r.labelI18n, descriptionI18n: r.descriptionI18n } : {}),
 }));
 
 /**

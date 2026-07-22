@@ -14,7 +14,7 @@ import {
   parseScope,
   sectionId,
 } from "../../lib/print-scope";
-import { decode } from "../../lib/i18n-content.mjs";
+import { decode, localizeField } from "../../lib/i18n-content.mjs";
 import { i18n, pdf, roots, siteName, tagline } from "../../config.mjs";
 import { t } from "../../i18n.mjs";
 
@@ -50,6 +50,8 @@ const pageLoc = parsed && parsed.kind === "page" ? decode(parsed.id, i18n).local
 const locale = pageLoc ?? parsed?.locale ?? i18n.defaultLocale;
 const m = t(locale);
 const spaces = parsed ? (parsed.kind === "doc" ? roots : roots.filter((r) => r.key === parsed.space)) : [];
+// Space label in this bundle's single locale (per-locale `roots[].label`) — for part dividers + cover.
+const spaceLabelOf = (space: (typeof roots)[number]) => localizeField(space.labelI18n, locale, i18n.defaultLocale) ?? space.label;
 
 type Rendered = Awaited<ReturnType<typeof render>>;
 interface PartBlock {
@@ -118,8 +120,8 @@ if (parsed) {
     }
     // doc / space: a part divider (doc scope only), the space home, then the nav tree.
     if (parsed.kind === "doc") {
-      blocks.push({ kind: "part", label: space.label });
-      toc.push({ kind: "part", label: space.label, depth: 0 });
+      blocks.push({ kind: "part", label: spaceLabelOf(space) });
+      toc.push({ kind: "part", label: spaceLabelOf(space), depth: 0 });
     }
     if (indexEntry) await addLeaf(space.key, decode(indexEntry.id, i18n).id, indexEntry, 1);
     await addSpaceItems(space.key, flattenNav(space.key, await buildNav(space.key, locale)), byCanonical);
@@ -134,7 +136,7 @@ const folderCoverLabel =
 
 function coverOf() {
   if (!parsed || parsed.kind === "doc") return { kicker: tagline, title: siteName, sub: m.pdfCoverDoc };
-  const label = spaces[0]?.label ?? parsed.space;
+  const label = (spaces[0] && spaceLabelOf(spaces[0])) ?? parsed.space;
   if (parsed.kind === "space") return { kicker: siteName, title: label, sub: tagline };
   if (parsed.kind === "folder")
     return { kicker: siteName, title: folderCoverLabel ?? humanize(parsed.path.split("/").pop() ?? ""), sub: label };

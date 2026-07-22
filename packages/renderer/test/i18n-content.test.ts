@@ -4,6 +4,7 @@ import {
   buildEquivalence,
   decode,
   isSpaceHomeId,
+  localizeField,
   makeSuffixGenerateId,
   routeFor,
   switchLinks,
@@ -114,5 +115,34 @@ describe("buildEquivalence + alternatesFor", () => {
       (d: unknown) => dups.push(d),
     );
     expect(dups).toEqual([{ space: "docs", id: "guide", locale: "en", rawId: "en/guide" }]);
+  });
+});
+
+describe("localizeField — per-locale roots[].label / .description", () => {
+  it("returns a plain string verbatim (mono-language / backward compat)", () => {
+    expect(localizeField("Docs", "fr", "en")).toBe("Docs");
+    // A string is locale-agnostic — the requested locale is irrelevant.
+    expect(localizeField("Docs", "de", "en")).toBe("Docs");
+  });
+  it("picks the exact locale from a map", () => {
+    expect(localizeField({ en: "Documentation", fr: "Documentation FR" }, "fr", "en")).toBe("Documentation FR");
+  });
+  it("falls back to the default locale when the requested one is missing", () => {
+    expect(localizeField({ en: "Guides", de: "Anleitungen" }, "fr", "en")).toBe("Guides");
+  });
+  it("falls back to the first non-empty value when neither locale nor default is present", () => {
+    expect(localizeField({ es: "Guías", it: "Guide" }, "fr", "en")).toBe("Guías");
+  });
+  it("ignores empty / whitespace entries during resolution", () => {
+    expect(localizeField({ fr: "  ", en: "Docs" }, "fr", "en")).toBe("Docs");
+  });
+  it("ignores non-string map values (defensive against arbitrary config)", () => {
+    expect(localizeField({ fr: 42, en: "Docs" }, "fr", "en")).toBe("Docs");
+  });
+  it("returns undefined for null / non-object / empty map", () => {
+    expect(localizeField(undefined, "fr", "en")).toBeUndefined();
+    expect(localizeField(null, "fr", "en")).toBeUndefined();
+    expect(localizeField(123, "fr", "en")).toBeUndefined();
+    expect(localizeField({}, "fr", "en")).toBeUndefined();
   });
 });

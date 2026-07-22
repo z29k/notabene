@@ -381,6 +381,7 @@ const hasRail = page != null;
     <script>
       import { getIdentity, hasIdentity, isLoopbackHost, setIdentity } from "../lib/client/comments-client";
       import { closeOverlay, currentOverlay, initShell, openOverlay } from "../lib/client/shell";
+      import { localizeField } from "../lib/i18n-content.mjs";
 
       // Wire the shared scrim / Escape / resize-to-desktop overlay closers once.
       initShell();
@@ -439,6 +440,24 @@ const hasRail = page != null;
               try {
                 el.textContent = new Date(`${iso}T00:00:00Z`).toLocaleDateString(loc, { dateStyle: "medium", timeZone: "UTC" });
               } catch {}
+          }
+          // Per-locale roots[].label / .description: cards (home / 404) and the comments space
+          // filter render the default-locale string server-side; re-localize to `loc` here.
+          const rootsEl = document.getElementById("notabene-roots");
+          if (rootsEl) {
+            const rootsData = JSON.parse(rootsEl.textContent || "[]");
+            const def = i18nCfg?.defaultLocale || loc;
+            const byKey: Record<string, (typeof rootsData)[number]> = {};
+            for (const r of rootsData) byKey[r.key] = r;
+            const relabel = (attr: string, field: "labelI18n" | "descriptionI18n") => {
+              for (const el of document.querySelectorAll<HTMLElement>(`[${attr}]`)) {
+                const r = byKey[el.getAttribute(attr) || ""];
+                const v = r && localizeField(r[field], loc, def);
+                if (v != null) el.textContent = v;
+              }
+            };
+            relabel("data-nb-root-label", "labelI18n");
+            relabel("data-nb-root-desc", "descriptionI18n");
           }
           const cur = document.getElementById("nb-lang-current");
           if (cur) cur.textContent = loc.toUpperCase();
@@ -609,6 +628,7 @@ const hasRail = page != null;
 
     <script>
       import { esc } from "../lib/client/comments-client";
+      import { localizeField } from "../lib/i18n-content.mjs";
 
       // Client-side search: JSON index (title + headings + excerpt), scored.
       const input = document.getElementById("search-input") as HTMLInputElement | null;
@@ -623,7 +643,7 @@ const hasRail = page != null;
         text: string;
       }
 
-      const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
+      const ROOTS: { key: string; label: string; path: string; labelI18n?: string | Record<string, string> }[] = JSON.parse(
         document.getElementById("notabene-roots")?.textContent || "[]",
       );
       // Scope search to the current page's language when i18n is on.
@@ -632,8 +652,11 @@ const hasRail = page != null;
       const M: Record<string, string> = JSON.parse(
         document.getElementById("notabene-i18n")?.textContent || "{}",
       );
-      const spaceLabel = (key: string): string =>
-        ROOTS.find((r) => r.key === key)?.label ?? key;
+      // Result chip = the space label in the search locale (per-locale `roots[].label`).
+      const spaceLabel = (key: string): string => {
+        const r = ROOTS.find((x) => x.key === key);
+        return (r && (localizeField(r.labelI18n, searchLocale, SEARCH_I18N?.defaultLocale || searchLocale) ?? r.label)) ?? key;
+      };
 
       let index: Doc[] | null = null;
       async function ensureIndex(): Promise<Doc[]> {

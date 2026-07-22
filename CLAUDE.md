@@ -175,16 +175,39 @@ locale-scoped with **no schema change** (page-file/store-path resolve it unchang
 i18n?)`, `parseScope(scope, locales)` all take the i18n arg OPT-IN so mono-language + tests
 are unaffected. Search + print/PDF are per-locale (`/print/<loc>/…`, `notabene pdf --locale`).
 
+**Per-locale space names.** A `root`'s own `label`/`description` (its space title + home-card
+blurb — the only human-facing root strings) may be a plain string OR a `{ <locale>: string }`
+map. The pure `localizeField(value, locale, defaultLocale)` (in `i18n-content.mjs`) resolves it
+(exact locale → `defaultLocale` → first defined → undefined; a string is returned verbatim).
+`config.mjs` keeps the RAW map on `root.labelI18n`/`descriptionI18n` and a **default-locale**
+`root.label`/`description` string for locale-agnostic consumers (CLI `doctor`, the `key`
+fallback — a `key` is NEVER slugged from a map). Server surfaces with a real per-page locale
+resolve directly (Sidebar, `SpaceIndex`, `[...path]` breadcrumb/title, `print/[...scope]`);
+locale-less pages (home, `404`, `/comments`) SSR the default locale with
+`data-nb-root-label`/`-desc` hooks + carry the maps in `#notabene-roots` (`clientRoots`, **only
+when i18n is enabled** → mono-language output byte-identical) so the client applier re-localizes
+them. Declared once; no `.notabene` schema change.
+
+**Per-locale site home.** The landing page (space cards) is a **real per-locale page**, NOT an
+aggregate: `src/components/SiteHome.astro` renders it in one locale (sidebar nav tree + space
+names + cards all server-rendered in that locale). The default-locale home is `/` (`index.astro`);
+other locales are `/<locale>` (e.g. `/en`), emitted by the **site-home branch of
+`[...path].astro`** (`isSiteHome`) — a bare-locale path, no collision with the rest route. The
+language menu does a real navigation (`/` ↔ `/en`) + the same `#notabene-i18n-alts` head-redirect
+as doc pages, so a visitor's `nb-locale` bounces `/` → `/en`. This replaced the old
+`i18nClientChrome` home, whose sidebar was stuck in the default locale.
+
 **Language preference (client-side).** The switcher records a preferred locale in
 `localStorage` (`nb-locale`) — only the switcher changes it. On doc pages a `<head>` script
 **redirects** to the preferred-locale equivalent when one exists (from the injected
 `#notabene-i18n-alts`); a page with no such translation stays on the source language and
-reveals a discreet banner (i18n key `pageNotTranslated`, injected per-locale). Pages with **no
-per-page locale** — `/comments`, `/journal`, `/review`, `/`, `404` — pass `i18nClientChrome`
-to `DocLayout`: it ships every locale's catalog (`#notabene-i18n-all`), a `<head>` script
+reveals a discreet banner (i18n key `pageNotTranslated`, injected per-locale). The remaining
+**cross-locale aggregate** pages — `/comments`, `/journal`, `/review`, `404` (no single content
+locale) — pass `i18nClientChrome` to `DocLayout`: it ships every locale's catalog (`#notabene-i18n-all`), a `<head>` script
 picks `nb-locale` (→ `<html lang>` + swaps `#notabene-i18n` so client-rendered lists/dates
 follow), and an applier re-localizes the static chrome (`[data-i18n]` / `-ph` / `-aria` /
-`-date`) and wires a client switcher (sets `nb-locale` + reloads — no URL change). No server
+`-date`, plus `data-nb-root-label`/`-desc` from `#notabene-roots`) and wires a client switcher
+(sets `nb-locale` + reloads — no URL change). No server
 locale state; disabled i18n → none of this ships.
 
 ## Safety model (keep it intact)

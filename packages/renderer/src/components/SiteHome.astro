@@ -1,0 +1,49 @@
+---
+// The site landing page (space cards), rendered as a REAL per-locale page — unlike the
+// aggregate pages (/comments, /journal, /review, 404) it has one content locale, so its whole
+// chrome (sidebar nav tree + space names + cards) is server-rendered in that locale and the
+// language menu does a real navigation (default home at "/", others at "/<locale>"), with the
+// same head-redirect as doc pages. Used by `index.astro` (default locale) and the site-home
+// branch of `[...path].astro` (other locales). Card labels/descriptions follow the per-locale
+// `roots[].label`/`description` (localizeField).
+import DocLayout from "../layouts/DocLayout.astro";
+import { i18n, roots, siteName } from "../config.mjs";
+import { localizeField, routeFor } from "../lib/i18n-content.mjs";
+import { t } from "../i18n.mjs";
+
+interface Props {
+  locale: string;
+}
+
+const { locale } = Astro.props;
+const m = t(locale);
+// Real translations of the home: default locale unprefixed (/), others /<locale>. Drives the
+// language switcher + hreflang + the preferred-locale redirect (all via DocLayout).
+const alternates = i18n.enabled
+  ? i18n.locales.map((l: string) => ({ locale: l, href: l === i18n.defaultLocale ? "/" : `/${l}`, translated: true }))
+  : [];
+const current = locale === i18n.defaultLocale ? "/" : `/${locale}`;
+const cards = roots.map((root) => ({
+  href: routeFor({ space: root.key, id: "", locale }, i18n),
+  label: localizeField(root.labelI18n, locale, i18n.defaultLocale) ?? root.label,
+  description: localizeField(root.descriptionI18n, locale, i18n.defaultLocale) ?? root.description,
+  subLabel: root.subLabel,
+}));
+---
+
+<DocLayout title="Home" locale={locale} current={current} alternates={alternates}>
+  <h1>{siteName} <span>{m.homeDocumentation}</span></h1>
+  <p class="lede">{m.homeLede}</p>
+
+  <div class="home-cards">
+    {
+      cards.map((c) => (
+        <a class="home-card" href={c.href}>
+          <h2>{c.label}</h2>
+          <p><code>{c.subLabel}</code></p>
+          {c.description && <p>{c.description}</p>}
+        </a>
+      ))
+    }
+  </div>
+</DocLayout>

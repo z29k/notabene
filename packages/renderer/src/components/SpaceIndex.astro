@@ -1,6 +1,7 @@
 ---
 import type { NavNode, NavLeaf, Space } from "../lib/nav";
-import { clientI18n, roots } from "../config.mjs";
+import { clientI18n, i18n, roots } from "../config.mjs";
+import { localizeField } from "../lib/i18n-content.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
@@ -12,8 +13,9 @@ interface Props {
 const { nodes, space, locale = clientI18n.defaultLocale } = Astro.props;
 const m = t(locale);
 const root = roots.find((r) => r.key === space);
-const label = root?.label ?? space;
-const blurb = root?.description || `${root?.subLabel ?? space}`;
+// Title + blurb follow the rendered locale (per-locale `roots[].label`/`description`).
+const label = (root && localizeField(root.labelI18n, locale, i18n.defaultLocale)) ?? root?.label ?? space;
+const blurb = (root && localizeField(root.descriptionI18n, locale, i18n.defaultLocale)) || `${root?.subLabel ?? space}`;
 ---
 
 <h1>{label}</h1>
