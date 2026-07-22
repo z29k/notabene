@@ -2,7 +2,7 @@
 import { buildNav, type Space } from "../lib/nav";
 import NavTree from "./NavTree.astro";
 import { clientI18n, i18n, roots } from "../config.mjs";
-import { routeFor } from "../lib/i18n-content.mjs";
+import { localizeField, routeFor } from "../lib/i18n-content.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
@@ -18,6 +18,8 @@ const m = t(locale);
 const spaces = await Promise.all(
   roots.map(async (root) => ({
     root,
+    // Space title follows the rendered locale (per-locale `roots[].label`; string → verbatim).
+    label: localizeField(root.labelI18n, locale, i18n.defaultLocale) ?? root.label,
     nodes: await buildNav(root.key, locale),
     home: routeFor({ space: root.key, id: "", locale }, i18n),
   })),
@@ -30,10 +32,10 @@ const spaces = await Promise.all(
 
 <nav class="nav">
   {
-    spaces.map(({ root, nodes, home }) => (
+    spaces.map(({ root, label, nodes, home }) => (
       <details class="space" open={!activeSpace || activeSpace === root.key}>
         <summary class="space-title">
-          <span class="space-name">{root.label}</span>
+          <span class="space-name">{label}</span>
           <span class="space-sub">{root.subLabel}</span>
         </summary>
         <p class="space-link"><a href={home}>{m.sidebarOverview}</a></p>

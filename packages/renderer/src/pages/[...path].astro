@@ -7,8 +7,9 @@
 import { getCollection, render } from "astro:content";
 import DocLayout from "../layouts/DocLayout.astro";
 import SpaceIndex from "../components/SpaceIndex.astro";
+import SiteHome from "../components/SiteHome.astro";
 import { buildNav, folderLabels, humanize, pageTitle, type NavNode } from "../lib/nav";
-import { buildEquivalence, decode, isSpaceHomeId, routeFor, switchLinks } from "../lib/i18n-content.mjs";
+import { buildEquivalence, decode, isSpaceHomeId, localizeField, routeFor, switchLinks } from "../lib/i18n-content.mjs";
 import { scopeToPath } from "../lib/print-scope";
 import { i18n, pdf, roots } from "../config.mjs";
 
@@ -66,78 +67,105 @@ export async function getStaticPaths() {
       });
     }
   }
+  // Site home per NON-default locale (`/en`, …) — a real per-locale landing so switching
+  // language on the home navigates + re-renders the whole page (sidebar included) in that
+  // locale. The default-locale home is served by `index.astro` at `/`. (Disabled i18n → the
+  // loop is empty, so nothing extra is emitted.)
+  for (const loc of i18n.locales) {
+    if (loc === i18n.defaultLocale) continue;
+    paths.push({
+      params: { path: loc },
+      props: { isSiteHome: true, spaceKey: null, entry: undefined, locale: loc, canonicalId: "", isHome: false, alternates: [] },
+    });
+  }
   return paths;
 }
 
-const { spaceKey, entry, locale, canonicalId, isHome, alternates } = Astro.props;
-const root = roots.find((r) => r.key === spaceKey)!;
-const spaceLabel = root.label;
-const baseDir = root.path;
-// Folder → display label (from each folder's index/readme frontmatter): keeps breadcrumbs
-// and PDF export labels in sync with the sidebar's group names.
-const folders = await folderLabels(spaceKey, locale);
+const { spaceKey, entry, locale, canonicalId, isHome, alternates, isSiteHome = false } = Astro.props;
 
+// Everything below computes the DOC/space page. The site-home branch (a non-default-locale
+// `/en`) renders the self-contained <SiteHome> instead (see template) and needs none of it.
 let Content: Awaited<ReturnType<typeof render>>["Content"] | null = null;
 let headings: { depth: number; slug: string; text: string }[] = [];
 let nodes: NavNode[] = [];
 let page: string | undefined;
-let title = spaceLabel;
-const homeHref = routeFor({ space: spaceKey, id: "", locale }, i18n);
-const breadcrumb: { label: string; href?: string }[] = [{ label: spaceLabel, href: homeHref }];
-
-if (entry) {
-  const rendered = await render(entry);
-  Content = rendered.Content;
-  headings = rendered.headings;
-  // Title/labels use the CANONICAL id (no locale marker); `page` uses the RAW id (store key).
-  title = pageTitle(entry.body, canonicalId, entry.data);
-  page = `${baseDir}/${entry.id}`;
-  if (!isHome) {
-    const parts = canonicalId.split("/");
-    for (let i = 0; i < parts.length - 1; i++)
-      breadcrumb.push({ label: folders.get(parts.slice(0, i + 1).join("/")) ?? humanize(parts[i]) });
-    breadcrumb.push({ label: title });
-  }
-} else {
-  // Space home with no README/index in this locale → the index cards.
-  nodes = await buildNav(spaceKey, locale);
-}
-
-const current = isHome ? homeHref : routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
-
-// Contextual PDF export targets, locale-scoped: the locale token prefixes non-default
-// space/folder scopes and the folder path is CANONICAL; a page scope carries the locale in
-// its raw id (no token).
+let title = "";
+let current = "";
+let breadcrumb: { label: string; href?: string }[] = [];
 let exportScopes:
   | { space?: { href: string; label: string }; folder?: { href: string; label: string }; page?: { href: string; label: string } }
   | undefined;
-if (pdf.enabled) {
-  const scLoc = locale === i18n.defaultLocale ? undefined : locale;
-  exportScopes = { space: { href: scopeToPath({ kind: "space", space: spaceKey, locale: scLoc }), label: spaceLabel } };
-  if (entry && !isHome) {
-    const cparts = canonicalId.split("/");
-    if (cparts.length > 1) {
-      const folderPath = cparts.slice(0, -1).join("/");
-      exportScopes.folder = {
-        href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath, locale: scLoc }),
-        label: folders.get(folderPath) ?? humanize(cparts[cparts.length - 2]),
-      };
+
+if (!isSiteHome) {
+  const root = roots.find((r) => r.key === spaceKey)!;
+  // Space label in the rendered locale (per-locale `roots[].label`) — feeds breadcrumb, title
+  // fallback and PDF export scope labels.
+  const spaceLabel = localizeField(root.labelI18n, locale, i18n.defaultLocale) ?? root.label;
+  const baseDir = root.path;
+  // Folder → display label (from each folder's index/readme frontmatter): keeps breadcrumbs
+  // and PDF export labels in sync with the sidebar's group names.
+  const folders = await folderLabels(spaceKey, locale);
+  title = spaceLabel;
+  const homeHref = routeFor({ space: spaceKey, id: "", locale }, i18n);
+  breadcrumb = [{ label: spaceLabel, href: homeHref }];
+
+  if (entry) {
+    const rendered = await render(entry);
+    Content = rendered.Content;
+    headings = rendered.headings;
+    // Title/labels use the CANONICAL id (no locale marker); `page` uses the RAW id (store key).
+    title = pageTitle(entry.body, canonicalId, entry.data);
+    page = `${baseDir}/${entry.id}`;
+    if (!isHome) {
+      const parts = canonicalId.split("/");
+      for (let i = 0; i < parts.length - 1; i++)
+        breadcrumb.push({ label: folders.get(parts.slice(0, i + 1).join("/")) ?? humanize(parts[i]) });
+      breadcrumb.push({ label: title });
     }
-    exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: entry.id }), label: title };
+  } else {
+    // Space home with no README/index in this locale → the index cards.
+    nodes = await buildNav(spaceKey, locale);
+  }
+
+  current = isHome ? homeHref : routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
+
+  // Contextual PDF export targets, locale-scoped: the locale token prefixes non-default
+  // space/folder scopes and the folder path is CANONICAL; a page scope carries the locale in
+  // its raw id (no token).
+  if (pdf.enabled) {
+    const scLoc = locale === i18n.defaultLocale ? undefined : locale;
+    exportScopes = { space: { href: scopeToPath({ kind: "space", space: spaceKey, locale: scLoc }), label: spaceLabel } };
+    if (entry && !isHome) {
+      const cparts = canonicalId.split("/");
+      if (cparts.length > 1) {
+        const folderPath = cparts.slice(0, -1).join("/");
+        exportScopes.folder = {
+          href: scopeToPath({ kind: "folder", space: spaceKey, path: folderPath, locale: scLoc }),
+          label: folders.get(folderPath) ?? humanize(cparts[cparts.length - 2]),
+        };
+      }
+      exportScopes.page = { href: scopeToPath({ kind: "page", space: spaceKey, id: entry.id }), label: title };
+    }
   }
 }
 ---
 
-<DocLayout
-  title={title}
-  current={current}
-  space={spaceKey}
-  page={page}
-  locale={locale}
-  headings={headings}
-  breadcrumb={entry && !isHome ? breadcrumb : []}
-  exportScopes={exportScopes}
-  alternates={alternates}
->
-  {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
-</DocLayout>
+{
+  isSiteHome ? (
+    <SiteHome locale={locale} />
+  ) : (
+    <DocLayout
+      title={title}
+      current={current}
+      space={spaceKey}
+      page={page}
+      locale={locale}
+      headings={headings}
+      breadcrumb={entry && !isHome ? breadcrumb : []}
+      exportScopes={exportScopes}
+      alternates={alternates}
+    >
+      {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
+    </DocLayout>
+  )
+}

@@ -4,7 +4,7 @@
 // URL is a way back in, not a dead end. The requested path is filled client-side because a
 // prerendered 404 is served for every path (Astro.url would be the build-time path).
 import DocLayout from "../layouts/DocLayout.astro";
-import { locale, roots } from "../config.mjs";
+import { clientI18n, locale, roots } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -24,9 +24,9 @@ const m = t(locale);
     {
       roots.map((root) => (
         <a class="home-card" href={`/${root.key}`}>
-          <h2>{root.label}</h2>
+          <h2 data-nb-root-label={clientI18n.enabled ? root.key : undefined}>{root.label}</h2>
           <p><code>{root.subLabel}</code></p>
-          {root.description && <p>{root.description}</p>}
+          {root.description && <p data-nb-root-desc={clientI18n.enabled ? root.key : undefined}>{root.description}</p>}
         </a>
       ))
     }

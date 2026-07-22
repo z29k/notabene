@@ -16,6 +16,9 @@ export default {
 
   // Doc spaces. Each: { key (url slug + store `space`), label, path (repo-relative),
   // exclude (globs), description (optional home-card text) }.
+  // With i18n on (below), `label` and `description` may be a per-locale map instead of a
+  // string — e.g. label: { en: "Docs", fr: "Documentation" } — resolved to the rendered
+  // language (falls back to defaultLocale, then any defined value). A string stays as-is.
   roots: [
     { key: "docs", label: "Docs", path: "docs", exclude: [".notabene/**"] },
   ],
@@ -46,6 +49,7 @@ export default {
   // (default locale unprefixed, others /<locale>/…). Two authoring layouts:
   //   "directory" → a folder per locale:  docs/en/guide.md · docs/fr/guide.md
   //   "suffix"    → one tree, per file:    docs/guide.md · docs/guide.fr.md
+  // Translate a space's own name via a per-locale `roots[].label`/`description` map (above).
   // i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory" },
 
   // Default comment identity. Omit → the CLI uses this repo's `git config user.name` /

@@ -1,6 +1,6 @@
 ---
 import DocLayout from "../layouts/DocLayout.astro";
-import { locale, roots } from "../config.mjs";
+import { clientI18n, locale, roots } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -21,7 +21,7 @@ const m = t(locale);
     </select>
     <select id="caf-space">
       <option value="all" data-i18n="spAll">{m.spAll}</option>
-      {roots.map((r) => <option value={r.key}>{r.label}</option>)}
+      {roots.map((r) => <option value={r.key} data-nb-root-label={clientI18n.enabled ? r.key : undefined}>{r.label}</option>)}
     </select>
     <select id="caf-hold">
       <option value="all" data-i18n="holdAll">{m.holdAll}</option>
@@ -50,15 +50,21 @@ const m = t(locale);
     makeRouteFor,
   } from "../lib/client/comments-client";
   import { mountReviewList } from "../lib/client/review-card";
+  import { localizeField } from "../lib/i18n-content.mjs";
 
-  const ROOTS: { key: string; label: string; path: string }[] = JSON.parse(
+  const ROOTS: { key: string; label: string; path: string; labelI18n?: string | Record<string, string> }[] = JSON.parse(
     document.getElementById("notabene-roots")?.textContent || "[]",
   );
   const M: Record<string, string> = JSON.parse(
     document.getElementById("notabene-i18n")?.textContent || "{}",
   );
   const I18N = JSON.parse(document.getElementById("notabene-i18n-config")?.textContent || "null");
-  const spaceLabel = (key: string): string => ROOTS.find((r) => r.key === key)?.label ?? key;
+  // Chip = the space label in the visitor's chrome locale (per-locale `roots[].label`).
+  const cLocale = document.documentElement.lang || I18N?.defaultLocale || "";
+  const spaceLabel = (key: string): string => {
+    const r = ROOTS.find((x) => x.key === key);
+    return (r && (localizeField(r.labelI18n, cLocale, I18N?.defaultLocale || cLocale) ?? r.label)) ?? key;
+  };
 
   const listEl = document.getElementById("caf-list")!;
   const countEl = document.getElementById("caf-count")!;
