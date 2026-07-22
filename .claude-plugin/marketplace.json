@@ -5,7 +5,7 @@
   },
   "metadata": {
     "description": "z29k Claude Code plugins.",
-    "version": "0.9.1"
+    "version": "0.9.2"
   },
   "plugins": [
     {
