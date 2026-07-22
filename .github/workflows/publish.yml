@@ -22,6 +22,15 @@ on:
     tags: ["v*"]
   workflow_dispatch: {}
 
+# Serialize every publish. npm rejects concurrent packument writes with a 409 ("Failed to save
+# packument"): a release pushes the `vX.Y.Z` tag (stable @latest) and `develop` (prerelease @dev)
+# near-simultaneously, so without this the two runs race and one fails. A STATIC group makes all
+# Publish runs share it; `cancel-in-progress: false` queues the second run instead of cancelling
+# it — a publish must never be interrupted mid-flight.
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
