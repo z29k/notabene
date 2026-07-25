@@ -285,6 +285,67 @@ Comments are **per language** (a comment on the FR page is its own thread). Sear
 export (`notabene pdf --locale fr`) are scoped to one language. Omit `i18n` for a single
 language — behavior is unchanged.
 
+## Publish a public site
+
+The review app is a **dev-local tool** — but the docs it renders often deserve a public
+home. `build --public` produces a **pure-static, read-only** artifact made for that:
+
+```bash
+notabene build --public --site https://you.github.io --base /your-repo --out ./_site
+```
+
+- **Everything interactive is gone — structurally.** No comment UI, no identity prompt, no
+  `/comments` / `/review` / `/journal`, no `/api/*`, and **nothing from the `.notabene`
+  store** in the artifact. The routes are not gated; they are **not built**.
+- **What remains** is the full reading experience: nav, search, Mermaid + image lightbox,
+  dark mode, i18n (per-locale pages, switcher, `hreflang`), print/PDF export routes, `404`.
+- **Born agent-readable.** Every page ships a Markdown twin at `<page>/index.md`
+  (advertised via `<link rel="alternate" type="text/markdown">`), the site ships
+  `/llms.txt` (a machine index of every page, per locale) and `/llms-full.txt` (the whole
+  doc as one Markdown document, in reading order), plus `robots.txt`, a sitemap and
+  canonical URLs. The agent web reads your docs as well as a browser does.
+- `--site` is the deployed origin (required); `--base` is the sub-path for project-page
+  hosting; `--out` copies the artifact to a stable path (it refuses to overwrite anything
+  it didn't generate). Set them once in `notabene.config.mjs` instead:
+  `publish: { site: "https://you.github.io", base: "/your-repo" }`.
+
+Deploy anywhere static. For **GitHub Pages** (Settings → Pages → Source: *GitHub Actions*):
+
+```yaml
+# .github/workflows/docs.yml
+name: docs
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci
+      - run: npx notabene build --public
+          --site https://${{ github.repository_owner }}.github.io
+          --base /${{ github.event.repository.name }}
+          --out ./_site
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: ./_site }
+      - id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+Hosting at a custom domain or a user/org root site? Drop `--base` and set `--site` to your
+domain. The dev loop is untouched: `notabene dev` and plain `notabene build` behave exactly
+as before — publishing is opt-in, per build.
+
 ## The `.notabene` contract
 
 The store is a **versioned contract** (`<store>/meta.json` → `schemaVersion`), so

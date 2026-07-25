@@ -290,6 +290,38 @@ Les commentaires sont **par langue** (un commentaire sur la page FR est son prop
 Recherche et export PDF (`notabene pdf --locale fr`) sont scopés à une langue. Omettre `i18n`
 pour une seule langue — comportement inchangé.
 
+## Publier un site public
+
+L'app de revue est un **outil local** — mais la doc qu'elle rend mérite souvent une adresse
+publique. `build --public` produit un artefact **100 % statique, en lecture seule**, fait
+pour ça :
+
+```bash
+notabene build --public --site https://vous.github.io --base /votre-repo --out ./_site
+```
+
+- **Toute l'interaction disparaît — structurellement.** Pas d'UI de commentaires, pas de
+  fenêtre d'identité, pas de `/comments` / `/review` / `/journal`, pas d'`/api/*`, et **rien
+  du store `.notabene`** dans l'artefact. Les routes ne sont pas masquées : elles ne sont
+  **pas construites**.
+- **Ce qui reste**, c'est toute l'expérience de lecture : navigation, recherche, Mermaid +
+  zoom d'images, mode sombre, i18n (pages par langue, sélecteur, `hreflang`), export
+  impression/PDF, `404`.
+- **Lisible par les agents, d'origine.** Chaque page a son double Markdown à
+  `<page>/index.md` (annoncé par `<link rel="alternate" type="text/markdown">`), le site
+  expose `/llms.txt` (index machine de toutes les pages, par langue) et `/llms-full.txt`
+  (toute la doc en un seul document Markdown, dans l'ordre de lecture), plus `robots.txt`,
+  un sitemap et des URL canoniques.
+- `--site` est l'origine déployée (obligatoire) ; `--base` le sous-chemin pour un hébergement
+  de type « project page » ; `--out` copie l'artefact vers un chemin stable (il refuse
+  d'écraser ce qu'il n'a pas généré). À poser une fois dans `notabene.config.mjs` :
+  `publish: { site: "https://vous.github.io", base: "/votre-repo" }`.
+
+Déployable sur n'importe quel hébergeur statique ; pour **GitHub Pages** (Settings → Pages →
+Source : *GitHub Actions*), voir le workflow complet dans le [README anglais](./README.md#publish-a-public-site).
+La boucle de revue locale est intacte : `notabene dev` et `notabene build` se comportent
+exactement comme avant — publier est un choix, à chaque build.
+
 ## Le contrat `.notabene`
 
 Le store est un **contrat versionné** (`<store>/meta.json` → `schemaVersion`), pour que les
