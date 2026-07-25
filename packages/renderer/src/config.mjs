@@ -133,6 +133,58 @@ export const pdf = {
   margin: pdfCfg.margin ?? "18mm",
 };
 
+// Public publish mode (§ public exposure). `notabene build --public` produces a
+// read-only STATIC site — no comments/review/journal UI, no write API, no store
+// data — with an agent-readable surface (llms.txt, per-page .md twins, sitemap).
+// Opt-in PER BUILD via NOTABENE_PUBLIC=1 (set by the CLI flag), never a repo
+// state: a normal dev/build run stays byte-identical to pre-publish behavior.
+//   publish.site — absolute ORIGIN of the deployed site (e.g.
+//                  "https://user.github.io"). REQUIRED in public mode: canonical
+//                  URLs, llms.txt, hreflang and the sitemap all need it. Must not
+//                  carry a path — a sub-path belongs in `base`.
+//   publish.base — optional sub-path when the site is served under a prefix
+//                  (GitHub Pages project site → "/<repo>"). Default "/". Applied
+//                  to Astro's `base` ONLY in public mode.
+// CLI flags --site/--base override the config (via NOTABENE_SITE/NOTABENE_BASE).
+export const publicMode = process.env.NOTABENE_PUBLIC === "1";
+const publishCfg = userConfig.publish ?? {};
+function normalizeBase(raw) {
+  if (raw == null || raw === "" || raw === "/") return "/";
+  const b = String(raw);
+  if (!b.startsWith("/")) {
+    throw new Error(`notabene: publish.base must start with "/" (got "${raw}").`);
+  }
+  const trimmed = b.replace(/\/+$/, "");
+  return trimmed === "" ? "/" : trimmed;
+}
+function normalizeSite(raw) {
+  if (raw == null || raw === "") return undefined;
+  let url;
+  try {
+    url = new URL(String(raw));
+  } catch {
+    throw new Error(`notabene: publish.site must be an absolute URL (got "${raw}").`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`notabene: publish.site must be http(s) (got "${raw}").`);
+  }
+  if (url.pathname !== "/" || url.search || url.hash) {
+    throw new Error(
+      `notabene: publish.site must be an origin only (got "${raw}") — put the sub-path in publish.base instead.`,
+    );
+  }
+  return url.origin;
+}
+export const publish = {
+  site: normalizeSite(process.env.NOTABENE_SITE ?? publishCfg.site),
+  base: normalizeBase(process.env.NOTABENE_BASE ?? publishCfg.base),
+};
+if (publicMode && !publish.site) {
+  throw new Error(
+    "notabene: a public build needs the deployed site's URL — pass --site https://… or set publish.site in notabene.config.mjs.",
+  );
+}
+
 // Content i18n (multi-language docs). Optional, backward-compatible: no `i18n` block →
 // one locale (the global `locale`), `enabled:false` → identical to a mono-language site.
 //   locales       — content languages, e.g. ["en","fr"]; order = switcher order.
@@ -241,6 +293,8 @@ export default {
   author,
   authorEmail,
   pdf,
+  publicMode,
+  publish,
   i18n,
   clientI18n,
   roots,

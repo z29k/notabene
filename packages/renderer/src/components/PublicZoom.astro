@@ -1,0 +1,22 @@
+---
+// PUBLIC-build stand-in for the block affordances that normally live inside
+// Comments.astro: keep the diagram/image ⤢ enlarge + pan-zoom lightbox on doc
+// pages without shipping any review code. Rendered by DocLayout only when
+// publicMode && the page is a doc page (component-scoped script → public pages
+// carry exactly this, nothing else).
+---
+
+<script>
+  import { initBlockZoom } from "../lib/client/blocks-lightbox";
+
+  const article = document.getElementById("doc-content");
+  const M = JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}");
+  if (article) {
+    initBlockZoom(article as HTMLElement, M.enlarge || "Enlarge", {
+      close: M.close || "Close",
+      zoomIn: M.zoomIn || "Zoom in",
+      zoomOut: M.zoomOut || "Zoom out",
+      zoomReset: M.zoomReset || "Reset zoom",
+    });
+  }
+</script>

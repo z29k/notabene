@@ -1,0 +1,134 @@
+---
+// Review-app chrome that must NOT ship in a public build: the per-device identity
+// dialog (+ the gate forcing it on non-loopback hosts) and the review-badge fetch.
+// DocLayout renders this component only when !publicMode — component-scoped scripts
+// are bundled per page USE, so a public page carries none of this code (and no
+// /api/* fetch). The identity chips / review links it wires live in DocLayout's
+// topbar+drawer markup, gated by the same flag.
+import { t } from "../i18n.mjs";
+
+interface Props {
+  locale: string;
+}
+const { locale } = Astro.props;
+const m = t(locale);
+---
+
+<dialog id="nb-identity-dialog" class="nb-dialog">
+  <form id="nb-identity-form" class="nb-identity-form" method="dialog" novalidate>
+    <h2>{m.identityTitle}</h2>
+    <p id="nb-identity-lede" class="nb-identity-lede">{m.identityLede}</p>
+    <label class="nb-field">
+      <span class="nb-field-label">{m.identityName}</span>
+      <input id="nb-identity-name" type="text" required autocomplete="name" placeholder={m.yourName} />
+    </label>
+    <label class="nb-field">
+      <span class="nb-field-label">{m.identityEmail} <em>{m.identityEmailOptional}</em></span>
+      <input id="nb-identity-email" type="email" autocomplete="email" placeholder="you@example.com" />
+      <small class="nb-hint">{m.identityEmailHint}</small>
+    </label>
+    <div class="nb-identity-actions">
+      <button type="button" id="nb-identity-cancel" class="nb-btn-ghost">{m.cancel}</button>
+      <button type="submit" id="nb-identity-save" class="nb-btn">{m.save}</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  import { getIdentity, hasIdentity, isLoopbackHost, setIdentity } from "../lib/client/comments-client";
+
+  // Identity (name + optional email) — per-device, edited via a modal. The chips in
+  // the topbar + drawer open it; on a non-loopback (LAN/`--host`/deployed) host with no
+  // identity set yet, it's forced open before the visitor can interact, so comments are
+  // attributed to a real person rather than the repo owner's git default.
+  const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
+  const M = JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}");
+  const defName = meCfg.author || "you";
+  const defEmail = meCfg.email || "";
+
+  const dialog = document.getElementById("nb-identity-dialog") as HTMLDialogElement | null;
+  const form = document.getElementById("nb-identity-form") as HTMLFormElement | null;
+  const nameInput = document.getElementById("nb-identity-name") as HTMLInputElement | null;
+  const emailInput = document.getElementById("nb-identity-email") as HTMLInputElement | null;
+  const cancelBtn = document.getElementById("nb-identity-cancel") as HTMLButtonElement | null;
+  const lede = document.getElementById("nb-identity-lede");
+  const chips = Array.from(document.querySelectorAll("#nb-identity-chip, #nb-identity-chip-drawer"));
+  const nameLabels = Array.from(document.querySelectorAll<HTMLElement>(".nb-identity-name"));
+
+  let forced = false;
+
+  const refreshChips = () => {
+    const { name } = getIdentity(defName, defEmail);
+    for (const el of nameLabels) el.textContent = name;
+  };
+  refreshChips();
+
+  const openIdentity = (force = false) => {
+    if (!dialog) return;
+    forced = force;
+    const known = hasIdentity();
+    const cur = getIdentity(defName, defEmail);
+    // On a forced remote prompt with nothing stored, start blank so the visitor
+    // enters THEIR identity rather than accepting the repo owner's git default.
+    if (nameInput) nameInput.value = force && !known ? "" : cur.name;
+    if (emailInput) emailInput.value = force && !known ? "" : cur.email;
+    if (lede) lede.textContent = force ? M.identityNudge : M.identityLede;
+    if (cancelBtn) cancelBtn.hidden = force;
+    if (!dialog.open) dialog.showModal();
+    nameInput?.focus();
+  };
+
+  form?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = nameInput?.value.trim() || "";
+    const email = emailInput?.value.trim() || "";
+    if (!name) {
+      nameInput?.setCustomValidity(M.identityNameRequired || "Required");
+      nameInput?.reportValidity();
+      return;
+    }
+    if (email && emailInput && !emailInput.checkValidity()) {
+      emailInput.reportValidity();
+      return;
+    }
+    setIdentity({ name, email });
+    refreshChips();
+    forced = false;
+    dialog?.close();
+  });
+
+  nameInput?.addEventListener("input", () => nameInput.setCustomValidity(""));
+  cancelBtn?.addEventListener("click", () => {
+    if (!forced) dialog?.close();
+  });
+  // Block Escape / backdrop dismissal while the identity is being forced.
+  dialog?.addEventListener("cancel", (e) => {
+    if (forced) e.preventDefault();
+  });
+  for (const chip of chips) chip.addEventListener("click", () => openIdentity(false));
+
+  // Gate: remote host + no identity yet → force the dialog before browsing.
+  if (!isLoopbackHost(location.hostname) && !hasIdentity()) openIdentity(true);
+
+  // Review badge: reveal every "Review" link (topbar + drawer) + a count of
+  // `addressed` comments when in approve mode, OR whenever any addressed comment
+  // exists (so none get stuck if the mode is flipped back to auto). One tiny fetch.
+  const reviewCfg = JSON.parse(document.getElementById("notabene-review")?.textContent || "{}");
+  const reviewLinks = Array.from(document.querySelectorAll<HTMLElement>(".js-review-link"));
+  const reviewBadges = Array.from(document.querySelectorAll<HTMLElement>(".js-review-badge"));
+  if (reviewLinks.length) {
+    fetch("/api/comments?all=1")
+      .then((r) => r.json())
+      .then((all: { status: string }[]) => {
+        const n = Array.isArray(all) ? all.filter((c) => c.status === "addressed").length : 0;
+        if (reviewCfg.mode === "approve" || n > 0) {
+          for (const l of reviewLinks) l.hidden = false;
+          for (const b of reviewBadges) {
+            b.textContent = n ? String(n) : "";
+            b.hidden = !n;
+          }
+        }
+      })
+      .catch(() => {});
+  }
+</script>

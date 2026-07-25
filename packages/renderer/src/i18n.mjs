@@ -18,6 +18,8 @@ const MESSAGES = {
     sidebarFilter: "Filter…",
     sidebarOverview: "Overview →",
     navOverview: "Overview",
+    agentMarkdown: "This page as raw Markdown:",
+    agentIndex: "Machine-readable index of this documentation:",
     subsections: "+ subsections…",
 
     discussion: "Discussion",
@@ -140,6 +142,8 @@ const MESSAGES = {
     sidebarFilter: "Filtrer…",
     sidebarOverview: "Aperçu →",
     navOverview: "Aperçu",
+    agentMarkdown: "Cette page en Markdown brut :",
+    agentIndex: "Index machine de cette documentation :",
     subsections: "+ sous-sections…",
 
     discussion: "Discussion",

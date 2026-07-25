@@ -236,6 +236,23 @@ drops the MDX dependency entirely - best for a plain-Markdown repo.
 > Note: the config **default** is `"mdx"` (omit the key to get it), but `notabene init`
 > scaffolds `"commonmark"` - the safe, zero-dependency, most-lenient starting point.
 
+## Publish a public site
+
+The review app is dev-local, but the docs can go public:
+
+```bash
+notabene build --public --site https://you.github.io --base /your-repo --out ./_site
+```
+
+A **pure-static, read-only artifact**: no comment/review UI, no API, nothing from the
+`.notabene` store (the interactive routes are **not built**). What ships instead: the full
+reading experience (nav, search, diagrams + lightbox, i18n, print/PDF routes) plus an
+**agent-readable surface** - a Markdown twin per page (`<page>/index.md`), `/llms.txt` +
+`/llms-full.txt`, sitemap, `robots.txt`, canonical URLs. Host it anywhere static; a
+ready-made GitHub Pages workflow is in the
+[repo README](https://github.com/z29k/notabene#publish-a-public-site). Configure once via
+`publish: { site, base }` in `notabene.config.mjs`.
+
 ## The `.notabene` contract
 
 The store is a **versioned contract** (`<store>/meta.json` → `schemaVersion`), so

@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { getCollection } from "astro:content";
 import { i18n, roots } from "../config.mjs";
+import { withBase } from "../lib/base";
 import { decode, routeFor } from "../lib/i18n-content.mjs";
 
 /** Markdown → texte brut approximatif (pour l'index de recherche). */
@@ -43,7 +44,7 @@ export const GET: APIRoute = async () => {
       out.push({
         space,
         locale,
-        href: routeFor({ space, id, locale }, i18n),
+        href: withBase(routeFor({ space, id, locale }, i18n)),
         title: fmTitle || (titleMatch ? titleMatch[1].replace(/[*_`]/g, "").trim() : id),
         headings,
         text: strip(body).slice(0, 1500),

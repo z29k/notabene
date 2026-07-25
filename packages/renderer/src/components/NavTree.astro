@@ -1,4 +1,5 @@
 ---
+import { withBase } from "../lib/base";
 import type { NavNode } from "../lib/nav";
 import NavTree from "./NavTree.astro";
 
@@ -29,8 +30,9 @@ function containsCurrent(node: NavNode, target: string): boolean {
         </li>
       ) : (
         <li class="nav-leaf">
+          {/* Active-state matching stays on the base-less href; only the emitted link gets the base. */}
           <a
-            href={node.href}
+            href={withBase(node.href)}
             class:list={["nav-a", { active: node.href === current }]}
             data-title={node.title}
           >

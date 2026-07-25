@@ -1,4 +1,5 @@
 ---
+import { withBase } from "../lib/base";
 import type { NavNode, NavLeaf, Space } from "../lib/nav";
 import { clientI18n, i18n, roots } from "../config.mjs";
 import { localizeField } from "../lib/i18n-content.mjs";
@@ -32,7 +33,7 @@ const blurb = (root && localizeField(root.descriptionI18n, locale, i18n.defaultL
               .filter((c): c is NavLeaf => c.type === "leaf")
               .map((c) => (
                 <li>
-                  <a href={c.href}>{c.title}</a>
+                  <a href={withBase(c.href)}>{c.title}</a>
                 </li>
               ))}
           </ul>
@@ -41,7 +42,7 @@ const blurb = (root && localizeField(root.descriptionI18n, locale, i18n.defaultL
       ) : (
         <section class="card card-leaf">
           <h3>
-            <a href={n.href}>{n.title}</a>
+            <a href={withBase(n.href)}>{n.title}</a>
           </h3>
         </section>
       ),

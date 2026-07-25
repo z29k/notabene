@@ -3,9 +3,12 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
+import sitemap from "@astrojs/sitemap";
+import { notabeneAppRoutes } from "./src/integrations/app-routes.mjs";
+import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
-import { REPO_ROOT, host, i18n, mdxEnabled, port, roots } from "./src/config.mjs";
+import { REPO_ROOT, host, i18n, mdxEnabled, port, publicMode, publish, roots } from "./src/config.mjs";
 
 // This package directory (the Astro root). Run-from-package puts the renderer OUTSIDE the
 // consumer tree, so the consumer root alone (REPO_ROOT) does not cover the app's own source
@@ -31,12 +34,25 @@ export default defineConfig({
   // temp dir. Absolute paths are used as-is; undefined = Astro's default.
   ...(process.env.NOTABENE_OUT_DIR ? { outDir: process.env.NOTABENE_OUT_DIR } : {}),
   ...(process.env.NOTABENE_CACHE_DIR ? { cacheDir: process.env.NOTABENE_CACHE_DIR } : {}),
+  // PUBLIC MODE (§ public exposure): a pure static artifact. `site`/`base` come from
+  // publish config (canonical URLs, llms.txt, sitemap; base = GitHub Pages sub-path).
+  // The interactive routes are simply not injected (see integrations below) and NO
+  // adapter is loaded — nothing on-demand survives into the artifact.
+  ...(publicMode && publish.site ? { site: publish.site } : {}),
+  ...(publicMode && publish.base !== "/" ? { base: publish.base } : {}),
   // Doc pages are static (prerendered); /api/comments is `prerender = false`
-  // (on-demand) → the Node adapter serves the write API. Dev-only.
-  adapter: node({ mode: "standalone" }),
+  // (on-demand) → the Node adapter serves the write API. Dev-only, never in a
+  // public build (no adapter → the build fails loudly if an on-demand route leaks in).
+  ...(publicMode ? {} : { adapter: node({ mode: "standalone" }) }),
   // MDX only in "mdx" format (§10.bis). In "commonmark", .md files go through
-  // Astro's native markdown pipeline (lenient CommonMark/GFM).
-  integrations: mdxEnabled ? [mdx()] : [],
+  // Astro's native markdown pipeline (lenient CommonMark/GFM). The interactive app
+  // routes (comments/review/journal + /api/*) are INJECTED — absent from a public
+  // build (see src/integrations/app-routes.mjs). The sitemap ships only in public
+  // builds (it needs `site`; a dev-local tool has no use for it).
+  integrations: [
+    ...(mdxEnabled ? [mdx()] : []),
+    ...(publicMode ? [sitemap(), notabenePublicRoutes()] : [notabeneAppRoutes()]),
+  ],
   markdown: {
     // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs
     // leaves that fence as a plain <pre><code class="language-mermaid">, which the rehype
@@ -44,8 +60,9 @@ export default defineConfig({
     syntaxHighlight: { type: "shiki", excludeLangs: ["mermaid"] },
     shikiConfig: { theme: "github-dark", wrap: true },
     // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
-    // [attacher, options]: unified calls remarkRewriteLinks(roots).
-    remarkPlugins: [[remarkRewriteLinks, { roots, i18n }]],
+    // [attacher, options]: unified calls remarkRewriteLinks(roots). The base is
+    // passed explicitly (remark runs outside Vite → no BASE_URL there).
+    remarkPlugins: [[remarkRewriteLinks, { roots, i18n, base: publicMode ? publish.base : "/" }]],
     // ```mermaid fence → <pre class="mermaid"> (rendered client-side; see lib/client/mermaid.ts).
     rehypePlugins: [rehypeMermaid],
   },

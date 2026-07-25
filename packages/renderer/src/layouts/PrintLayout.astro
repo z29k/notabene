@@ -5,6 +5,7 @@
 // + margin from config. Paged.js (lib/client/print.ts) paginates client-side.
 import "../styles/global.css";
 import "../styles/print.css";
+import { withBase } from "../lib/base";
 import { clientI18n, pdf, siteName } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
@@ -28,7 +29,7 @@ const m = t(locale);
   <body>
     <div class="pg-toolbar no-print">
       <button id="pg-print" type="button">{m.printSave}</button>
-      <a href="/">← {m.pdfBack}</a>
+      <a href={withBase("/")}>← {m.pdfBack}</a>
       <span id="pg-status" class="pg-status">{m.loading}</span>
     </div>
     <main id="pg-content">

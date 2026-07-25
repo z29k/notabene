@@ -1,4 +1,5 @@
 ---
+import { withBase } from "../lib/base";
 import { buildNav, type Space } from "../lib/nav";
 import NavTree from "./NavTree.astro";
 import { clientI18n, i18n, roots } from "../config.mjs";
@@ -38,7 +39,7 @@ const spaces = await Promise.all(
           <span class="space-name">{label}</span>
           <span class="space-sub">{root.subLabel}</span>
         </summary>
-        <p class="space-link"><a href={home}>{m.sidebarOverview}</a></p>
+        <p class="space-link"><a href={withBase(home)}>{m.sidebarOverview}</a></p>
         <NavTree nodes={nodes} current={current} />
       </details>
     ))

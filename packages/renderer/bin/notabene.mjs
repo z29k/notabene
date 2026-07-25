@@ -7,6 +7,9 @@
 //   notabene init          write notabene.config.mjs + create the store (no-op if present)
 //   notabene dev           start the review server (astro dev) over the current repo
 //   notabene build         build the site (Node standalone; no write API in the artifact)
+//                          --public: read-only STATIC site for public hosting (no
+//                          comments/review UI, no API, no store data; llms.txt + .md
+//                          twins + sitemap). [--site URL] [--base /sub] [--out DIR]
 //   notabene preview       serve the built site
 //   notabene pdf           export a PDF via headless Chromium (optional Puppeteer dep)
 //   notabene migrate       convert the store to one file per comment (schemaVersion 3)
@@ -48,6 +51,13 @@ const flag = (name) => {
 const repoRoot = path.resolve(flag("--root") || process.cwd());
 const configPath = path.resolve(flag("--config") || path.join(repoRoot, "notabene.config.mjs"));
 const exposeHost = argv.includes("--host");
+// Public publish mode (`build --public`): a read-only STATIC artifact — no
+// comments/review/journal UI, no API, no store data — with the agent surface
+// (llms.txt, .md twins, sitemap). --site/--base override the config's `publish`
+// block; --out copies the artifact into the consumer tree (CI needs a stable path).
+const publicBuild = argv.includes("--public");
+const siteFlag = flag("--site");
+const baseFlag = flag("--base");
 
 function fail(msg) {
   console.error(`notabene: ${msg}`);
@@ -331,6 +341,9 @@ async function doDoctor() {
         : "not created (run `notabene init`)"
     }`,
   );
+  if (c.publish?.site) {
+    console.log(`    publish: ${c.publish.site}${c.publish.base !== "/" ? c.publish.base : ""} (build --public)`);
+  }
   const p = report.port;
   console.log(`    port ${p.number} ${p.free ? "free" : `busy → suggested ${p.suggested}`}`);
 }
@@ -379,8 +392,90 @@ function astroSetup() {
     ...(gitAuthor ? { NOTABENE_AUTHOR: gitAuthor } : {}),
     ...(gitEmail ? { NOTABENE_AUTHOR_EMAIL: gitEmail } : {}),
     ...(exposeHost ? { NOTABENE_HOST: "1" } : {}),
+    ...(publicBuild ? { NOTABENE_PUBLIC: "1" } : {}),
+    ...(siteFlag && siteFlag !== true ? { NOTABENE_SITE: String(siteFlag) } : {}),
+    ...(baseFlag && baseFlag !== true ? { NOTABENE_BASE: String(baseFlag) } : {}),
   };
   return { astroBin, workDir, env };
+}
+
+// Public build epilogue. Without an adapter the static artifact lands directly in
+// <workDir>/dist; `--out` copies it to a stable consumer-side path (CI/deploy needs
+// one — the hashed tmp workdir is not discoverable). Overwrite is opt-in by marker:
+// a non-empty target is only replaced when it contains the marker file from a
+// previous public build, so a typo'd --out can never delete user data.
+const PUBLIC_MARKER = ".notabene-public-site";
+
+// Remove _astro assets nothing references. Astro emits a chunk for every client
+// script in the MODULE GRAPH, rendered or not — in public mode the review-app
+// scripts (Comments/ReviewChrome/comments-client) become unreferenced files that
+// would ship review code and /api/* paths to the public host. Generic sweep:
+// iteratively drop any _astro file whose basename appears in no other emitted text
+// file. Runtime-loaded chunks survive — their importers name them in plain text
+// (mermaid's lazy chunks, CSS-referenced fonts, HTML-referenced images).
+function pruneOrphanAssets(distDir) {
+  const astroDir = path.join(distDir, "_astro");
+  if (!fs.existsSync(astroDir)) return 0;
+  const textExt = new Set([".html", ".js", ".mjs", ".css", ".json", ".xml", ".txt", ".md", ".svg"]);
+  const walk = (dir, acc = []) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p, acc);
+      else acc.push(p);
+    }
+    return acc;
+  };
+  let removed = 0;
+  // A dropped orphan can orphan the file it alone referenced → iterate to a fixpoint.
+  for (let pass = 0; pass < 5; pass++) {
+    const corpus = walk(distDir)
+      .filter((p) => textExt.has(path.extname(p)))
+      .map((p) => ({ p, text: fs.readFileSync(p, "utf8") }));
+    const orphans = fs
+      .readdirSync(astroDir)
+      .map((n) => path.join(astroDir, n))
+      .filter((a) => {
+        const name = path.basename(a);
+        return !corpus.some((c) => c.p !== a && c.text.includes(name));
+      });
+    if (orphans.length === 0) break;
+    for (const o of orphans) {
+      fs.unlinkSync(o);
+      removed += 1;
+    }
+  }
+  return removed;
+}
+
+function finishPublicBuild(workDir) {
+  const distDir = path.join(workDir, "dist");
+  const pruned = pruneOrphanAssets(distDir);
+  if (pruned > 0) console.log(`notabene: pruned ${pruned} unreferenced asset(s) from the public artifact.`);
+  // Jekyll (classic gh-pages branch hosting) drops _astro/** without this. Inert elsewhere.
+  fs.writeFileSync(path.join(distDir, ".nojekyll"), "");
+  const outFlag = flag("--out");
+  if (!outFlag || outFlag === true) {
+    console.log(`notabene: public site built at ${distDir} (pass --out <dir> to copy it into your repo).`);
+    return;
+  }
+  const target = path.resolve(String(outFlag));
+  if (target === repoRoot || repoRoot.startsWith(target + path.sep)) {
+    fail(`--out ${target} contains the repo itself — pick a sub-directory (e.g. --out ./_site).`);
+  }
+  if (fs.existsSync(target)) {
+    const entries = fs.readdirSync(target);
+    if (entries.length > 0 && !entries.includes(PUBLIC_MARKER)) {
+      fail(`--out ${target} exists and is not a previous public build — pick an empty or new directory.`);
+    }
+    fs.rmSync(target, { recursive: true, force: true });
+  }
+  fs.mkdirSync(target, { recursive: true });
+  fs.cpSync(distDir, target, { recursive: true });
+  fs.writeFileSync(
+    path.join(target, PUBLIC_MARKER),
+    "generated by `notabene build --public` — this directory is replaced on every build\n",
+  );
+  console.log(`notabene: public site written to ${target}`);
 }
 
 async function runAstro(astroCmd) {
@@ -389,6 +484,9 @@ async function runAstro(astroCmd) {
   const allowDefaults = process.env.NOTABENE_ALLOW_DEFAULTS === "1";
   if (!fs.existsSync(configPath) && !allowDefaults) {
     fail(`no config at ${configPath}. Run \`notabene init\` first (or pass --config).`);
+  }
+  if (publicBuild && astroCmd !== "build") {
+    fail("--public applies to `notabene build` only (dev/preview always run the full review app).");
   }
   // Shared prep: Astro bin + writable outDir/cacheDir + node_modules symlink + env.
   const { astroBin, workDir, env } = astroSetup();
@@ -428,9 +526,22 @@ async function runAstro(astroCmd) {
     process.exit(0);
   }
 
-  // Foreground (default) — tied to this terminal, as before.
-  const child = spawn(process.execPath, args, { stdio: "inherit", cwd: repoRoot, env });
-  child.on("exit", (code) => process.exit(code ?? 0));
+  // Foreground (default) — tied to this terminal, as before. Public builds run from
+  // the workDir: Astro's adapterless prerender stages its chunks under
+  // <cwd>/.astro/.prerender, and the workDir has the node_modules symlink beside it
+  // (same resolution trick as the adapter path) — the consumer repo is never written to.
+  const spawnCwd = publicBuild ? workDir : repoRoot;
+  const child = spawn(process.execPath, args, { stdio: "inherit", cwd: spawnCwd, env });
+  child.on("exit", (code) => {
+    if ((code ?? 0) === 0 && publicBuild) {
+      try {
+        finishPublicBuild(workDir);
+      } catch (err) {
+        fail(`public build epilogue failed: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+    process.exit(code ?? 0);
+  });
 }
 
 // `notabene status [--json]` — is the detached daemon for this repo alive AND answering?
@@ -712,6 +823,7 @@ switch (cmd) {
         "  notabene status          is the detached server running?  [--json]\n" +
         "  notabene stop            stop the detached server\n" +
         "  notabene build           build the site (Node standalone)\n" +
+        "                           [--public [--site URL] [--base /sub] [--out DIR]]  read-only static site\n" +
         "  notabene preview         serve the built site\n" +
         "  notabene pdf             export a PDF (headless Chromium)  [--scope doc|space:K|folder:K/P|page:K/I] [--locale L] [--out F] [--chrome P]\n" +
         "  notabene migrate         convert the store to one file per comment (schemaVersion 3)\n" +

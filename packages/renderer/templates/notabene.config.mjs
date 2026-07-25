@@ -45,6 +45,13 @@ export default {
   // PDF export (the "Export PDF" menu + /print routes). Optional — omit for defaults.
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },
 
+  // Public publishing (`notabene build --public`): a read-only STATIC site — no
+  // comments/review UI, no API, no store data — plus an agent-readable surface
+  // (llms.txt, per-page .md twins, sitemap). `site` = deployed origin (required for
+  // a public build); `base` = sub-path when hosted under a prefix (GitHub Pages
+  // project site → "/<repo>"). CLI flags --site/--base override.
+  // publish: { site: "https://user.github.io", base: "/my-repo" },
+
   // Multi-language docs. Optional — omit for a single language. Clean prefixed URLs
   // (default locale unprefixed, others /<locale>/…). Two authoring layouts:
   //   "directory" → a folder per locale:  docs/en/guide.md · docs/fr/guide.md
