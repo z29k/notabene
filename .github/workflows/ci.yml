@@ -45,3 +45,28 @@ jobs:
 
       - name: Smoke-build the scratch consumer
         run: node packages/renderer/bin/notabene.mjs build --root /tmp/consumer
+
+      # PUBLIC build contract: seed a comment first, then assert the artifact is
+      # pure-static + leak-free (no store data, no identity/review chrome, no /api
+      # surface) and carries the agent surface (llms.txt, .md twins, robots, sitemap)
+      # with every URL under the --base prefix.
+      - name: Smoke-build the PUBLIC artifact (leak checks)
+        run: |
+          set -e
+          mkdir -p /tmp/consumer/docs/.notabene/docs/index
+          printf '{ "id": "c-leak", "space": "docs", "page": "docs/index", "scope": "page", "anchor": null, "thread": [{ "author": "CI <ci@example.com>", "body": "LEAKCANARY-not-for-public", "ts": "2026-01-01T00:00:00Z" }], "status": "open", "hold": false, "resolution": null, "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-01T00:00:00Z" }\n' > /tmp/consumer/docs/.notabene/docs/index/c-leak.json
+          node packages/renderer/bin/notabene.mjs build --root /tmp/consumer --public \
+            --site https://ci.example.com --base /repo --out /tmp/public-site
+          # Present: the reading site + the agent surface.
+          for f in index.html 404.html llms.txt llms-full.txt robots.txt sitemap-index.xml .nojekyll docs/index/index.md; do
+            test -f "/tmp/public-site/$f" || { echo "MISSING: $f"; exit 1; }
+          done
+          # Absent: store data, review/identity chrome, any /api surface, server bundle.
+          ! grep -RIq "LEAKCANARY" /tmp/public-site || { echo "LEAK: store data in public artifact"; exit 1; }
+          for pat in nb-identity-dialog notabene-me /api/comments /api/journal /api/diff; do
+            ! grep -RIq -- "$pat" /tmp/public-site || { echo "LEAK: $pat in public artifact"; exit 1; }
+          done
+          test ! -e /tmp/public-site/journal && test ! -e /tmp/public-site/comments && test ! -e /tmp/public-site/review
+          # Base prefix applied to emitted links.
+          grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
+          grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
