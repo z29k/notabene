@@ -92,6 +92,10 @@ function normalizeRoot(root, defaultLocale) {
     // Sidebar sub-title (e.g. "docs/").
     subLabel: `${rel}/`,
     exclude: Array.isArray(root.exclude) ? root.exclude : [],
+    // Public-build scoping: `publish: false` keeps this WHOLE space out of a
+    // `build --public` artifact (routes, nav, search, llms, twins, sitemap).
+    // Dev/normal builds always include everything.
+    publish: root.publish !== false,
     abs,
     baseUrl: pathToFileURL(abs),
     // Content-loader glob: format extensions minus the exclusions.
@@ -175,9 +179,18 @@ function normalizeSite(raw) {
   }
   return url.origin;
 }
+// publish.exclude — glob patterns (`*` segment, `**` deep) matched against a page's
+// LOCALE-INDEPENDENT public identity `<space key>/<canonical id>` (i.e. its URL path
+// without locale prefix), so one pattern hides every translation. Complements the
+// per-space `roots[].publish: false` and per-page frontmatter `publish: false`.
+const publishExclude = publishCfg.exclude ?? [];
+if (!Array.isArray(publishExclude) || publishExclude.some((g) => typeof g !== "string")) {
+  throw new Error("notabene: publish.exclude must be an array of glob strings.");
+}
 export const publish = {
   site: normalizeSite(process.env.NOTABENE_SITE ?? publishCfg.site),
   base: normalizeBase(process.env.NOTABENE_BASE ?? publishCfg.base),
+  exclude: publishExclude,
 };
 if (publicMode && !publish.site) {
   throw new Error(
@@ -220,6 +233,7 @@ export const i18n = {
  * @property {string} path
  * @property {string} subLabel
  * @property {string[]} exclude
+ * @property {boolean} publish false = this space stays out of `build --public` artifacts
  * @property {string} abs
  * @property {URL} baseUrl
  * @property {string[]} pattern
@@ -252,7 +266,9 @@ export const storeAbs = path.resolve(REPO_ROOT, storeRel);
 // Serializable roots for client scripts (no absolute paths / node:* leak). The raw per-locale
 // label/description maps ride along ONLY when i18n is enabled, so a mono-language site's
 // serialized `#notabene-roots` stays byte-identical (client resolves via localizeField).
-export const clientRoots = roots.map((r) => ({
+// Public builds drop private spaces here too — their key/label/path must not reach the
+// public `<head>` (same scoping as the routes; see lib/public-filter.ts).
+export const clientRoots = (publicMode ? roots.filter((r) => r.publish) : roots).map((r) => ({
   key: r.key,
   label: r.label,
   path: r.path,

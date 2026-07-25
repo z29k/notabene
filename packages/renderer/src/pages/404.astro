@@ -6,6 +6,7 @@
 import DocLayout from "../layouts/DocLayout.astro";
 import { clientI18n, locale, roots } from "../config.mjs";
 import { withBase } from "../lib/base";
+import { visibleRoots } from "../lib/public-filter";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -23,7 +24,7 @@ const m = t(locale);
   <p class="nf-spaces-label" data-i18n="notFoundSpaces">{m.notFoundSpaces}</p>
   <div class="home-cards">
     {
-      roots.map((root) => (
+      visibleRoots(roots).map((root) => (
         <a class="home-card" href={withBase(`/${root.key}`)}>
           <h2 data-nb-root-label={clientI18n.enabled ? root.key : undefined}>{root.label}</h2>
           <p><code>{root.subLabel}</code></p>

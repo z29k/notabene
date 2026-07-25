@@ -55,14 +55,18 @@ jobs:
           set -e
           mkdir -p /tmp/consumer/docs/.notabene/docs/index
           printf '{ "id": "c-leak", "space": "docs", "page": "docs/index", "scope": "page", "anchor": null, "thread": [{ "author": "CI <ci@example.com>", "body": "LEAKCANARY-not-for-public", "ts": "2026-01-01T00:00:00Z" }], "status": "open", "hold": false, "resolution": null, "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-01T00:00:00Z" }\n' > /tmp/consumer/docs/.notabene/docs/index/c-leak.json
+          printf -- '---\npublish: false\n---\n\n# Private\n\nPRIVATECANARY page excluded from public builds.\n' > /tmp/consumer/docs/private.md
           node packages/renderer/bin/notabene.mjs build --root /tmp/consumer --public \
             --site https://ci.example.com --base /repo --out /tmp/public-site
           # Present: the reading site + the agent surface.
           for f in index.html 404.html llms.txt llms-full.txt robots.txt sitemap-index.xml .nojekyll docs/index/index.md; do
             test -f "/tmp/public-site/$f" || { echo "MISSING: $f"; exit 1; }
           done
-          # Absent: store data, review/identity chrome, any /api surface, server bundle.
+          # Absent: store data, review/identity chrome, any /api surface, server bundle,
+          # and pages scoped private (frontmatter `publish: false`).
           ! grep -RIq "LEAKCANARY" /tmp/public-site || { echo "LEAK: store data in public artifact"; exit 1; }
+          ! grep -RIq "PRIVATECANARY" /tmp/public-site || { echo "LEAK: publish:false page in public artifact"; exit 1; }
+          test ! -e /tmp/public-site/docs/private || { echo "LEAK: publish:false route emitted"; exit 1; }
           for pat in nb-identity-dialog notabene-me /api/comments /api/journal /api/diff; do
             ! grep -RIq -- "$pat" /tmp/public-site || { echo "LEAK: $pat in public artifact"; exit 1; }
           done
@@ -70,3 +74,6 @@ jobs:
           # Base prefix applied to emitted links.
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
+          # Scoping must not affect normal builds — rebuild non-public with the
+          # publish:false page present.
+          node packages/renderer/bin/notabene.mjs build --root /tmp/consumer

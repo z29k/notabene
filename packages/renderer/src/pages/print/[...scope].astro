@@ -15,6 +15,7 @@ import {
   sectionId,
 } from "../../lib/print-scope";
 import { decode, localizeField } from "../../lib/i18n-content.mjs";
+import { isPublicPage, visibleRoots } from "../../lib/public-filter";
 import { i18n, pdf, roots, siteName, tagline } from "../../config.mjs";
 import { t } from "../../i18n.mjs";
 
@@ -24,10 +25,11 @@ export async function getStaticPaths() {
   const paths: { params: { scope: string | undefined } }[] = [{ params: { scope: undefined } }]; // default-locale whole doc
   for (const loc of i18n.locales) if (loc !== def) paths.push({ params: { scope: loc } }); // per-locale whole doc
 
-  for (const root of roots) {
+  for (const root of visibleRoots(roots)) {
     const entries = await getCollection(root.key as never);
-    // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry.
-    const decoded = (entries as any[]).map((e) => ({ raw: e.id as string, ...decode(e.id as string, i18n) }));
+    const decoded = (entries as any[])
+      .map((e) => ({ raw: e.id as string, data: e.data, ...decode(e.id as string, i18n) }))
+      .filter((d) => isPublicPage(root.key, d.id, d.data)); // public-build scoping (no-op otherwise)
     const localesInSpace = new Set(decoded.map((d) => d.locale));
     for (const loc of i18n.locales) {
       if (!localesInSpace.has(loc)) continue;
@@ -49,7 +51,11 @@ const parsed = parseScope(Astro.params.scope, i18n.locales);
 const pageLoc = parsed && parsed.kind === "page" ? decode(parsed.id, i18n).locale : undefined;
 const locale = pageLoc ?? parsed?.locale ?? i18n.defaultLocale;
 const m = t(locale);
-const spaces = parsed ? (parsed.kind === "doc" ? roots : roots.filter((r) => r.key === parsed.space)) : [];
+const spaces = parsed
+  ? parsed.kind === "doc"
+    ? visibleRoots(roots)
+    : visibleRoots(roots).filter((r) => r.key === parsed.space)
+  : [];
 // Space label in this bundle's single locale (per-locale `roots[].label`) — for part dividers + cover.
 const spaceLabelOf = (space: (typeof roots)[number]) => localizeField(space.labelI18n, locale, i18n.defaultLocale) ?? space.label;
 
@@ -104,12 +110,14 @@ if (parsed) {
     for (const e of entries) {
       const d = decode(e.id, i18n);
       if (d.locale !== locale) continue;
+      if (!isPublicPage(space.key, d.id, e.data)) continue; // public-build scoping
       byCanonical.set(d.id, e);
       if (/^(readme|index)$/i.test(d.id)) indexEntry = e;
     }
 
     if (parsed.kind === "page") {
-      const e = entries.find((x) => x.id === parsed.id);
+      const found = entries.find((x) => x.id === parsed.id);
+      const e = found && isPublicPage(space.key, decode(found.id, i18n).id, found.data) ? found : undefined;
       await addLeaf(space.key, e ? decode(e.id, i18n).id : parsed.id, e, 1);
       continue;
     }

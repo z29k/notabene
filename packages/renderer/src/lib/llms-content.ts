@@ -7,6 +7,7 @@ import { i18n, roots } from "../config.mjs";
 import { decode, localizeField, routeFor } from "./i18n-content.mjs";
 import { buildNav, pageTitle } from "./nav";
 import { flattenNav } from "./print-scope";
+import { isPublicPage, visibleRoots } from "./public-filter";
 
 export interface AgentPage {
   title: string;
@@ -24,14 +25,15 @@ export interface AgentSpace {
 
 export async function gatherAgentSpaces(locale: string): Promise<AgentSpace[]> {
   const out: AgentSpace[] = [];
-  for (const root of roots) {
+  for (const root of visibleRoots(roots)) {
     const entries = (await getCollection(root.key as never)) as any[];
-    // Canonical id → entry, for THIS locale only.
+    // Canonical id → entry, for THIS locale only (minus public-build exclusions).
     const byCanonical = new Map<string, (typeof entries)[number]>();
     let indexEntry: (typeof entries)[number] | undefined;
     for (const e of entries) {
       const d = decode(e.id, i18n);
       if (d.locale !== locale) continue;
+      if (!isPublicPage(root.key, d.id, e.data)) continue;
       byCanonical.set(d.id, e);
       if (/^(readme|index)$/i.test(d.id)) indexEntry = e;
     }

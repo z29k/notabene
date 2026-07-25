@@ -302,8 +302,14 @@ notabene build --public --site https://you.github.io --base /your-repo --out ./_
 - **Born agent-readable.** Every page ships a Markdown twin at `<page>/index.md`
   (advertised via `<link rel="alternate" type="text/markdown">`), the site ships
   `/llms.txt` (a machine index of every page, per locale) and `/llms-full.txt` (the whole
-  doc as one Markdown document, in reading order), plus `robots.txt`, a sitemap and
-  canonical URLs. The agent web reads your docs as well as a browser does.
+  doc as one Markdown document, in reading order), plus `robots.txt`, a sitemap,
+  canonical URLs, OpenGraph/Twitter meta and JSON-LD. The agent web reads your docs as
+  well as a browser does.
+- **You choose what goes public.** Three knobs, coarse to fine — a whole space
+  (`publish: false` on a `roots[]` entry), a sub-tree (`publish.exclude` globs, e.g.
+  `["docs/internal/**"]` — locale-independent, hides every translation), or a single page
+  (frontmatter `publish: false`). Scoped content vanishes everywhere at once: routes, nav,
+  search, print/PDF, `llms.txt`, twins, sitemap. `notabene dev` always shows everything.
 - `--site` is the deployed origin (required); `--base` is the sub-path for project-page
   hosting; `--out` copies the artifact to a stable path (it refuses to overwrite anything
   it didn't generate). Set them once in `notabene.config.mjs` instead:

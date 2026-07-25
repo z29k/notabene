@@ -4,6 +4,7 @@ import { buildNav, type Space } from "../lib/nav";
 import NavTree from "./NavTree.astro";
 import { clientI18n, i18n, roots } from "../config.mjs";
 import { localizeField, routeFor } from "../lib/i18n-content.mjs";
+import { visibleRoots } from "../lib/public-filter";
 import { t } from "../i18n.mjs";
 
 interface Props {
@@ -17,7 +18,7 @@ const { current = "", activeSpace, locale = clientI18n.defaultLocale } = Astro.p
 const m = t(locale);
 // One nav tree per space, filtered to the current locale (i18n) with clean prefixed hrefs.
 const spaces = await Promise.all(
-  roots.map(async (root) => ({
+  visibleRoots(roots).map(async (root) => ({
     root,
     // Space title follows the rendered locale (per-locale `roots[].label`; string → verbatim).
     label: localizeField(root.labelI18n, locale, i18n.defaultLocale) ?? root.label,

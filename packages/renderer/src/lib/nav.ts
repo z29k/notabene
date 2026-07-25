@@ -2,6 +2,7 @@ import { getCollection } from "astro:content";
 import { i18n, locale } from "../config.mjs";
 import { t } from "../i18n.mjs";
 import { decode, routeFor } from "./i18n-content.mjs";
+import { isPublicPage } from "./public-filter";
 
 // A space = the `key` of a notabene.config root (no fixed duo). Free string.
 export type Space = string;
@@ -199,6 +200,7 @@ export async function folderLabels(space: Space, locale?: string): Promise<Map<s
       if (d.locale !== locale) continue;
       id = d.id;
     }
+    if (!isPublicPage(space, decode(entry.id, i18n).id, entry.data)) continue; // public-build scoping
     canon.push({ id, data: entry.data });
   }
   const isFolder = (id: string) => canon.some((c) => c.id.startsWith(`${id}/`));
@@ -334,6 +336,7 @@ export async function buildNav(space: Space, locale?: string): Promise<NavNode[]
       id = d.id;
       href = routeFor({ space, id, locale }, i18n);
     }
+    if (!isPublicPage(space, decode(entry.id, i18n).id, entry.data)) continue; // public-build scoping (no-op otherwise)
     sources.push({ id, href, data: entry.data });
   }
   // The folder landing leaf's default label follows the rendered locale ("Overview"/"Aperçu"/…).

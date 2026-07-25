@@ -311,7 +311,13 @@ notabene build --public --site https://vous.github.io --base /votre-repo --out .
   `<page>/index.md` (annoncé par `<link rel="alternate" type="text/markdown">`), le site
   expose `/llms.txt` (index machine de toutes les pages, par langue) et `/llms-full.txt`
   (toute la doc en un seul document Markdown, dans l'ordre de lecture), plus `robots.txt`,
-  un sitemap et des URL canoniques.
+  un sitemap, des URL canoniques, les balises OpenGraph/Twitter et du JSON-LD.
+- **Vous choisissez ce qui devient public.** Trois niveaux, du plus large au plus fin —
+  un espace entier (`publish: false` sur une entrée `roots[]`), un sous-arbre
+  (globs `publish.exclude`, ex. `["docs/internal/**"]` — indépendants de la langue), ou
+  une seule page (frontmatter `publish: false`). Le contenu exclu disparaît partout à la
+  fois : routes, navigation, recherche, impression/PDF, `llms.txt`, doubles Markdown,
+  sitemap. `notabene dev` montre toujours tout.
 - `--site` est l'origine déployée (obligatoire) ; `--base` le sous-chemin pour un hébergement
   de type « project page » ; `--out` copie l'artefact vers un chemin stable (il refuse
   d'écraser ce qu'il n'a pas généré). À poser une fois dans `notabene.config.mjs` :

@@ -47,10 +47,14 @@ export default {
 
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface
-  // (llms.txt, per-page .md twins, sitemap). `site` = deployed origin (required for
-  // a public build); `base` = sub-path when hosted under a prefix (GitHub Pages
-  // project site → "/<repo>"). CLI flags --site/--base override.
-  // publish: { site: "https://user.github.io", base: "/my-repo" },
+  // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin
+  // (required for a public build); `base` = sub-path when hosted under a prefix
+  // (GitHub Pages project site → "/<repo>"). CLI flags --site/--base override.
+  // Scope what goes public (dev always shows everything):
+  //   - a whole space:  `publish: false` on a roots[] entry (above)
+  //   - a sub-tree:     `exclude` globs on `<space key>/<page id>` (locale-independent)
+  //   - a single page:  frontmatter `publish: false`
+  // publish: { site: "https://user.github.io", base: "/my-repo", exclude: ["docs/internal/**"] },
 
   // Multi-language docs. Optional — omit for a single language. Clean prefixed URLs
   // (default locale unprefixed, others /<locale>/…). Two authoring layouts:

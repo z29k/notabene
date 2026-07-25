@@ -11,16 +11,18 @@ import SiteHome from "../components/SiteHome.astro";
 import { buildNav, folderLabels, humanize, pageTitle, type NavNode } from "../lib/nav";
 import { buildEquivalence, decode, isSpaceHomeId, localizeField, routeFor, switchLinks } from "../lib/i18n-content.mjs";
 import { scopeToPath } from "../lib/print-scope";
+import { isPublicPage, visibleRoots } from "../lib/public-filter";
 import { i18n, pdf, roots } from "../config.mjs";
 
 export async function getStaticPaths() {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entries.
   const all: any[] = [];
-  for (const root of roots) {
+  for (const root of visibleRoots(roots)) {
     const entries = await getCollection(root.key as never);
     // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry.
     for (const entry of entries as any[]) {
       const { locale, id } = decode(entry.id, i18n);
+      if (!isPublicPage(root.key, id, entry.data)) continue;
       all.push({ space: root.key, entry, rawId: entry.id, locale, id });
     }
   }
@@ -169,6 +171,7 @@ if (!isSiteHome) {
       exportScopes={exportScopes}
       alternates={alternates}
       mdHref={mdHref}
+      description={typeof entry?.data?.description === "string" ? entry.data.description : undefined}
     >
       {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
     </DocLayout>

@@ -248,10 +248,12 @@ A **pure-static, read-only artifact**: no comment/review UI, no API, nothing fro
 `.notabene` store (the interactive routes are **not built**). What ships instead: the full
 reading experience (nav, search, diagrams + lightbox, i18n, print/PDF routes) plus an
 **agent-readable surface** - a Markdown twin per page (`<page>/index.md`), `/llms.txt` +
-`/llms-full.txt`, sitemap, `robots.txt`, canonical URLs. Host it anywhere static; a
-ready-made GitHub Pages workflow is in the
-[repo README](https://github.com/z29k/notabene#publish-a-public-site). Configure once via
-`publish: { site, base }` in `notabene.config.mjs`.
+`/llms-full.txt`, sitemap, `robots.txt`, canonical URLs, OG/Twitter meta and JSON-LD.
+**Scope what goes public**: a whole space (`publish: false` on a `roots[]` entry), a
+sub-tree (`publish.exclude` globs), or a single page (frontmatter `publish: false`) -
+`notabene dev` always shows everything. Host it anywhere static; a ready-made GitHub Pages
+workflow is in the [repo README](https://github.com/z29k/notabene#publish-a-public-site).
+Configure once via `publish: { site, base, exclude }` in `notabene.config.mjs`.
 
 ## The `.notabene` contract
 

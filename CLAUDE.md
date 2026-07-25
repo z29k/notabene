@@ -187,11 +187,20 @@ before the feature.
   verbatim + a pointer header; advertised via `<link rel="alternate"
   type="text/markdown">` + an sr-only agent directive in `DocLayout`), `/llms.txt` +
   `/llms-full.txt` per locale (`pages/[...loc]/llms*.txt.ts`), canonical + absolute
-  hreflang. Ordering = the print/PDF ordering (`gatherAgentSpaces` in
-  `src/lib/llms-content.ts` reuses `buildNav`+`flattenNav`); text assembly is the pure,
+  hreflang + meta description/OG/Twitter/JSON-LD (public head block in `DocLayout`,
+  `description` from frontmatter). Ordering = the print/PDF ordering (`gatherAgentSpaces`
+  in `src/lib/llms-content.ts` reuses `buildNav`+`flattenNav`); text assembly is the pure,
   unit-tested `src/lib/llms.ts`. No timestamps → byte-identical rebuilds. `robots.txt` is
   injected by `src/integrations/public-routes.mjs`; the sitemap is `@astrojs/sitemap`
   (public builds only).
+- **Public/private scoping** (`src/lib/public-filter.ts`, no-op outside public mode):
+  `roots[].publish: false` (whole space) → `visibleRoots()`; `publish.exclude` globs
+  matched against the locale-independent `<space key>/<canonical id>` (one pattern hides
+  every translation); frontmatter `publish: false` (per file). `isPublicPage()` is applied
+  at EVERY enumeration site — `[...path].astro`, `buildNav`/`folderLabels` (nav.ts),
+  `search-index.json.ts`, `print/[...scope].astro` (paths + assembly), `gatherAgentSpaces`
+  — and `clientRoots` (config.mjs) drops private spaces so their key/label/path never
+  reach the public `<head>`. Body links to excluded pages 404 (authoring concern).
 - **`base` support** (GitHub Pages project sites): route builders and `getStaticPaths`
   params stay base-less; `withBase()` (`src/lib/base.ts`, reads `import.meta.env.BASE_URL`)
   is applied at every EMISSION site (layout/components/404/search-index; active-state
