@@ -6,6 +6,7 @@ import node from "@astrojs/node";
 import sitemap from "@astrojs/sitemap";
 import { notabeneAppRoutes } from "./src/integrations/app-routes.mjs";
 import { notabeneAssetRoutes } from "./src/integrations/asset-routes.mjs";
+import { notabeneRouteTruth } from "./src/integrations/route-truth.mjs";
 import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
@@ -63,6 +64,7 @@ export default defineConfig({
   integrations: [
     ...(mdxEnabled ? [mdx()] : []),
     notabeneAssetRoutes(),
+    notabeneRouteTruth(),
     ...(publicMode ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()] : [notabeneAppRoutes()]),
   ],
   markdown: {

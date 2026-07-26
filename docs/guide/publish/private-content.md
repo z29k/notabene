@@ -47,5 +47,7 @@ exists **only** for public builds.
 ## One caveat: links into private content
 
 If a *public* page links to a *private* one, that link 404s in the public artifact — the
-build doesn't rewrite or warn about it. Keep public pages free of links into private
-content, or make the linking page private too.
+build doesn't rewrite or warn about it. **`notabene lint` catches exactly this**: run it
+after `build --public` and every link from a public page into scoped-out content is
+reported (the public route truth simply doesn't contain those pages — see the
+[CLI reference](../../reference/cli.md)).

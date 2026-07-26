@@ -11,6 +11,7 @@
 //                          comments/review UI, no API, no store data; llms.txt + .md
 //                          twins + sitemap). [--site URL] [--base /sub] [--out DIR]
 //   notabene preview       serve the built site
+//   notabene lint          validate inter-doc links against the last build's routes
 //   notabene pdf           export a PDF via headless Chromium (optional Puppeteer dep)
 //   notabene migrate       convert the store to one file per comment (schemaVersion 3)
 //   notabene comments ls   list comments [--open] [--json] [--page <p>]
@@ -20,7 +21,7 @@
 // (consumer repo root, default cwd), --host (expose on the LAN — trusted only).
 import { execFileSync, spawn } from "node:child_process";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import http from "node:http";
 import path from "node:path";
@@ -352,6 +353,107 @@ async function doDoctor() {
 // `status`/`stop` recompute it and find the same daemon in a later session.
 function workDirFor(root) {
   return path.join(os.tmpdir(), "notabene", createHash("sha1").update(root).digest("hex").slice(0, 16));
+}
+
+// `notabene lint [--json]` — validate inter-doc links against the ROUTE TRUTH of the
+// LAST build (<workDir>/routes.json, written at astro:build:done by the route-truth
+// integration — what Astro actually emitted, never a filesystem reconstruction).
+// After a normal build it checks the review site; after `build --public` it also
+// catches links from public pages into publish-scoped content — the public truth
+// simply doesn't contain those routes. Scope v1: RELATIVE .md/.mdx links (the remark
+// rewriter's exact domain); external/absolute/#anchor links are skipped — zero false
+// positives is the contract.
+async function doLint() {
+  const workDir = workDirFor(repoRoot);
+  const truthPath = path.join(workDir, "routes.json");
+  if (!fs.existsSync(truthPath)) {
+    console.error("notabene: no route truth yet — run `notabene build` (or `build --public`) first, then lint.");
+    process.exit(2);
+  }
+  const truth = JSON.parse(fs.readFileSync(truthPath, "utf8"));
+  const routes = new Set(truth.routes);
+
+  // Resolved config + shared mapper — same env-then-dynamic-import pattern as doctor.
+  process.env.NOTABENE_ROOT = repoRoot;
+  process.env.NOTABENE_CONFIG = configPath;
+  const appUrl = (rel) => pathToFileURL(path.join(APP_DIR, rel)).href;
+  const cfg = await import(appUrl("src/config.mjs"));
+  const { makeLinkMapper } = await import(appUrl("src/remark/rewrite-links.mjs"));
+  const { checkLinks, globToRegExp } = await import(appUrl("src/lib/lint-links.mjs"));
+  const { decode } = await import(appUrl("src/lib/i18n-content.mjs"));
+  const mapper = makeLinkMapper({ roots: cfg.roots, i18n: cfg.i18n });
+
+  const extRe = new RegExp(`\\.(${cfg.extensions.join("|")})$`, "i");
+  const publishExcludeRes = (cfg.publish.exclude ?? []).map(globToRegExp);
+  const fmPrivate = (text) => {
+    const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text);
+    return m != null && /^publish:\s*false\s*$/m.test(m[1]);
+  };
+
+  const diagnostics = [];
+  let fileCount = 0;
+  for (const root of cfg.roots) {
+    // Public truth: publish-scoped sources aren't in the artifact — their links are moot.
+    if (truth.publicMode && root.publish === false) continue;
+    const excludeRes = root.exclude.map(globToRegExp);
+    const walk = (dir) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name.startsWith(".")) continue; // .notabene, .git, editor droppings
+        const abs = path.join(dir, e.name);
+        if (e.isDirectory()) {
+          walk(abs);
+          continue;
+        }
+        if (!extRe.test(e.name)) continue;
+        const rel = path.relative(root.abs, abs).replace(/\\/g, "/");
+        if (excludeRes.some((re) => re.test(rel))) continue;
+        const canonicalId = decode(rel.replace(/\.(mdx?|markdown)$/i, ""), cfg.i18n).id;
+        if (truth.publicMode && publishExcludeRes.some((re) => re.test(`${root.key}/${canonicalId}`))) continue;
+        const text = fs.readFileSync(abs, "utf8");
+        if (truth.publicMode && fmPrivate(text)) continue;
+        fileCount += 1;
+        const srcLocale = cfg.i18n.enabled ? mapper.localeOfFile(abs) : cfg.i18n.defaultLocale;
+        for (const d of checkLinks({
+          text,
+          fromDir: path.dirname(abs),
+          srcLocale,
+          toRoute: mapper.toRoute,
+          resolve: path.resolve,
+          routes,
+        })) {
+          diagnostics.push({ file: path.relative(repoRoot, abs).replace(/\\/g, "/"), ...d });
+        }
+      }
+    };
+    walk(root.abs);
+  }
+
+  diagnostics.sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+  if (argv.includes("--json")) {
+    const out = {
+      version: 1,
+      truth: { publicMode: truth.publicMode, generatedAt: truth.generatedAt },
+      summary: { files: fileCount, broken: diagnostics.length },
+      diagnostics,
+    };
+    process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+  } else {
+    for (const d of diagnostics) {
+      const where = `${d.file}:${d.line}:${d.column}`;
+      const detail =
+        d.kind === "outside"
+          ? "target is outside every declared space (dead link in the rendered site)"
+          : `→ ${d.route} does not exist${d.suggestion ? ` — did you mean ${d.suggestion}?` : ""}`;
+      console.log(`${where}  ${d.link}  ${detail}`);
+    }
+    const mode = truth.publicMode ? "public" : "normal";
+    console.log(
+      diagnostics.length === 0
+        ? `notabene lint: ${fileCount} file(s), no broken internal links (${mode} build of ${truth.generatedAt}).`
+        : `notabene lint: ${diagnostics.length} broken link(s) across ${fileCount} file(s) (${mode} build of ${truth.generatedAt}).`,
+    );
+  }
+  process.exit(diagnostics.length > 0 ? 1 : 0);
 }
 
 // Shared Astro launch prep (used by `runAstro` and `buildForPdf`): resolve the Astro CLI
@@ -794,6 +896,9 @@ switch (cmd) {
   case "stop":
     doStop();
     break;
+  case "lint":
+    doLint().catch((e) => fail(e instanceof Error ? e.message : String(e)));
+    break;
   case "pdf":
     doPdf().catch((e) => fail(e instanceof Error ? e.message : String(e)));
     break;
@@ -825,6 +930,7 @@ switch (cmd) {
         "  notabene build           build the site (Node standalone)\n" +
         "                           [--public [--site URL] [--base /sub] [--out DIR]]  read-only static site\n" +
         "  notabene preview         serve the built site\n" +
+        "  notabene lint            check inter-doc links against the last build  [--json]\n" +
         "  notabene pdf             export a PDF (headless Chromium)  [--scope doc|space:K|folder:K/P|page:K/I] [--locale L] [--out F] [--chrome P]\n" +
         "  notabene migrate         convert the store to one file per comment (schemaVersion 3)\n" +
         "  notabene comments ls     list comments  [--open] [--json] [--page <p>]\n" +

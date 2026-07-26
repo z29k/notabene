@@ -134,3 +134,11 @@ jobs:
           # Scoping must not affect normal builds — rebuild non-public with the
           # publish:false page present.
           node packages/renderer/bin/notabene.mjs build --root /tmp/consumer
+          # Link lint: green against the fresh normal truth, then a seeded dead link
+          # must fail it with a diagnostic.
+          node packages/renderer/bin/notabene.mjs lint --root /tmp/consumer
+          printf '\n[dead](./nope.md)\n' >> /tmp/consumer/docs/index.md
+          if node packages/renderer/bin/notabene.mjs lint --root /tmp/consumer > /tmp/lint.out 2>&1; then
+            echo "lint should have failed on a dead link"; exit 1;
+          fi
+          grep -q "does not exist" /tmp/lint.out || { echo "MISSING: lint diagnostic"; exit 1; }

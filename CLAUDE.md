@@ -330,8 +330,18 @@ The comments API (`src/pages/api/comments.ts`) writes into the consumer's git, s
   is the source of truth; other locales fall back to it). Add a language by adding a
   top-level key there — never hardcode a user-visible string. Nav sorting collates by `locale`.
 - Inter-doc relative `.md`/`.mdx` links are rewritten to site routes by
-  `src/remark/rewrite-links.mjs` (mapping derived from `roots[]`; most-specific root wins).
-  The same longest-path-first rule governs `routeForPage` in `config.mjs`.
+  `src/remark/rewrite-links.mjs` (mapping derived from `roots[]`; most-specific root wins;
+  a FOLDER's `index.md` collapses to the folder id, mirroring Astro's loader). The same
+  longest-path-first rule governs `routeForPage` in `config.mjs`. The mapping is exported
+  as `makeLinkMapper` and shared with **`notabene lint`** (bin), which validates every
+  relative `.md` link against the ROUTE TRUTH of the last build
+  (`<workDir>/routes.json`, written at `astro:build:done` by
+  `integrations/route-truth.mjs` from Astro's own `pages` array — never a filesystem
+  reconstruction). Pure helpers in `src/lib/lint-links.mjs` (fence-aware extraction,
+  Levenshtein did-you-mean; zero-false-positive rule: external/absolute/#anchor links out
+  of scope v1). After `build --public` the truth excludes publish-scoped pages, so lint
+  catches public→private links for free. Exit 1 = broken links, 2 = no build yet. The
+  review skill runs it as verify step 2.
 - **Sidebar labels & order are frontmatter-driven** (`src/lib/nav.ts`, all resolution is
   pure + unit-tested). A page's leaf label resolves `sidebar.label` → `title` → humanized
   file name; `sidebar.order` sorts siblings ascending (unset → `±Infinity` sentinels, i.e.

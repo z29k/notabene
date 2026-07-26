@@ -147,11 +147,16 @@ inverting the journal — a page you don't record there won't be shown.
 1. **ALWAYS: build the renderer** — a broken doc file breaks the tool itself
    (`npx notabene build`, or the project's renderer build). Confirm **0 remaining
    `open` non-held comments**.
-2. **`config.verify[]`** — the project's own checks (build/lint/memory update).
-3. **Project memory** — if the project keeps a memory doc (`CLAUDE.md`/`AGENTS.md`),
+2. **Lint the inter-doc links** — `npx notabene lint` (or the plugin forwarder). It
+   validates every relative `.md` link against the routes the build just emitted
+   (with did-you-mean suggestions; `--json` for machine reading). A broken link is a
+   **failed verification** — fix it before reporting. If it exits 2, the build of
+   step 1 didn't run — never skip it.
+3. **`config.verify[]`** — the project's own checks (build/lint/memory update).
+4. **Project memory** — if the project keeps a memory doc (`CLAUDE.md`/`AGENTS.md`),
    update it for any public-behavior change.
 
-> Steps 2–3 are the **project extension point**. The core loop is generic; a consumer
+> Steps 3–4 are the **project extension point**. The core loop is generic; a consumer
 > declares its post-edit steps via `verify[]` and its memory conventions. The core
 > does not know any specific project.
 

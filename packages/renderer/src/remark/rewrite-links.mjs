@@ -30,14 +30,14 @@ function visit(node, fn) {
 }
 
 /**
- * `base` (optional, default "/"): sub-path prefix applied to every rewritten route —
- * public builds served under a prefix (GitHub Pages project site). Passed explicitly
- * because remark runs outside Vite: `import.meta.env.BASE_URL` (lib/base) is not
- * available here.
- * @param {{ roots: { key: string, abs: string }[], i18n: { locales: string[], defaultLocale: string, strategy: string, enabled: boolean }, base?: string }} opts
+ * The file→route mapping, shared by the remark plugin below and `notabene lint`
+ * (bin — this module is raw-Node importable on purpose: only node:fs/path +
+ * i18n-content.mjs). Returns `{ rootOf, localeOfFile, toRoute }`:
+ *   toRoute(absFilePath, srcLocale) → base-less site route, or null when the file
+ *   is outside every declared root.
+ * @param {{ roots: { key: string, abs: string }[], i18n: { locales: string[], defaultLocale: string, strategy: string, enabled: boolean } }} opts
  */
-export function remarkRewriteLinks({ roots, i18n, base = "/" }) {
-  const prefix = base === "/" ? "" : base.replace(/\/+$/, "");
+export function makeLinkMapper({ roots, i18n }) {
   // Most specific root (longest absolute path) first: a nested space (docs/plans) must win.
   const ordered = [...roots].sort((a, b) => b.abs.length - a.abs.length);
 
@@ -52,6 +52,11 @@ export function remarkRewriteLinks({ roots, i18n, base = "/" }) {
     if (!r) return null;
     const rawRel = slug(path.relative(r.abs, abs));
     let { locale, id } = decode(rawRel, i18n);
+    // Astro's glob loader collapses a FOLDER's index file to the folder id
+    // ("publish/index" → "publish") — mirror it, or links to `<folder>/index.md`
+    // target a route that only exists as an .html file on lenient static hosts
+    // (404 in dev/preview and on strict ones). A root-level "index" keeps its id.
+    if (/\/index$/i.test(id)) id = id.replace(/\/index$/i, "");
     // Suffix mode: a canonical target reached from a non-default-locale source → prefer the
     // same-locale sibling when it exists.
     if (
@@ -65,6 +70,20 @@ export function remarkRewriteLinks({ roots, i18n, base = "/" }) {
     }
     return routeFor({ space: r.key, id, locale }, i18n);
   }
+
+  return { rootOf, localeOfFile, toRoute };
+}
+
+/**
+ * `base` (optional, default "/"): sub-path prefix applied to every rewritten route —
+ * public builds served under a prefix (GitHub Pages project site). Passed explicitly
+ * because remark runs outside Vite: `import.meta.env.BASE_URL` (lib/base) is not
+ * available here.
+ * @param {{ roots: { key: string, abs: string }[], i18n: { locales: string[], defaultLocale: string, strategy: string, enabled: boolean }, base?: string }} opts
+ */
+export function remarkRewriteLinks({ roots, i18n, base = "/" }) {
+  const prefix = base === "/" ? "" : base.replace(/\/+$/, "");
+  const { localeOfFile, toRoute } = makeLinkMapper({ roots, i18n });
 
   return (tree, file) => {
     const from = file?.path ?? file?.history?.[0];
