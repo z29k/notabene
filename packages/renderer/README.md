@@ -62,10 +62,13 @@ Every entry links into the [documentation](https://z29k.github.io/notabene/):
 - [Publish a public site](https://z29k.github.io/notabene/guide/publish) - read-only
   static build with `llms.txt` + Markdown twins, private-content scoping, GitHub Pages
   workflow.
+- [Link validation](https://z29k.github.io/notabene/reference/cli) - `notabene lint`
+  checks internal links against the last build's real routes (did-you-mean suggestions,
+  public→private leaks).
 - [The `.notabene` store contract](https://z29k.github.io/notabene/reference/store-contract)
   and the [safety model](https://z29k.github.io/notabene/reference/safety).
 
-The full CLI (build, pdf, status, migrate, comments, journal…) is in the
+The full CLI (build, pdf, lint, status, migrate, comments, journal…) is in the
 [CLI reference](https://z29k.github.io/notabene/reference/cli).
 
 ## Requirements

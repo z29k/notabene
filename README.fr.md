@@ -87,6 +87,9 @@ c'est utile :
   Markdown par page, sitemap, OpenGraph), scoping du contenu privé, workflow GitHub Pages
   fourni. Le [site de documentation](https://z29k.github.io/notabene/) est notabene qui se
   publie lui-même.
+- **[Validation des liens](https://z29k.github.io/notabene/reference/cli)** - `notabene
+  lint` vérifie chaque lien interne contre les routes que le dernier build a **réellement
+  émises** - liens morts avec suggestions, et fuites public→privé après `build --public`.
 - **[Un store natif git](https://z29k.github.io/notabene/reference/store-contract)** -
   commentaires + journal en JSON versionné dans le repo : diffs dans les PR, merges sans
   conflit, un schéma sur lequel les agents peuvent compter.

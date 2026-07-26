@@ -86,9 +86,12 @@ sidebar:
   public page to private content** — the link 404s in the public artifact and the build
   won't warn; check the target's frontmatter (and the config's `publish.exclude` /
   `roots[].publish`) before adding an inter-doc link.
+- **`lastUpdated`** overrides the *Updated on* date in the page footer (normally the page's
+  git author date). Set it only when git history misleads — imported or generated content;
+  any date-parsable value.
 - Frontmatter is **optional**: with none, the sidebar shows humanized file names sorted
-  alphabetically (unchanged). Only `title`, `description`, `publish` and `sidebar` are
-  interpreted — any other keys pass through untouched.
+  alphabetically (unchanged). Only `title`, `description`, `publish`, `lastUpdated` and
+  `sidebar` are interpreted — any other keys pass through untouched.
 
 ## Mermaid diagrams (logigrammes, séquences, ER…)
 

@@ -115,6 +115,7 @@ has **`docs.detected`** instead.
      // home: "docs/home.md",  // custom landing page above the space cards (optional)
      // branding: { logo: "assets/logo.svg", favicon: "assets/favicon.svg" },  // identity (optional)
      // theme: { tokens: { accent: "#7c3aed" }, css: "docs/theme.css" },  // --nb-* overrides (optional)
+     // editPattern: "https://github.com/OWNER/REPO/edit/main/{path}",  // "Edit this page" footer link (optional)
      // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name/.email)
    };
    ```
@@ -143,7 +144,9 @@ regenerate from the template.
    cards); `branding` (`{ logo, logoDark, favicon, socialImage }` — repo-relative image
    files); `theme` (`{ tokens, css }` — `--nb-*` design-token overrides, validated, and/or
    a consumer stylesheet; only the `--nb-*` contract, never internal variables);
-   `verify[]`; `host` (⚠ security — only on explicit request).
+   `editPattern` (a URL template with a literal `{path}` placeholder — renders the page
+   footer's "Edit this page" link); `verify[]`; `host` (⚠ security — only on explicit
+   request).
 3. **Surface the consequences — never silently** (some edits orphan comments):
    - **`store` moved** → existing comments stay at the old path. Offer to move the store dir.
    - **`roots[].key` renamed** → changes URL slugs and the stored `space`/`page` prefix →
