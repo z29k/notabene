@@ -42,6 +42,9 @@ export default {
   // /review or via the "to validate" filter on /comments, then resolve or reject.
   review: "auto",
 
+  // "Edit this page" link under every doc page. {path} = repo-relative source path.
+  // editPattern: "https://github.com/you/repo/edit/main/{path}",
+
   // PDF export (the "Export PDF" menu + /print routes). Optional — omit for defaults.
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },
 

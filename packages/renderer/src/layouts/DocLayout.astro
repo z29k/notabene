@@ -73,6 +73,10 @@ interface Props {
   mdHref?: string;
   /** Frontmatter description (public builds: meta description + OG + JSON-LD). */
   description?: string;
+  /** "Edit this page" URL (config editPattern, resolved to the source file). */
+  editHref?: string;
+  /** Last-updated instant (frontmatter `lastUpdated` or git author date), ISO. */
+  lastUpdatedIso?: string;
   /** Aggregate pages (comments/journal/review/…): no per-page locale, so localize the chrome
    *  CLIENT-SIDE to the visitor's current language (localStorage) + show a client switcher. */
   i18nClientChrome?: boolean;
@@ -90,6 +94,8 @@ const {
   alternates = [],
   mdHref,
   description,
+  editHref,
+  lastUpdatedIso,
   i18nClientChrome = false,
 } = Astro.props;
 // UI chrome follows THIS page's locale (t() falls back to English per key).
@@ -139,6 +145,11 @@ const hreflangHref = (h: string) => (publicMode && publish.site ? `${publish.sit
 const absPublic = publicMode && publish.site ? (p: string) => `${publish.site}${withBase(p)}` : null;
 const pubHref = publicMode ? (p: string) => (publish.site ? `${publish.site}${withBase(p)}` : withBase(p)) : null;
 const llmsPath = locale === clientI18n.defaultLocale ? "/llms.txt" : `/${locale}/llms.txt`;
+// Page-footer meta: last-updated formatted for the PAGE locale, UTC-pinned so builds
+// are deterministic across machines/timezones.
+const lastUpdatedLabel = lastUpdatedIso
+  ? new Date(lastUpdatedIso).toLocaleDateString(locale, { dateStyle: "medium", timeZone: "UTC" })
+  : null;
 // Branding (config `branding`, served via /_nb/ — see pages/_nb/[...asset].ts).
 // Favicon falls back to a built-in inline mark so tabs are never blank.
 const DEFAULT_FAVICON =
@@ -235,6 +246,7 @@ const hasRail = page != null;
         <meta property="og:site_name" content={siteName} />
         <meta property="og:locale" content={locale} />
         {ogImage && <meta property="og:image" content={ogImage} />}
+        {lastUpdatedIso && <meta property="article:modified_time" content={lastUpdatedIso} />}
         <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
         <meta name="twitter:title" content={title} />
         {description && <meta name="twitter:description" content={description} />}
@@ -480,6 +492,20 @@ const hasRail = page != null;
         <article id="doc-content" class="prose" data-space={space} data-page={page}>
           <slot />
         </article>
+        {(editHref || lastUpdatedLabel) && (
+          <div class="page-meta">
+            {lastUpdatedLabel && (
+              <span class="page-meta-updated">
+                {m.updatedOn} <time datetime={lastUpdatedIso}>{lastUpdatedLabel}</time>
+              </span>
+            )}
+            {editHref && (
+              <a class="page-meta-edit" href={editHref} target="_blank" rel="noopener">
+                {m.editPage}
+              </a>
+            )}
+          </div>
+        )}
         {Comments && <Comments page={page} space={space} locale={locale} />}
         {publicMode && hasRail && <PublicZoom />}
       </main>

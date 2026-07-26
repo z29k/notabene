@@ -31,6 +31,9 @@ export default {
 
   store: "docs/.notabene",
 
+  // "Edit this page" on every doc page → GitHub editor.
+  editPattern: "https://github.com/z29k/notabene/edit/main/{path}",
+
   // Bilingual docs (suffix strategy: EN files keep their paths/URLs; FR = *.fr.md
   // siblings). Also the public demo of the language switcher + per-locale llms.txt.
   i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },

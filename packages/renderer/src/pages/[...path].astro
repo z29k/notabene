@@ -9,10 +9,13 @@ import DocLayout from "../layouts/DocLayout.astro";
 import SpaceIndex from "../components/SpaceIndex.astro";
 import SiteHome from "../components/SiteHome.astro";
 import { buildNav, folderLabels, humanize, pageTitle, type NavNode } from "../lib/nav";
+import path from "node:path";
 import { buildEquivalence, decode, isSpaceHomeId, localizeField, routeFor, switchLinks } from "../lib/i18n-content.mjs";
+import { gitDates } from "../lib/git-dates.mjs";
+import { pageFile } from "../lib/page-file";
 import { scopeToPath } from "../lib/print-scope";
 import { isPublicPage, visibleRoots } from "../lib/public-filter";
-import { i18n, pdf, roots } from "../config.mjs";
+import { REPO_ROOT, editPattern, i18n, pdf, roots } from "../config.mjs";
 
 export async function getStaticPaths() {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entries.
@@ -94,6 +97,8 @@ let page: string | undefined;
 let title = "";
 let current = "";
 let mdHref: string | undefined;
+let editHref: string | undefined;
+let lastUpdatedIso: string | undefined;
 let breadcrumb: { label: string; href?: string }[] = [];
 let exportScopes:
   | { space?: { href: string; label: string }; folder?: { href: string; label: string }; page?: { href: string; label: string } }
@@ -135,6 +140,21 @@ if (!isSiteHome) {
   // that's the index entry's route (/docs/index), not the synthetic /docs.
   if (entry) mdHref = routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
 
+  // Page footer meta: "Edit this page" (config editPattern) + last-updated (frontmatter
+  // `lastUpdated` wins, else git author date — one streamed `git log` per build).
+  if (entry) {
+    const abs = pageFile(page as string);
+    const rel = abs ? path.relative(REPO_ROOT, abs).replace(/\\/g, "/") : null;
+    if (rel && editPattern) editHref = editPattern.replace("{path}", rel);
+    const fm = entry.data?.lastUpdated ? new Date(entry.data.lastUpdated) : null;
+    if (fm && !Number.isNaN(fm.getTime())) {
+      lastUpdatedIso = fm.toISOString();
+    } else if (rel) {
+      const t = (await gitDates(REPO_ROOT, roots.map((r) => r.path))).get(rel);
+      if (t) lastUpdatedIso = new Date(t * 1000).toISOString();
+    }
+  }
+
   // Contextual PDF export targets, locale-scoped: the locale token prefixes non-default
   // space/folder scopes and the folder path is CANONICAL; a page scope carries the locale in
   // its raw id (no token).
@@ -171,6 +191,8 @@ if (!isSiteHome) {
       exportScopes={exportScopes}
       alternates={alternates}
       mdHref={mdHref}
+      editHref={editHref}
+      lastUpdatedIso={lastUpdatedIso}
       description={typeof entry?.data?.description === "string" ? entry.data.description : undefined}
     >
       {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}

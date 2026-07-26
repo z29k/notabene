@@ -102,6 +102,7 @@ jobs:
               { key: "notes", label: "Notes", path: "notes", publish: false },
             ],
             store: "docs/.notabene",
+            editPattern: "https://github.com/ci/repo/edit/main/{path}",
             home: "home.md",
             branding: { logo: "brand.svg", favicon: "brand.svg", socialImage: "brand.svg" },
             theme: { css: "theme.css", tokens: { accent: "#00ff99" } },
@@ -140,6 +141,7 @@ jobs:
           grep -q -- '--nb-accent:#ff00aa' /tmp/public-site/_nb/theme.css || { echo "MISSING: theme.css"; exit 1; }
           grep -q 'stylesheet" href="/repo/_nb/theme.css"' /tmp/public-site/index.html || { echo "MISSING: theme link"; exit 1; }
           grep -q -- ':root{--nb-accent:#00ff99}' /tmp/public-site/index.html || { echo "MISSING: inline tokens"; exit 1; }
+          grep -q 'https://github.com/ci/repo/edit/main/docs/index.md' /tmp/public-site/docs/index/index.html || { echo "MISSING: edit link"; exit 1; }
           grep -q "@layer nb-base" /tmp/public-site/_astro/*.css || { echo "MISSING: layered renderer styles"; exit 1; }
           # Scheme toggle: pre-paint forcing script, toggle button, light-dark() tokens.
           grep -q "nb-scheme" /tmp/public-site/index.html || { echo "MISSING: scheme init script"; exit 1; }
