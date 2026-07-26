@@ -16,6 +16,14 @@ Two installable pieces, one npm workspace:
 - **`packages/plugin`** — the Claude Code plugin. Its single skill
   (`skills/notabene/SKILL.md`) doubles as the agent-agnostic protocol spec.
 
+**Dogfood:** this repo is also its own consumer — `docs/` holds the user documentation
+(two spaces, `guide` + `reference`), wired by the root `notabene.config.mjs` (store at
+`docs/.notabene`, `review: "approve"`). `.github/workflows/docs.yml` publishes it to
+GitHub Pages (z29k.github.io/notabene) on push to `main` via `build --public`. Review it
+locally with `node packages/renderer/bin/notabene.mjs dev --root .`. The three READMEs
+are short landings; the docs site is the single source of user-facing detail — update
+`docs/`, not the READMEs, when documenting features.
+
 ## Commands
 
 Everything runs against a **consumer repo** (see run-from-package model below), so the
@@ -37,6 +45,8 @@ mkdir -p /tmp/nb-scratch/docs && printf '# Hi\n' > /tmp/nb-scratch/docs/index.md
 node bin/notabene.mjs init --root /tmp/nb-scratch   # writes notabene.config.mjs + .notabene store
 node bin/notabene.mjs dev   --root /tmp/nb-scratch   # review server → http://localhost:3009
 node bin/notabene.mjs build --root /tmp/nb-scratch   # verification build — must complete with 0 errors
+node bin/notabene.mjs build --root /tmp/nb-scratch --public --site https://example.com \
+  --out /tmp/nb-public                               # public read-only static artifact (llms.txt, .md twins)
 ```
 
 - **Tests are pure-logic** (`test/*.test.ts`, Vitest): anchoring/route resolution
@@ -157,6 +167,57 @@ parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to 
   + a system Chrome) → a PDF with a real **bookmark outline** + running footer page numbers.
   Flags: `--scope`, `--locale`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
   pagination hangs in a hidden tab and can't emit a real PDF outline — see the pdf-export memory).
+
+## Architecture: public publish mode (`build --public`)
+
+Opt-in **per build** (never a repo state): `notabene build --public [--site URL] [--base
+/sub] [--out DIR]` sets `NOTABENE_PUBLIC=1` → `config.mjs` exports `publicMode` +
+`publish { site, base, exclude }` (config key `publish:`, flags override via
+`NOTABENE_SITE`/`NOTABENE_BASE`; `site` = origin only, OPTIONAL — absent → an
+**origin-agnostic artifact** for server-side domain management: llms/twin/robots links go
+root-relative via `publicHref` (`lib/llms-content.ts`), hreflang stays path-based, and the
+origin-only surfaces — sitemap, canonical, og:url, JSON-LD — are not emitted at all). The
+artifact is a **pure-static, read-only site**; a normal dev/build is byte-identical to
+before the feature.
+
+- **Interaction is excluded STRUCTURALLY, not gated.** The interactive routes live in
+  `src/app-routes/` (`comments|review|journal.astro`, `api/*`) and are `injectRoute`d by
+  `src/integrations/app-routes.mjs` only when `!publicMode`; public builds load no Node
+  adapter (an on-demand route leaking in fails the build). `DocLayout` gates the chrome
+  (links, identity chips, `#notabene-me`/`#notabene-review` — the identity fallback embeds
+  the repo owner's git name/email, so it must not ship) and **dynamically imports**
+  `Comments.astro`/`ReviewChrome.astro` (a static import would emit their client chunks
+  even unrendered). Belt-and-braces: the CLI epilogue (`finishPublicBuild` in
+  `bin/notabene.mjs`) prunes unreferenced `_astro` assets to a fixpoint, writes
+  `.nojekyll`, and handles `--out` (marker-file-guarded copy — never overwrites a dir it
+  didn't generate). `ReviewChrome.astro` carries the identity dialog + review-badge script;
+  `PublicZoom.astro`/`lib/client/blocks-lightbox.ts` keep the diagram/image lightbox in
+  public pages without the comment code.
+- **Agent surface** (public only; `getStaticPaths` return `[]` otherwise): per-page
+  Markdown twins at `<route>/index.md` (`pages/[...path]/index.md.ts` — raw source
+  verbatim + a pointer header; advertised via `<link rel="alternate"
+  type="text/markdown">` + an sr-only agent directive in `DocLayout`), `/llms.txt` +
+  `/llms-full.txt` per locale (`pages/[...loc]/llms*.txt.ts`), canonical + absolute
+  hreflang + meta description/OG/Twitter/JSON-LD (public head block in `DocLayout`,
+  `description` from frontmatter). Ordering = the print/PDF ordering (`gatherAgentSpaces`
+  in `src/lib/llms-content.ts` reuses `buildNav`+`flattenNav`); text assembly is the pure,
+  unit-tested `src/lib/llms.ts`. No timestamps → byte-identical rebuilds. `robots.txt` is
+  injected by `src/integrations/public-routes.mjs`; the sitemap is `@astrojs/sitemap`
+  (public builds only).
+- **Public/private scoping** (`src/lib/public-filter.ts`, no-op outside public mode):
+  `roots[].publish: false` (whole space) → `visibleRoots()`; `publish.exclude` globs
+  matched against the locale-independent `<space key>/<canonical id>` (one pattern hides
+  every translation); frontmatter `publish: false` (per file). `isPublicPage()` is applied
+  at EVERY enumeration site — `[...path].astro`, `buildNav`/`folderLabels` (nav.ts),
+  `search-index.json.ts`, `print/[...scope].astro` (paths + assembly), `gatherAgentSpaces`
+  — and `clientRoots` (config.mjs) drops private spaces so their key/label/path never
+  reach the public `<head>`. Body links to excluded pages 404 (authoring concern).
+- **`base` support** (GitHub Pages project sites): route builders and `getStaticPaths`
+  params stay base-less; `withBase()` (`src/lib/base.ts`, reads `import.meta.env.BASE_URL`)
+  is applied at every EMISSION site (layout/components/404/search-index; active-state
+  comparisons stay base-less). The remark link rewriter gets `base` as an explicit option
+  (remark runs outside Vite). Public builds spawn Astro with `cwd = workDir` so the
+  adapterless prerender resolves deps via the workdir's `node_modules` symlink.
 
 ## Architecture: content i18n (multi-language docs)
 

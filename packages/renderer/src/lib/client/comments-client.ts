@@ -10,8 +10,7 @@ export type { BlockAnchor, Comment, CommentAnchor, CommentReply, CommentScope, C
 import { decode, routeFor } from "../i18n-content.mjs";
 
 /** HTML-escape for building card markup from user text. */
-export const esc = (s: string): string =>
-  s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c] || c);
+export { esc } from "./esc";
 
 /** ISO timestamp → date+time formatted for the PAGE locale (read from `<html lang>`, set
  *  from notabene.config `locale`) and the VIEWER's local timezone, so FR shows

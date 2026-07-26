@@ -2,10 +2,30 @@
 import "../styles/global.css";
 import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
-import Comments from "../components/Comments.astro";
+import PublicZoom from "../components/PublicZoom.astro";
+import { withBase } from "../lib/base";
+import { twinPath } from "../lib/llms";
 import type { Space } from "../lib/nav";
-import { author, authorEmail, clientI18n, clientRoots, pdf, reviewMode, siteName, tagline } from "../config.mjs";
+import {
+  author,
+  authorEmail,
+  clientI18n,
+  clientRoots,
+  pdf,
+  publicMode,
+  publish,
+  reviewMode,
+  siteName,
+  tagline,
+} from "../config.mjs";
 import { t } from "../i18n.mjs";
+
+// Review-app components are loaded DYNAMICALLY so a public build keeps them out of
+// the module graph entirely — a static import would still emit their client-script
+// chunks into the artifact even when never rendered. `publicMode` is a build-time
+// constant, so normal builds always take the import and behave as before.
+const Comments = publicMode ? null : (await import("../components/Comments.astro")).default;
+const ReviewChrome = publicMode ? null : (await import("../components/ReviewChrome.astro")).default;
 
 interface Heading {
   depth: number;
@@ -46,6 +66,10 @@ interface Props {
   exportScopes?: ExportScopes;
   /** Equivalent pages in other locales — drives the language switcher + hreflang. */
   alternates?: Alt[];
+  /** Route of the entry backing this page (public builds: its .md twin + agent directive). */
+  mdHref?: string;
+  /** Frontmatter description (public builds: meta description + OG + JSON-LD). */
+  description?: string;
   /** Aggregate pages (comments/journal/review/…): no per-page locale, so localize the chrome
    *  CLIENT-SIDE to the visitor's current language (localStorage) + show a client switcher. */
   i18nClientChrome?: boolean;
@@ -61,6 +85,8 @@ const {
   breadcrumb = [],
   exportScopes,
   alternates = [],
+  mdHref,
+  description,
   i18nClientChrome = false,
 } = Astro.props;
 // UI chrome follows THIS page's locale (t() falls back to English per key).
@@ -97,7 +123,33 @@ const xDefault = hreflangs.find((a) => a.locale === clientI18n.defaultLocale)?.h
 // redirect to it. `altMap` = { locale: href } of the real translations of THIS page.
 const altMap =
   clientI18n.enabled && !i18nClientChrome && hreflangs.length > 1
-    ? Object.fromEntries(hreflangs.map((a) => [a.locale, a.href]))
+    ? Object.fromEntries(hreflangs.map((a) => [a.locale, withBase(a.href)]))
+    : null;
+// hreflang must be an absolute URL to conform — possible only in a public build
+// (site is known); dev keeps the path form (harmless for a local tool).
+const hreflangHref = (h: string) => (publicMode && publish.site ? `${publish.site}${withBase(h)}` : withBase(h));
+// Public agent surface. `absPublic` builds ABSOLUTE URLs — only when the deployed
+// origin is known (publish.site); it gates the origin-bound surfaces (canonical,
+// og:url, JSON-LD). `pubHref` always resolves in public mode, falling back to
+// root-relative paths when the site is absent (origin-agnostic artifact: the
+// domain is the server's business, same-origin links resolve wherever it's served).
+const absPublic = publicMode && publish.site ? (p: string) => `${publish.site}${withBase(p)}` : null;
+const pubHref = publicMode ? (p: string) => (publish.site ? `${publish.site}${withBase(p)}` : withBase(p)) : null;
+const llmsPath = locale === clientI18n.defaultLocale ? "/llms.txt" : `/${locale}/llms.txt`;
+// Social/SEO meta (public builds only — a dev-local tool has no use for OG cards).
+// og:type: the site home is a website, everything else an article.
+const isHomeUrl = current === "/" || (clientI18n.enabled && current === `/${locale}`);
+const jsonLd =
+  absPublic && current
+    ? JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": isHomeUrl ? "WebSite" : "WebPage",
+        name: isHomeUrl ? siteName : title,
+        url: absPublic(current),
+        inLanguage: locale,
+        ...(description ? { description } : {}),
+        ...(isHomeUrl ? {} : { isPartOf: { "@type": "WebSite", name: siteName, url: absPublic("/") } }),
+      })
     : null;
 const redirectScript =
   "(function(){try{var alts=JSON.parse(document.getElementById('notabene-i18n-alts').textContent);" +
@@ -113,7 +165,7 @@ const showExport = pdf.enabled;
 // Export links open the print view in a NEW TAB and auto-open the browser's print
 // dialog (?autoprint=1, handled by lib/client/print.ts) — as close to "save straight to
 // PDF" as a browser allows. The silent file-export path is the `notabene pdf` CLI.
-const printHref = (href: string) => `${href}?autoprint=1`;
+const printHref = (href: string) => `${withBase(href)}?autoprint=1`;
 // Whole-doc PDF is per-locale (default unprefixed): /print or /print/<locale>.
 const wholeDocHref = locale === clientI18n.defaultLocale ? "/print" : `/print/${locale}`;
 // Doc pages (page set) carry the TOC + anchored-comment rail. App pages (review / comments /
@@ -129,8 +181,14 @@ const hasRail = page != null;
     <title>{title} · {siteName}</title>
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
-    <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
-    <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author, email: authorEmail })} />
+    {/* Review mode + default identity are review-app data; a public page must not
+        carry them (the identity fallback embeds the repo owner's git name/email). */}
+    {!publicMode && (
+      <script type="application/json" id="notabene-review" is:inline set:html={JSON.stringify({ mode: reviewMode })} />
+    )}
+    {!publicMode && (
+      <script type="application/json" id="notabene-me" is:inline set:html={JSON.stringify({ author, email: authorEmail })} />
+    )}
     <script type="application/json" id="notabene-i18n-config" is:inline set:html={JSON.stringify(clientI18n)} />
     {i18nAll && <script type="application/json" id="notabene-i18n-all" is:inline set:html={JSON.stringify(i18nAll)} />}
     {i18nAll && <script is:inline set:html={earlyLocaleScript} />}
@@ -138,8 +196,26 @@ const hasRail = page != null;
     {altMap && <script is:inline set:html={redirectScript} />}
     {showBanner && <script type="application/json" id="notabene-i18n-langs" is:inline set:html={JSON.stringify(docLangs)} />}
     {bannerTpl && <script type="application/json" id="notabene-i18n-banner" is:inline set:html={JSON.stringify(bannerTpl)} />}
-    {showLang && hreflangs.map((a) => <link rel="alternate" hreflang={a.locale} href={a.href} />)}
-    {showLang && xDefault && <link rel="alternate" hreflang="x-default" href={xDefault} />}
+    {showLang && hreflangs.map((a) => <link rel="alternate" hreflang={a.locale} href={hreflangHref(a.href)} />)}
+    {showLang && xDefault && <link rel="alternate" hreflang="x-default" href={hreflangHref(xDefault)} />}
+    {absPublic && current && <link rel="canonical" href={absPublic(current)} />}
+    {pubHref && mdHref && <link rel="alternate" type="text/markdown" href={pubHref(twinPath(mdHref))} />}
+    {pubHref && <link rel="alternate" type="text/plain" title="llms.txt" href={pubHref(llmsPath)} />}
+    {publicMode && description && <meta name="description" content={description} />}
+    {publicMode && current && (
+      <>
+        <meta property="og:type" content={isHomeUrl ? "website" : "article"} />
+        <meta property="og:title" content={title} />
+        {description && <meta property="og:description" content={description} />}
+        {absPublic && <meta property="og:url" content={absPublic(current)} />}
+        <meta property="og:site_name" content={siteName} />
+        <meta property="og:locale" content={locale} />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={title} />
+        {description && <meta name="twitter:description" content={description} />}
+      </>
+    )}
+    {jsonLd && <script type="application/ld+json" is:inline set:html={jsonLd} />}
   </head>
   <body>
     <header class="topbar">
@@ -153,16 +229,22 @@ const hasRail = page != null;
       >
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
       </button>
-      <a href="/" class="brand">{siteName} <span>· {tagline}</span></a>
+      <a href={withBase("/")} class="brand">{siteName} <span>· {tagline}</span></a>
       <div class="search">
         <input id="search-input" type="search" placeholder={m.searchPlaceholder} data-i18n-ph="searchPlaceholder" autocomplete="off" />
         <div id="search-results" class="search-results" hidden></div>
       </div>
-      <a href="/comments" class="topbar-link topbar-util" data-i18n="navComments">{m.navComments}</a>
-      <a href="/review" id="nav-review" class="topbar-link topbar-util js-review-link" hidden>
-        <span data-i18n="navReview">{m.navReview}</span> <span id="nav-review-badge" class="review-badge js-review-badge"></span>
-      </a>
-      <a href="/journal" class="topbar-link topbar-util" data-i18n="navJournal">{m.navJournal}</a>
+      {!publicMode && (
+        <a href={withBase("/comments")} class="topbar-link topbar-util" data-i18n="navComments">{m.navComments}</a>
+      )}
+      {!publicMode && (
+        <a href={withBase("/review")} id="nav-review" class="topbar-link topbar-util js-review-link" hidden>
+          <span data-i18n="navReview">{m.navReview}</span> <span id="nav-review-badge" class="review-badge js-review-badge"></span>
+        </a>
+      )}
+      {!publicMode && (
+        <a href={withBase("/journal")} class="topbar-link topbar-util" data-i18n="navJournal">{m.navJournal}</a>
+      )}
       {/* Flexible gap: keeps Comments/Journal on the left, pushes the ancillary
           language + Export + name group to the far right (desktop only — utils collapse
           into the drawer on compact). */}
@@ -181,7 +263,7 @@ const hasRail = page != null;
             <div class="lang-menu-pop">
               {alternates.map((a) => (
                 <a
-                  href={a.href}
+                  href={withBase(a.href)}
                   hreflang={a.locale}
                   lang={a.locale}
                   class:list={["lang-opt-row", { active: a.locale === locale }]}
@@ -252,30 +334,40 @@ const hasRail = page != null;
           </details>
         )
       }
-      <button id="nb-identity-chip" class="topbar-me topbar-util" type="button" title={m.identityHint} aria-label={m.identityHint} data-i18n-aria="identityHint">
-        <span aria-hidden="true">👤</span>
-        <span class="nb-identity-name"></span>
-      </button>
-      <button id="nb-cmt-sheet-btn" class="nb-cmt-sheet-btn" type="button" hidden aria-label={m.annotations}>
-        <span aria-hidden="true">💬</span> <span id="nb-cmt-sheet-count" class="nb-cmt-sheet-count"></span>
-      </button>
+      {!publicMode && (
+        <button id="nb-identity-chip" class="topbar-me topbar-util" type="button" title={m.identityHint} aria-label={m.identityHint} data-i18n-aria="identityHint">
+          <span aria-hidden="true">👤</span>
+          <span class="nb-identity-name"></span>
+        </button>
+      )}
+      {!publicMode && (
+        <button id="nb-cmt-sheet-btn" class="nb-cmt-sheet-btn" type="button" hidden aria-label={m.annotations}>
+          <span aria-hidden="true">💬</span> <span id="nb-cmt-sheet-count" class="nb-cmt-sheet-count"></span>
+        </button>
+      )}
     </header>
 
     <div class:list={["shell", { "shell--full": !hasRail }]}>
       <aside class="sidebar" id="nb-sidebar" tabindex="-1">
         <Sidebar current={current} activeSpace={space} locale={locale} />
         <nav class="drawer-util" aria-label={m.menu}>
-          <a href="/comments" class="drawer-link" data-i18n="navComments">{m.navComments}</a>
-          <a href="/review" class="drawer-link js-review-link" hidden>
-            <span data-i18n="navReview">{m.navReview}</span> <span class="review-badge js-review-badge"></span>
-          </a>
-          <a href="/journal" class="drawer-link" data-i18n="navJournal">{m.navJournal}</a>
+          {!publicMode && (
+            <a href={withBase("/comments")} class="drawer-link" data-i18n="navComments">{m.navComments}</a>
+          )}
+          {!publicMode && (
+            <a href={withBase("/review")} class="drawer-link js-review-link" hidden>
+              <span data-i18n="navReview">{m.navReview}</span> <span class="review-badge js-review-badge"></span>
+            </a>
+          )}
+          {!publicMode && (
+            <a href={withBase("/journal")} class="drawer-link" data-i18n="navJournal">{m.navJournal}</a>
+          )}
           {
             showLang && (
               <nav class="lang-switch-drawer" aria-label={m.language}>
                 {alternates.map((a) => (
                   <a
-                    href={a.href}
+                    href={withBase(a.href)}
                     hreflang={a.locale}
                     lang={a.locale}
                     class:list={["drawer-link lang-opt", { active: a.locale === locale }]}
@@ -311,10 +403,12 @@ const hasRail = page != null;
               </>
             )
           }
-          <button id="nb-identity-chip-drawer" class="drawer-me" type="button" aria-label={m.identityHint}>
-            <span aria-hidden="true">👤</span>
-            <span class="nb-identity-name"></span>
-          </button>
+          {!publicMode && (
+            <button id="nb-identity-chip-drawer" class="drawer-me" type="button" aria-label={m.identityHint}>
+              <span aria-hidden="true">👤</span>
+              <span class="nb-identity-name"></span>
+            </button>
+          )}
         </nav>
       </aside>
 
@@ -326,7 +420,7 @@ const hasRail = page != null;
               {breadcrumb.map((b, i) => (
                 <>
                   {i > 0 && <span class="sep">/</span>}
-                  {b.href ? <a href={b.href}>{b.label}</a> : <span>{b.label}</span>}
+                  {b.href ? <a href={withBase(b.href)}>{b.label}</a> : <span>{b.label}</span>}
                 </>
               ))}
             </nav>
@@ -343,14 +437,15 @@ const hasRail = page != null;
         <article id="doc-content" class="prose" data-space={space} data-page={page}>
           <slot />
         </article>
-        <Comments page={page} space={space} locale={locale} />
+        {Comments && <Comments page={page} space={space} locale={locale} />}
+        {publicMode && hasRail && <PublicZoom />}
       </main>
 
       {
         hasRail && (
           <aside class="rail">
             <Toc headings={headings} locale={locale} />
-            <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations} />
+            {!publicMode && <div id="cmt-rail" class="cmt-rail" role="region" aria-label={m.annotations} />}
           </aside>
         )
       }
@@ -358,28 +453,19 @@ const hasRail = page != null;
 
     <div id="nb-scrim" class="nb-scrim" hidden></div>
 
-    <dialog id="nb-identity-dialog" class="nb-dialog">
-      <form id="nb-identity-form" class="nb-identity-form" method="dialog" novalidate>
-        <h2>{m.identityTitle}</h2>
-        <p id="nb-identity-lede" class="nb-identity-lede">{m.identityLede}</p>
-        <label class="nb-field">
-          <span class="nb-field-label">{m.identityName}</span>
-          <input id="nb-identity-name" type="text" required autocomplete="name" placeholder={m.yourName} />
-        </label>
-        <label class="nb-field">
-          <span class="nb-field-label">{m.identityEmail} <em>{m.identityEmailOptional}</em></span>
-          <input id="nb-identity-email" type="email" autocomplete="email" placeholder="you@example.com" />
-          <small class="nb-hint">{m.identityEmailHint}</small>
-        </label>
-        <div class="nb-identity-actions">
-          <button type="button" id="nb-identity-cancel" class="nb-btn-ghost">{m.cancel}</button>
-          <button type="submit" id="nb-identity-save" class="nb-btn">{m.save}</button>
-        </div>
-      </form>
-    </dialog>
+    {/* Agent directive (public builds): tells an agent reading the HTML where the
+        Markdown twin and the machine index live. Invisible to sighted visitors. */}
+    {pubHref && mdHref && (
+      <aside class="sr-only" data-nb-agent-directive>
+        <p>{m.agentMarkdown} <a href={withBase(twinPath(mdHref))}>{pubHref(twinPath(mdHref))}</a></p>
+        <p>{m.agentIndex} <a href={withBase(llmsPath)}>{pubHref(llmsPath)}</a></p>
+      </aside>
+    )}
+
+    {/* Identity dialog + review-badge wiring — review-app only, never in a public build. */}
+    {ReviewChrome && <ReviewChrome locale={locale} />}
 
     <script>
-      import { getIdentity, hasIdentity, isLoopbackHost, setIdentity } from "../lib/client/comments-client";
       import { closeOverlay, currentOverlay, initShell, openOverlay } from "../lib/client/shell";
       import { localizeField } from "../lib/i18n-content.mjs";
 
@@ -474,79 +560,6 @@ const hasRail = page != null;
         }
       }
 
-      // Identity (name + optional email) — per-device, edited via a modal. The chips in
-      // the topbar + drawer open it; on a non-loopback (LAN/`--host`/deployed) host with no
-      // identity set yet, it's forced open before the visitor can interact, so comments are
-      // attributed to a real person rather than the repo owner's git default.
-      const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
-      const M = JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}");
-      const defName = meCfg.author || "you";
-      const defEmail = meCfg.email || "";
-
-      const dialog = document.getElementById("nb-identity-dialog") as HTMLDialogElement | null;
-      const form = document.getElementById("nb-identity-form") as HTMLFormElement | null;
-      const nameInput = document.getElementById("nb-identity-name") as HTMLInputElement | null;
-      const emailInput = document.getElementById("nb-identity-email") as HTMLInputElement | null;
-      const cancelBtn = document.getElementById("nb-identity-cancel") as HTMLButtonElement | null;
-      const lede = document.getElementById("nb-identity-lede");
-      const chips = Array.from(document.querySelectorAll("#nb-identity-chip, #nb-identity-chip-drawer"));
-      const nameLabels = Array.from(document.querySelectorAll<HTMLElement>(".nb-identity-name"));
-
-      let forced = false;
-
-      const refreshChips = () => {
-        const { name } = getIdentity(defName, defEmail);
-        for (const el of nameLabels) el.textContent = name;
-      };
-      refreshChips();
-
-      const openIdentity = (force = false) => {
-        if (!dialog) return;
-        forced = force;
-        const known = hasIdentity();
-        const cur = getIdentity(defName, defEmail);
-        // On a forced remote prompt with nothing stored, start blank so the visitor
-        // enters THEIR identity rather than accepting the repo owner's git default.
-        if (nameInput) nameInput.value = force && !known ? "" : cur.name;
-        if (emailInput) emailInput.value = force && !known ? "" : cur.email;
-        if (lede) lede.textContent = force ? M.identityNudge : M.identityLede;
-        if (cancelBtn) cancelBtn.hidden = force;
-        if (!dialog.open) dialog.showModal();
-        nameInput?.focus();
-      };
-
-      form?.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const name = nameInput?.value.trim() || "";
-        const email = emailInput?.value.trim() || "";
-        if (!name) {
-          nameInput?.setCustomValidity(M.identityNameRequired || "Required");
-          nameInput?.reportValidity();
-          return;
-        }
-        if (email && emailInput && !emailInput.checkValidity()) {
-          emailInput.reportValidity();
-          return;
-        }
-        setIdentity({ name, email });
-        refreshChips();
-        forced = false;
-        dialog?.close();
-      });
-
-      nameInput?.addEventListener("input", () => nameInput.setCustomValidity(""));
-      cancelBtn?.addEventListener("click", () => {
-        if (!forced) dialog?.close();
-      });
-      // Block Escape / backdrop dismissal while the identity is being forced.
-      dialog?.addEventListener("cancel", (e) => {
-        if (forced) e.preventDefault();
-      });
-      for (const chip of chips) chip.addEventListener("click", () => openIdentity(false));
-
-      // Gate: remote host + no identity yet → force the dialog before browsing.
-      if (!isLoopbackHost(location.hostname) && !hasIdentity()) openIdentity(true);
-
       // Hamburger → off-canvas nav drawer (compact only; the button is CSS-hidden on
       // desktop). Uses the shared overlay machinery (scrim, inert, scroll-lock, Escape).
       const navToggle = document.getElementById("nb-nav-toggle");
@@ -592,28 +605,6 @@ const hasRail = page != null;
           }
         }
       }
-
-      // Review badge: reveal every "Review" link (topbar + drawer) + a count of
-      // `addressed` comments when in approve mode, OR whenever any addressed comment
-      // exists (so none get stuck if the mode is flipped back to auto). One tiny fetch.
-      const reviewCfg = JSON.parse(document.getElementById("notabene-review")?.textContent || "{}");
-      const reviewLinks = Array.from(document.querySelectorAll<HTMLElement>(".js-review-link"));
-      const reviewBadges = Array.from(document.querySelectorAll<HTMLElement>(".js-review-badge"));
-      if (reviewLinks.length) {
-        fetch("/api/comments?all=1")
-          .then((r) => r.json())
-          .then((all: { status: string }[]) => {
-            const n = Array.isArray(all) ? all.filter((c) => c.status === "addressed").length : 0;
-            if (reviewCfg.mode === "approve" || n > 0) {
-              for (const l of reviewLinks) l.hidden = false;
-              for (const b of reviewBadges) {
-                b.textContent = n ? String(n) : "";
-                b.hidden = !n;
-              }
-            }
-          })
-          .catch(() => {});
-      }
     </script>
 
     <script>
@@ -627,7 +618,8 @@ const hasRail = page != null;
     </script>
 
     <script>
-      import { esc } from "../lib/client/comments-client";
+      import { withBase } from "../lib/base";
+      import { esc } from "../lib/client/esc";
       import { localizeField } from "../lib/i18n-content.mjs";
 
       // Client-side search: JSON index (title + headings + excerpt), scored.
@@ -660,7 +652,7 @@ const hasRail = page != null;
 
       let index: Doc[] | null = null;
       async function ensureIndex(): Promise<Doc[]> {
-        if (!index) index = await fetch("/search-index.json").then((r) => r.json());
+        if (!index) index = await fetch(withBase("/search-index.json")).then((r) => r.json());
         return index ?? [];
       }
 

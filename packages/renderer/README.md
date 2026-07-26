@@ -12,82 +12,22 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@z29k/notabene"><img alt="npm" src="https://img.shields.io/npm/v/@z29k/notabene?logo=npm&amp;color=cb3837" /></a>
-  <a href="https://github.com/z29k/notabene/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/z29k/notabene/actions/workflows/ci.yml/badge.svg" /></a>
-  <img alt="Node ≥ 22.12" src="https://img.shields.io/node/v/@z29k/notabene?logo=node.js&amp;color=5FA04E" />
-  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/npm/l/@z29k/notabene?color=3da638" /></a>
+  <a href="https://z29k.github.io/notabene/">📖 Documentation</a> ·
+  <a href="https://github.com/z29k/notabene">GitHub</a>
 </p>
-
-<p align="center">
-  MDX <strong>and</strong> CommonMark/GFM · Mermaid diagrams · PDF export · dev-local · zero backend · responsive · <strong>your data stays in git</strong>
-</p>
-
-<p align="center"><strong>English</strong> · <a href="https://github.com/z29k/notabene/blob/main/README.fr.md">Français</a></p>
 
 ---
 
 **notabene renders your repo's Markdown/MDX as a navigable site with review comments right
 on the page, and ships the human↔agent review protocol that turns those comments into
-edits. The viewer is the support - the protocol is the product.**
+edits.** Comments and journal are plain JSON committed in your git - no SaaS, no database;
+the viewer is the support, the protocol is the product.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-demo.gif" alt="notabene demo: comment a passage, the agent applies the edit, you approve the real diff" width="900" />
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-demo.gif" alt="notabene demo: comment a passage, the agent applies the edit, you approve the real diff" width="820" />
 </p>
-
-## Why
-
-Doc review today is scattered across PR line-comments, chat threads, and "can you
-fix the wording in section 3." The feedback is disconnected from the doc, and
-applying it is manual and lossy.
-
-notabene puts the comments **on the rendered doc**, stores them **in your git**
-(no SaaS, no database), and closes the loop: your agent reads the comments, edits
-the docs, marks them resolved, and writes a journal entry linking *what changed* to
-*why*.
-
-- **Stateless tool, data in your git.** Comments and journal are JSON files under
-  `.notabene/`. They travel with your repo, diff in PRs, and are readable by your
-  agent. No account, no server to deploy, no central state.
-- **Agent-native.** The review loop ships as a Claude Code skill - and as a
-  plain-text protocol any agent can follow.
-- **MDX *and* CommonMark/GFM.** Point it at `.md` (lenient) or `.mdx` (strict), or
-  mix them - selectable via config.
-- **Diagrams, first-class & commentable.** Write **Mermaid** in a fenced ` ```mermaid `
-  block - rendered inline. **Comment or enlarge** any diagram *or image* as a whole.
-- **Export a polished PDF.** From the **Export PDF** menu, turn any page, folder, space, or
-  the whole doc into a print-ready view (cover + clickable contents) → your browser's *Save
-  as PDF*, no dependency. For a book-quality file with a real **bookmark outline**, run
-  `notabene pdf` (headless Chromium, optional).
-- **Dev-local & safe by default.** The write API only runs under `notabene dev`,
-  binds loopback (`127.0.0.1`) by default, and never ships in a build.
-- **Phone, tablet & touch.** The viewer is fully responsive: below 1024px the nav
-  folds into a drawer and the TOC and anchored comments become bottom sheets, and you
-  can **select text and comment with your thumb** from a docked action bar (≥44px
-  controls, keyboard-safe compose). Review the docs from the couch; desktop is unchanged.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-mobile-demo.gif" alt="notabene on a phone: touch-select a passage, the action bar docks at the bottom, leave a comment" width="300" />
-</p>
-
-<p align="center"><em>Same loop on a phone - touch-select, comment from the docked bar; nav and anchored comments as sheets.</em></p>
-
-## How it works (30 seconds)
-
-1. `npx notabene dev` → open the site, **select any text → leave a comment** (or
-   comment a whole page). Threads, resolve, hold, a global `/comments` view.
-2. Tell your agent: **"address the doc comments."**
-3. The agent reads `.notabene/`, edits the docs faithfully, marks each comment
-   **resolved**, and appends a **journal** entry (what / why / which comments).
-4. Read the trail at `/journal`.
-
-> 📽️ _That's the clip above - comment a passage, the agent proposes the edit, you approve the real diff._
 
 ## Install
-
-notabene is **two installable pieces**: the **renderer** (an npm package + CLI) and
-the **review skill** (a Claude Code plugin). Install one or both.
-
-### 1 · The renderer - npm package
 
 ```bash
 npm install -D @z29k/notabene   # or: pnpm add -D @z29k/notabene · bun add -d @z29k/notabene
@@ -95,200 +35,41 @@ npx notabene init               # writes notabene.config.mjs + creates the .nota
 npx notabene dev                # → http://localhost:3009
 ```
 
-> The npm package is scoped (`@z29k/notabene`); the CLI command it installs is
-> just **`notabene`**, so `npx notabene …` works as-is.
+`init` is the only thing that touches your repo - the renderer **runs from the package**
+(nothing scaffolded, upgrades are `npm update`). Then comment the rendered docs and tell
+your agent to *"address the doc comments"* - the review skill ships as a
+[Claude Code plugin](https://github.com/z29k/notabene#readme) and as a plain-text
+protocol any agent can follow.
 
-`init` is the **only** thing that touches your repo - it writes `notabene.config.mjs`
-and creates the `.notabene/` store. The renderer itself **runs from the package**
-(nothing is scaffolded or copied into your repo; upgrades are just `npm update`).
+## Features
 
-CLI:
+Every entry links into the [documentation](https://z29k.github.io/notabene/):
 
-| Command | What it does |
-| --- | --- |
-| `notabene doctor` | Read-only state as JSON: config/store/port + detected doc folders - `--json` |
-| `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present); `--detect` auto-detects doc folders |
-| `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon |
-| `notabene status` | Is the detached server running? (pid, port, URL) - `--json` |
-| `notabene stop` | Stop the detached server |
-| `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
-| `notabene preview` | Serve the built site |
-| `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep (or `puppeteer-core` + `--chrome`) |
-| `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
-| `notabene comments ls` | List comments - `--open` `--json` `--page <p>` (for agents/scripts) |
-| `notabene journal add` | Append a JSON journal entry read from stdin |
+- [Anchored comments](https://z29k.github.io/notabene/guide/first-review) - text
+  selections, whole pages, diagrams & images; threads, hold, `/comments`.
+- [The agent review loop](https://z29k.github.io/notabene/guide/review-loop) -
+  file-I/O-first protocol; optional **approve mode** with real git diffs at `/review`.
+- [A real doc site](https://z29k.github.io/notabene/guide/configuration) - spaces,
+  frontmatter sidebar, search, commentable Mermaid, dark mode, responsive.
+- [MDX and CommonMark/GFM](https://z29k.github.io/notabene/guide/configuration) - lenient
+  `.md`, strict `.mdx`, mixable.
+- [Multi-language docs](https://z29k.github.io/notabene/guide/multilingual) - clean
+  prefixed URLs, switcher, per-language comments.
+- [PDF export](https://z29k.github.io/notabene/guide/pdf-export) - print views in the
+  browser, bookmarked PDFs via `notabene pdf`.
+- [Publish a public site](https://z29k.github.io/notabene/guide/publish) - read-only
+  static build with `llms.txt` + Markdown twins, private-content scoping, GitHub Pages
+  workflow.
+- [The `.notabene` store contract](https://z29k.github.io/notabene/reference/store-contract)
+  and the [safety model](https://z29k.github.io/notabene/reference/safety).
 
-Flags: `--port <n>` · `--detach` (dev: background daemon) · `--detect` (init: auto-detect
-roots) · `--scope`/`--out`/`--chrome` (pdf) · `--config <path>` · `--root <path>` · `--host`
-(expose on the LAN - trusted networks only).
+The full CLI (build, pdf, status, migrate, comments, journal…) is in the
+[CLI reference](https://z29k.github.io/notabene/reference/cli).
 
-### 2 · The review skill - Claude Code plugin
+## Requirements
 
-In Claude Code:
-
-```
-/plugin marketplace add z29k/notabene
-/plugin install notabene@z29k
-```
-
-Then just say **"address the doc comments"** (or *"review the docs"*, *"apply the
-review feedback"*). The skill reads your `notabene.config.mjs`, processes the `open`
-(non-held) comments, edits the docs, marks them resolved, appends the journal, and
-runs your `verify` checks - never committing without asking.
-
-Prefer manual install? Copy `packages/plugin/skills/notabene/` into your project's
-`.claude/skills/`. Using another agent? The skill file **is** the protocol spec -
-point your agent at it.
-
-## Configure
-
-`notabene.config.mjs` at your repo root is the only wiring. Paths are repo-relative.
-
-```js
-// notabene.config.mjs
-export default {
-  siteName: "My Project",
-  tagline: "docs",
-  locale: "en",
-
-  // Input format. "mdx": .mdx STRICT + .md CommonMark/GFM lenient (mix by extension).
-  // "commonmark": everything CommonMark/GFM, no MDX dependency/strictness.
-  format: "commonmark",
-
-  // Doc spaces. `key` = url slug + store space; `path` = repo-relative folder.
-  roots: [
-    { key: "docs", label: "Docs", path: "docs", exclude: [".notabene/**"] },
-  ],
-
-  store: "docs/.notabene",   // comments + journal (commit this folder)
-  port: 3009,
-  host: false,               // loopback only - the write API edits your git
-  verify: [],                // consumer checks your agent runs after editing
-  review: "auto",            // "auto" (agent resolves) | "approve" (you validate - see below)
-
-  // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name / user.email)
-  // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // PDF export (Export menu + /print)
-};
-```
-
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `siteName` / `tagline` | `"Docs"` / `"docs"` | Header brand |
-| `locale` | `"en"` | UI language + nav sort collation |
-| `format` | `"mdx"` | `"mdx"` or `"commonmark"` (see below) |
-| `roots[]` | `[{docs}]` | Doc spaces: `{ key, label, path, exclude, description }` |
-| `store` | `"docs/.notabene"` | Comments + journal folder |
-| `port` | `3009` | `astro dev` port |
-| `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` exposes the write API to the LAN |
-| `verify[]` | `[]` | Post-edit checks the agent runs (the renderer build always runs) |
-| `review` | `"auto"` | `"auto"` = agent resolves comments; `"approve"` = agent proposes (`addressed`), you validate each at `/review` with a diff |
-| `author` | git `user.name` | Default comment author; each browser overrides it per-device via the **identity dialog** (name + optional email) |
-| `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
-| `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
-| `i18n` | — | Multi-language docs: `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` — clean prefixed URLs, a switcher that sets a language preference (redirects to the equivalent, banner + fallback when untranslated), hreflang, per-page chrome (aggregate pages `/comments`·`/journal`·`/review`·`/`·`404` follow it client-side). Omit for one language |
-
-### Sidebar labels & ordering
-
-By default a page's sidebar entry is its **humanized file name** and siblings sort
-alphabetically. Override either per page with frontmatter — so you don't have to prefix file
-names with numbers:
-
-```yaml
----
-title: Cartographie du réseau interne   # page <title> + breadcrumb (overrides the H1)
-sidebar:
-  label: Cartographie                   # sidebar text (else title, else file name)
-  order: 9                              # position among siblings (ascending)
----
-```
-
-- `order` sorts ascending; entries **without** an `order` keep sorting alphabetically,
-  after the ordered ones. Groups and pages share one ordering, so a numbered folder slots
-  into the numbered page sequence.
-- A **folder** is named and positioned by its landing page — `<folder>/index.md` (or
-  `<folder>/readme.md`) — whose `sidebar` frontmatter applies to the whole group. That page
-  shows as a localized *Overview* entry inside the group; rename it with `sidebar.indexLabel`.
-- These labels flow through to breadcrumbs and PDF export as well.
-
-## Two-phase review (optional)
-
-By default the agent resolves comments directly. Set `review: "approve"` for a
-**human-in-the-loop** loop: the agent edits and marks each comment **`addressed`** instead
-of resolved, then you validate at **`/review`** (or the *To validate* filter on
-`/comments`). You see the **real git diff** of everything that changed for a comment -
-**cascades included** (one comment can touch several pages) - and **approve** (→ resolved)
-or **reject** (→ reopened, with your reason, which the agent reads on its next pass). The
-diff renders **unified or side-by-side**, and a **Review** badge in the header counts
-what's waiting.
-
-## MDX and CommonMark/GFM
-
-The renderer picks the processor **by file extension**:
-
-- **`.md`** → CommonMark/GFM, **lenient**. `<email@x>`, `Promise<T>`, `{var}`, raw
-  HTML and GFM tables all render without a crash.
-- **`.mdx`** → **strict** MDX (JSX/expressions) - importable components, but `<`/`{`
-  outside code fences must be escaped.
-
-`format: "mdx"` (default) enables both, mixable in one repo. `format: "commonmark"`
-drops the MDX dependency entirely - best for a plain-Markdown repo.
-
-> Note: the config **default** is `"mdx"` (omit the key to get it), but `notabene init`
-> scaffolds `"commonmark"` - the safe, zero-dependency, most-lenient starting point.
-
-## The `.notabene` contract
-
-The store is a **versioned contract** (`<store>/meta.json` → `schemaVersion`), so
-your data stays portable and diffable. A comment:
-
-```jsonc
-{ "id", "space", "page", "scope",
-  "anchor": { "quote", "prefix", "suffix", "section" } | null,   // text-quote anchor
-  "thread": [{ "author", "body", "ts" }],
-  "status": "open" | "addressed" | "resolved",
-  "hold": false,                                                 // agent skips held comments
-  "resolution": { "note", "journalEntryId"? } | null,
-  "createdAt", "updatedAt" }
-```
-
-A journal entry: `{ id, date, title, summary, changes[] { page, commentIds[], what, why } }`.
-
-> The `anchor` shown is a text-quote selector; a **block-scoped** comment (a whole diagram or
-> image) carries a block anchor instead. `thread[].author` is a plain string that may be
-> git-style **`Name <email>`** — split on the trailing `<…>` for the display name.
-
-## How it's different
-
-- **Starlight / Docusaurus** render docs beautifully - but there's no commenting and no
-  review loop.
-- **PR line-comments & chat threads** capture feedback - but it lives *away* from the doc,
-  and applying it is manual and lossy.
-- **notabene** is the missing middle: annotate your **repo's** docs in the browser, keep
-  **everything in git**, and let your **agent** close the loop.
-
-## Safety
-
-The comments API writes into your git. So:
-
-- It **only runs under `notabene dev`** - it is not part of a build artifact
-  (writes return `403` outside dev).
-- It **binds loopback by default** - not reachable from your network unless you opt
-  in with `--host` / `NOTABENE_HOST=1` on a trusted network.
-- **Every write is gated** beyond the bind: cross-origin requests are refused
-  (anti-CSRF), a non-loopback `Host` is refused in loopback mode (anti-DNS-rebinding),
-  and - when you set `NOTABENE_TOKEN` - each write must carry a matching
-  `x-notabene-token`. Setting a token is **recommended when you use `--host`**.
-- The agent skill **never commits without asking** and **never bulk-deletes** the
-  store.
-- On a **non-loopback host** (LAN via `--host`, or a deployed build), each visitor is asked
-  to set their **identity** (name + optional email) before browsing, so comments are
-  attributed to a real person rather than the repo owner's git default.
-
-## Repo layout
-
-- **`packages/renderer`** - the `notabene` npm package (Astro renderer + CLI).
-- **`packages/plugin`** - the Claude Code plugin (the review skill).
+**Node ≥ 22.12**, npm/pnpm/bun. Optional `puppeteer` peer dependency for `notabene pdf`.
 
 ## License
 
-[MIT](./LICENSE).
+[MIT](https://github.com/z29k/notabene/blob/main/LICENSE)

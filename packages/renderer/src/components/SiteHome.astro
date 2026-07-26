@@ -6,9 +6,11 @@
 // same head-redirect as doc pages. Used by `index.astro` (default locale) and the site-home
 // branch of `[...path].astro` (other locales). Card labels/descriptions follow the per-locale
 // `roots[].label`/`description` (localizeField).
+import { withBase } from "../lib/base";
 import DocLayout from "../layouts/DocLayout.astro";
 import { i18n, roots, siteName } from "../config.mjs";
 import { localizeField, routeFor } from "../lib/i18n-content.mjs";
+import { visibleRoots } from "../lib/public-filter";
 import { t } from "../i18n.mjs";
 
 interface Props {
@@ -23,7 +25,7 @@ const alternates = i18n.enabled
   ? i18n.locales.map((l: string) => ({ locale: l, href: l === i18n.defaultLocale ? "/" : `/${l}`, translated: true }))
   : [];
 const current = locale === i18n.defaultLocale ? "/" : `/${locale}`;
-const cards = roots.map((root) => ({
+const cards = visibleRoots(roots).map((root) => ({
   href: routeFor({ space: root.key, id: "", locale }, i18n),
   label: localizeField(root.labelI18n, locale, i18n.defaultLocale) ?? root.label,
   description: localizeField(root.descriptionI18n, locale, i18n.defaultLocale) ?? root.description,
@@ -38,7 +40,7 @@ const cards = roots.map((root) => ({
   <div class="home-cards">
     {
       cards.map((c) => (
-        <a class="home-card" href={c.href}>
+        <a class="home-card" href={withBase(c.href)}>
           <h2>{c.label}</h2>
           <p><code>{c.subLabel}</code></p>
           {c.description && <p>{c.description}</p>}

@@ -37,10 +37,30 @@ npm run demo    # generate ./.demo (gitignored, git-backed, approve mode) + star
 # or customize (deterministic per --seed; default out is ./.demo):
 node scripts/gen-fixture.mjs --format mdx --locale fr --review approve \
   --spaces 3 --pages 6 --seed 7 --git
+# bilingual demo (adds the other of en/fr): --i18n directory|suffix
+# public-scoping seeds (a private space, a publish.exclude'd wip/ sub-tree, a
+# frontmatter publish:false page, `description` frontmatter, a `publish` block):
+node scripts/gen-fixture.mjs --publish --i18n directory
+node packages/renderer/bin/notabene.mjs build --root .demo --public --out /tmp/demo-public
+grep -r "PRIVATE marker" /tmp/demo-public   # must find nothing
 ```
 
 The demo lands in a gitignored `.demo/` at the repo root (a nested git repo when `--git`),
 so it's easy to browse and never gets committed.
+
+## The documentation site (dogfood)
+
+`docs/` is the user documentation, and this repo is its own notabene consumer (root
+`notabene.config.mjs`, store at `docs/.notabene`). Edit the pages in `docs/`, preview and
+review them with the loop itself:
+
+```bash
+node packages/renderer/bin/notabene.mjs dev --root .      # comment the docs locally
+node packages/renderer/bin/notabene.mjs build --root . --public --out /tmp/site  # what Pages will serve
+```
+
+`.github/workflows/docs.yml` deploys to z29k.github.io/notabene on push to `main`. The
+READMEs are short landings — user-facing detail belongs in `docs/`, in one place.
 
 ## Conventions
 

@@ -243,6 +243,8 @@ export async function buildReport({ repoRoot, configPath }) {
     port: cfg.port,
     host: cfg.host,
     review: cfg.reviewMode,
+    // Public publish target (additive; absent site → not configured for publishing).
+    publish: { site: cfg.publish.site ?? null, base: cfg.publish.base, excluded: cfg.publish.exclude.length },
   });
 
   report.store = { ...readStoreState(cfg.storeAbs), openComments: countOpenComments(cfg.storeAbs) };

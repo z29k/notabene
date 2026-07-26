@@ -45,3 +45,70 @@ jobs:
 
       - name: Smoke-build the scratch consumer
         run: node packages/renderer/bin/notabene.mjs build --root /tmp/consumer
+
+      # PUBLIC build contract: seed a comment first, then assert the artifact is
+      # pure-static + leak-free (no store data, no identity/review chrome, no /api
+      # surface) and carries the agent surface (llms.txt, .md twins, robots, sitemap)
+      # with every URL under the --base prefix.
+      - name: Smoke-build the PUBLIC artifact (leak checks)
+        run: |
+          set -e
+          mkdir -p /tmp/consumer/docs/.notabene/docs/index
+          printf '{ "id": "c-leak", "space": "docs", "page": "docs/index", "scope": "page", "anchor": null, "thread": [{ "author": "CI <ci@example.com>", "body": "LEAKCANARY-not-for-public", "ts": "2026-01-01T00:00:00Z" }], "status": "open", "hold": false, "resolution": null, "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-01T00:00:00Z" }\n' > /tmp/consumer/docs/.notabene/docs/index/c-leak.json
+          # One canary per scoping knob: frontmatter page · private space · excluded glob.
+          printf -- '---\npublish: false\n---\n\n# Private\n\nPRIVATECANARY page excluded from public builds.\n' > /tmp/consumer/docs/private.md
+          mkdir -p /tmp/consumer/notes /tmp/consumer/docs/wip
+          printf '# Notes\n\nSPACECANARY private space.\n' > /tmp/consumer/notes/index.md
+          printf '# Draft\n\nGLOBCANARY excluded sub-tree.\n' > /tmp/consumer/docs/wip/draft.md
+          # Bilingual (suffix strategy): a FR home → per-locale llms/twins/hreflang; a FR
+          # sibling of the glob-excluded page → scoping hides EVERY translation at once.
+          printf '# Accueil\n\nVersion française de la page d accueil.\n' > /tmp/consumer/docs/index.fr.md
+          printf '# Brouillon\n\nGLOBCANARY sous-arbre exclu (FR).\n' > /tmp/consumer/docs/wip/draft.fr.md
+          cat > /tmp/consumer/notabene.config.mjs << 'CFG'
+          export default {
+            siteName: "CI",
+            format: "commonmark",
+            roots: [
+              { key: "docs", label: "Docs", path: "docs", exclude: [".notabene/**"] },
+              { key: "notes", label: "Notes", path: "notes", publish: false },
+            ],
+            store: "docs/.notabene",
+            i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
+            publish: { exclude: ["docs/wip/**"] },
+          };
+          CFG
+          node packages/renderer/bin/notabene.mjs build --root /tmp/consumer --public \
+            --site https://ci.example.com --base /repo --out /tmp/public-site
+          # Present: the reading site + the agent surface, in BOTH locales.
+          for f in index.html 404.html llms.txt llms-full.txt robots.txt sitemap-index.xml .nojekyll \
+                   docs/index/index.md fr/llms.txt fr/llms-full.txt fr/docs/index/index.md; do
+            test -f "/tmp/public-site/$f" || { echo "MISSING: $f"; exit 1; }
+          done
+          grep -q 'hreflang="fr" href="https://ci.example.com/repo/fr/' /tmp/public-site/docs/index/index.html \
+            || { echo "MISSING: absolute FR hreflang"; exit 1; }
+          # Absent: store data, review/identity chrome, any /api surface, server bundle,
+          # and everything scoped private (page / space / glob).
+          ! grep -RIq "LEAKCANARY" /tmp/public-site || { echo "LEAK: store data in public artifact"; exit 1; }
+          for canary in PRIVATECANARY SPACECANARY GLOBCANARY; do
+            ! grep -RIq "$canary" /tmp/public-site || { echo "LEAK: $canary content in public artifact"; exit 1; }
+          done
+          test ! -e /tmp/public-site/docs/private && test ! -e /tmp/public-site/notes && test ! -e /tmp/public-site/docs/wip
+          for pat in nb-identity-dialog notabene-me /api/comments /api/journal /api/diff; do
+            ! grep -RIq -- "$pat" /tmp/public-site || { echo "LEAK: $pat in public artifact"; exit 1; }
+          done
+          test ! -e /tmp/public-site/journal && test ! -e /tmp/public-site/comments && test ! -e /tmp/public-site/review
+          # Base prefix applied to emitted links.
+          grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
+          grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
+          # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,
+          # no Sitemap line in robots.txt, root-relative llms/twin links, and NOT ONE
+          # absolute origin baked anywhere in the artifact.
+          node packages/renderer/bin/notabene.mjs build --root /tmp/consumer --public \
+            --base /repo --out /tmp/public-relative
+          test -f /tmp/public-relative/llms.txt && test ! -e /tmp/public-relative/sitemap-index.xml
+          ! grep -q "Sitemap:" /tmp/public-relative/robots.txt || { echo "robots.txt points at a sitemap that is not emitted"; exit 1; }
+          grep -q '](/repo/docs/index/index.md)' /tmp/public-relative/llms.txt || { echo "MISSING: root-relative llms links"; exit 1; }
+          ! grep -RIq "https://ci.example.com" /tmp/public-relative || { echo "LEAK: baked origin in origin-agnostic artifact"; exit 1; }
+          # Scoping must not affect normal builds — rebuild non-public with the
+          # publish:false page present.
+          node packages/renderer/bin/notabene.mjs build --root /tmp/consumer

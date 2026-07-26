@@ -92,6 +92,10 @@ function normalizeRoot(root, defaultLocale) {
     // Sidebar sub-title (e.g. "docs/").
     subLabel: `${rel}/`,
     exclude: Array.isArray(root.exclude) ? root.exclude : [],
+    // Public-build scoping: `publish: false` keeps this WHOLE space out of a
+    // `build --public` artifact (routes, nav, search, llms, twins, sitemap).
+    // Dev/normal builds always include everything.
+    publish: root.publish !== false,
     abs,
     baseUrl: pathToFileURL(abs),
     // Content-loader glob: format extensions minus the exclusions.
@@ -133,6 +137,68 @@ export const pdf = {
   margin: pdfCfg.margin ?? "18mm",
 };
 
+// Public publish mode (§ public exposure). `notabene build --public` produces a
+// read-only STATIC site — no comments/review/journal UI, no write API, no store
+// data — with an agent-readable surface (llms.txt, per-page .md twins, sitemap).
+// Opt-in PER BUILD via NOTABENE_PUBLIC=1 (set by the CLI flag), never a repo
+// state: a normal dev/build run stays byte-identical to pre-publish behavior.
+//   publish.site — absolute ORIGIN of the deployed site (e.g.
+//                  "https://user.github.io"). OPTIONAL: with it, absolute URLs are
+//                  baked (canonical, og:url, JSON-LD, hreflang, llms.txt, sitemap,
+//                  robots' Sitemap line). WITHOUT it the artifact is
+//                  ORIGIN-AGNOSTIC — same output behind any domain (server-side
+//                  vhost/proxy): those surfaces fall back to root-relative paths
+//                  and the origin-only ones (sitemap, canonical, og:url, JSON-LD)
+//                  are simply not emitted. Must not carry a path — a sub-path
+//                  belongs in `base`.
+//   publish.base — optional sub-path when the site is served under a prefix
+//                  (GitHub Pages project site → "/<repo>"). Default "/". Applied
+//                  to Astro's `base` ONLY in public mode. Unlike the domain, a
+//                  sub-path always affects rendering — it cannot be server-side.
+// CLI flags --site/--base override the config (via NOTABENE_SITE/NOTABENE_BASE).
+export const publicMode = process.env.NOTABENE_PUBLIC === "1";
+const publishCfg = userConfig.publish ?? {};
+function normalizeBase(raw) {
+  if (raw == null || raw === "" || raw === "/") return "/";
+  const b = String(raw);
+  if (!b.startsWith("/")) {
+    throw new Error(`notabene: publish.base must start with "/" (got "${raw}").`);
+  }
+  const trimmed = b.replace(/\/+$/, "");
+  return trimmed === "" ? "/" : trimmed;
+}
+function normalizeSite(raw) {
+  if (raw == null || raw === "") return undefined;
+  let url;
+  try {
+    url = new URL(String(raw));
+  } catch {
+    throw new Error(`notabene: publish.site must be an absolute URL (got "${raw}").`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(`notabene: publish.site must be http(s) (got "${raw}").`);
+  }
+  if (url.pathname !== "/" || url.search || url.hash) {
+    throw new Error(
+      `notabene: publish.site must be an origin only (got "${raw}") — put the sub-path in publish.base instead.`,
+    );
+  }
+  return url.origin;
+}
+// publish.exclude — glob patterns (`*` segment, `**` deep) matched against a page's
+// LOCALE-INDEPENDENT public identity `<space key>/<canonical id>` (i.e. its URL path
+// without locale prefix), so one pattern hides every translation. Complements the
+// per-space `roots[].publish: false` and per-page frontmatter `publish: false`.
+const publishExclude = publishCfg.exclude ?? [];
+if (!Array.isArray(publishExclude) || publishExclude.some((g) => typeof g !== "string")) {
+  throw new Error("notabene: publish.exclude must be an array of glob strings.");
+}
+export const publish = {
+  site: normalizeSite(process.env.NOTABENE_SITE ?? publishCfg.site),
+  base: normalizeBase(process.env.NOTABENE_BASE ?? publishCfg.base),
+  exclude: publishExclude,
+};
+
 // Content i18n (multi-language docs). Optional, backward-compatible: no `i18n` block →
 // one locale (the global `locale`), `enabled:false` → identical to a mono-language site.
 //   locales       — content languages, e.g. ["en","fr"]; order = switcher order.
@@ -168,6 +234,7 @@ export const i18n = {
  * @property {string} path
  * @property {string} subLabel
  * @property {string[]} exclude
+ * @property {boolean} publish false = this space stays out of `build --public` artifacts
  * @property {string} abs
  * @property {URL} baseUrl
  * @property {string[]} pattern
@@ -200,7 +267,9 @@ export const storeAbs = path.resolve(REPO_ROOT, storeRel);
 // Serializable roots for client scripts (no absolute paths / node:* leak). The raw per-locale
 // label/description maps ride along ONLY when i18n is enabled, so a mono-language site's
 // serialized `#notabene-roots` stays byte-identical (client resolves via localizeField).
-export const clientRoots = roots.map((r) => ({
+// Public builds drop private spaces here too — their key/label/path must not reach the
+// public `<head>` (same scoping as the routes; see lib/public-filter.ts).
+export const clientRoots = (publicMode ? roots.filter((r) => r.publish) : roots).map((r) => ({
   key: r.key,
   label: r.label,
   path: r.path,
@@ -241,6 +310,8 @@ export default {
   author,
   authorEmail,
   pdf,
+  publicMode,
+  publish,
   i18n,
   clientI18n,
   roots,

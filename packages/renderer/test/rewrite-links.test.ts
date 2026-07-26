@@ -10,9 +10,9 @@ const OFF = { locales: ["en"], defaultLocale: "en", strategy: "directory", enabl
 const DIR = { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory", enabled: true };
 const SUF = { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix", enabled: true };
 
-function run(fromFile: string, url: string, i18n = OFF): string {
+function run(fromFile: string, url: string, i18n = OFF, base = "/"): string {
   const tree = { type: "root", children: [{ type: "link", url, children: [] }] };
-  remarkRewriteLinks({ roots, i18n })(tree, { path: fromFile });
+  remarkRewriteLinks({ roots, i18n, base })(tree, { path: fromFile });
   return tree.children[0].url;
 }
 
@@ -47,5 +47,12 @@ describe("remarkRewriteLinks", () => {
   it("i18n suffix: a link with no same-locale sibling falls back to the default route", () => {
     // /repo/docs/b.fr.md does not exist here → falls back to the default-locale /docs/b.
     expect(run("/repo/docs/a.fr.md", "./b.md", SUF)).toBe("/docs/b");
+  });
+
+  it("public base: prefixes rewritten routes, leaves non-rewritten links untouched", () => {
+    expect(run("/repo/docs/index.md", "./guide/a.md", OFF, "/repo")).toBe("/repo/docs/guide/a");
+    expect(run("/repo/docs/fr/index.md", "./guide/a.md", DIR, "/repo")).toBe("/repo/fr/docs/guide/a");
+    expect(run("/repo/docs/index.md", "https://example.com/x.md", OFF, "/repo")).toBe("https://example.com/x.md");
+    expect(run("/repo/docs/index.md", "/abs/x.md", OFF, "/repo")).toBe("/abs/x.md");
   });
 });

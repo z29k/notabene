@@ -11,16 +11,18 @@ import SiteHome from "../components/SiteHome.astro";
 import { buildNav, folderLabels, humanize, pageTitle, type NavNode } from "../lib/nav";
 import { buildEquivalence, decode, isSpaceHomeId, localizeField, routeFor, switchLinks } from "../lib/i18n-content.mjs";
 import { scopeToPath } from "../lib/print-scope";
+import { isPublicPage, visibleRoots } from "../lib/public-filter";
 import { i18n, pdf, roots } from "../config.mjs";
 
 export async function getStaticPaths() {
   // biome-ignore lint/suspicious/noExplicitAny: dynamic Astro collection entries.
   const all: any[] = [];
-  for (const root of roots) {
+  for (const root of visibleRoots(roots)) {
     const entries = await getCollection(root.key as never);
     // biome-ignore lint/suspicious/noExplicitAny: dynamic collection entry.
     for (const entry of entries as any[]) {
       const { locale, id } = decode(entry.id, i18n);
+      if (!isPublicPage(root.key, id, entry.data)) continue;
       all.push({ space: root.key, entry, rawId: entry.id, locale, id });
     }
   }
@@ -91,6 +93,7 @@ let nodes: NavNode[] = [];
 let page: string | undefined;
 let title = "";
 let current = "";
+let mdHref: string | undefined;
 let breadcrumb: { label: string; href?: string }[] = [];
 let exportScopes:
   | { space?: { href: string; label: string }; folder?: { href: string; label: string }; page?: { href: string; label: string } }
@@ -128,6 +131,9 @@ if (!isSiteHome) {
   }
 
   current = isHome ? homeHref : routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
+  // The .md twin (public builds) lives at the ENTRY's own route — for a space home
+  // that's the index entry's route (/docs/index), not the synthetic /docs.
+  if (entry) mdHref = routeFor({ space: spaceKey, id: canonicalId, locale }, i18n);
 
   // Contextual PDF export targets, locale-scoped: the locale token prefixes non-default
   // space/folder scopes and the folder path is CANONICAL; a page scope carries the locale in
@@ -164,6 +170,8 @@ if (!isSiteHome) {
       breadcrumb={entry && !isHome ? breadcrumb : []}
       exportScopes={exportScopes}
       alternates={alternates}
+      mdHref={mdHref}
+      description={typeof entry?.data?.description === "string" ? entry.data.description : undefined}
     >
       {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
     </DocLayout>

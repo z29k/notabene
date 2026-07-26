@@ -30,9 +30,14 @@ function visit(node, fn) {
 }
 
 /**
- * @param {{ roots: { key: string, abs: string }[], i18n: { locales: string[], defaultLocale: string, strategy: string, enabled: boolean } }} opts
+ * `base` (optional, default "/"): sub-path prefix applied to every rewritten route —
+ * public builds served under a prefix (GitHub Pages project site). Passed explicitly
+ * because remark runs outside Vite: `import.meta.env.BASE_URL` (lib/base) is not
+ * available here.
+ * @param {{ roots: { key: string, abs: string }[], i18n: { locales: string[], defaultLocale: string, strategy: string, enabled: boolean }, base?: string }} opts
  */
-export function remarkRewriteLinks({ roots, i18n }) {
+export function remarkRewriteLinks({ roots, i18n, base = "/" }) {
+  const prefix = base === "/" ? "" : base.replace(/\/+$/, "");
   // Most specific root (longest absolute path) first: a nested space (docs/plans) must win.
   const ordered = [...roots].sort((a, b) => b.abs.length - a.abs.length);
 
@@ -80,7 +85,7 @@ export function remarkRewriteLinks({ roots, i18n }) {
 
       const abs = path.resolve(fromDir, target);
       const route = toRoute(abs, srcLocale);
-      if (route) node.url = route + hash;
+      if (route) node.url = prefix + route + hash;
     });
   };
 }

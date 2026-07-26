@@ -45,6 +45,21 @@ export default {
   // PDF export (the "Export PDF" menu + /print routes). Optional — omit for defaults.
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },
 
+  // Public publishing (`notabene build --public`): a read-only STATIC site — no
+  // comments/review UI, no API, no store data — plus an agent-readable surface
+  // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin;
+  // OPTIONAL — omit it to keep the domain out of the repo (server-side vhost/proxy):
+  // the artifact then bakes no absolute URL (llms/twin links go root-relative; the
+  // origin-only surfaces — sitemap, canonical, og:url, JSON-LD — are not emitted).
+  // The cost is search-engine visibility only — readers and AI agents lose nothing.
+  // `base` = sub-path when hosted under a prefix (GitHub Pages project site →
+  // "/<repo>") — unlike the domain, it always affects rendering. CLI flags
+  // --site/--base override. Scope what goes public (dev always shows everything):
+  //   - a whole space:  `publish: false` on a roots[] entry (above)
+  //   - a sub-tree:     `exclude` globs on `<space key>/<page id>` (locale-independent)
+  //   - a single page:  frontmatter `publish: false`
+  // publish: { site: "https://user.github.io", base: "/my-repo", exclude: ["docs/internal/**"] },
+
   // Multi-language docs. Optional — omit for a single language. Clean prefixed URLs
   // (default locale unprefixed, others /<locale>/…). Two authoring layouts:
   //   "directory" → a folder per locale:  docs/en/guide.md · docs/fr/guide.md

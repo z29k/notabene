@@ -5,6 +5,8 @@
 // prerendered 404 is served for every path (Astro.url would be the build-time path).
 import DocLayout from "../layouts/DocLayout.astro";
 import { clientI18n, locale, roots } from "../config.mjs";
+import { withBase } from "../lib/base";
+import { visibleRoots } from "../lib/public-filter";
 import { t } from "../i18n.mjs";
 
 const m = t(locale);
@@ -16,14 +18,14 @@ const m = t(locale);
     <h1 data-i18n="notFoundTitle">{m.notFoundTitle}</h1>
     <p class="lede" data-i18n="notFoundBody">{m.notFoundBody}</p>
     <p class="nf-path"><span data-i18n="notFoundPathLabel">{m.notFoundPathLabel}</span> <code id="nf-path">—</code></p>
-    <p class="nf-actions"><a class="nf-home" href="/" data-i18n="notFoundHome">{m.notFoundHome}</a></p>
+    <p class="nf-actions"><a class="nf-home" href={withBase("/")} data-i18n="notFoundHome">{m.notFoundHome}</a></p>
   </div>
 
   <p class="nf-spaces-label" data-i18n="notFoundSpaces">{m.notFoundSpaces}</p>
   <div class="home-cards">
     {
-      roots.map((root) => (
-        <a class="home-card" href={`/${root.key}`}>
+      visibleRoots(roots).map((root) => (
+        <a class="home-card" href={withBase(`/${root.key}`)}>
           <h2 data-nb-root-label={clientI18n.enabled ? root.key : undefined}>{root.label}</h2>
           <p><code>{root.subLabel}</code></p>
           {root.description && <p data-nb-root-desc={clientI18n.enabled ? root.key : undefined}>{root.description}</p>}

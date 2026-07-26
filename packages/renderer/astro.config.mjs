@@ -3,14 +3,26 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
+import sitemap from "@astrojs/sitemap";
+import { notabeneAppRoutes } from "./src/integrations/app-routes.mjs";
+import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
-import { REPO_ROOT, host, i18n, mdxEnabled, port, roots } from "./src/config.mjs";
+import { REPO_ROOT, host, i18n, mdxEnabled, port, publicMode, publish, roots } from "./src/config.mjs";
 
 // This package directory (the Astro root). Run-from-package puts the renderer OUTSIDE the
 // consumer tree, so the consumer root alone (REPO_ROOT) does not cover the app's own source
 // (e.g. src/styles/global.css, client scripts) — Vite's fs.allow must include it too.
 const PKG_ROOT = fileURLToPath(new URL(".", import.meta.url));
+
+// A site-less public build is a supported, deliberate mode (domain managed server-side) —
+// say so once, with what it changes, so nobody hunts for a missing sitemap.
+if (publicMode && !publish.site) {
+  console.warn(
+    "notabene: public build without a site URL → origin-agnostic artifact (no sitemap/canonical/og:url; " +
+      "llms.txt and .md-twin links are root-relative). Pass --site or set publish.site to bake absolute URLs.",
+  );
+}
 
 // notabene renderer — a navigable site over a repo's docs + a human↔agent review
 // loop. DEV-LOCAL tool, not deployed. Plain Astro (not Starlight): content lives
@@ -31,12 +43,26 @@ export default defineConfig({
   // temp dir. Absolute paths are used as-is; undefined = Astro's default.
   ...(process.env.NOTABENE_OUT_DIR ? { outDir: process.env.NOTABENE_OUT_DIR } : {}),
   ...(process.env.NOTABENE_CACHE_DIR ? { cacheDir: process.env.NOTABENE_CACHE_DIR } : {}),
+  // PUBLIC MODE (§ public exposure): a pure static artifact. `site`/`base` come from
+  // publish config (canonical URLs, llms.txt, sitemap; base = GitHub Pages sub-path).
+  // The interactive routes are simply not injected (see integrations below) and NO
+  // adapter is loaded — nothing on-demand survives into the artifact.
+  ...(publicMode && publish.site ? { site: publish.site } : {}),
+  ...(publicMode && publish.base !== "/" ? { base: publish.base } : {}),
   // Doc pages are static (prerendered); /api/comments is `prerender = false`
-  // (on-demand) → the Node adapter serves the write API. Dev-only.
-  adapter: node({ mode: "standalone" }),
+  // (on-demand) → the Node adapter serves the write API. Dev-only, never in a
+  // public build (no adapter → the build fails loudly if an on-demand route leaks in).
+  ...(publicMode ? {} : { adapter: node({ mode: "standalone" }) }),
   // MDX only in "mdx" format (§10.bis). In "commonmark", .md files go through
-  // Astro's native markdown pipeline (lenient CommonMark/GFM).
-  integrations: mdxEnabled ? [mdx()] : [],
+  // Astro's native markdown pipeline (lenient CommonMark/GFM). The interactive app
+  // routes (comments/review/journal + /api/*) are INJECTED — absent from a public
+  // build (see src/integrations/app-routes.mjs). The sitemap needs absolute URLs →
+  // only in public builds WITH a site; a site-less public build stays
+  // origin-agnostic (no sitemap rather than a wrong one).
+  integrations: [
+    ...(mdxEnabled ? [mdx()] : []),
+    ...(publicMode ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()] : [notabeneAppRoutes()]),
+  ],
   markdown: {
     // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs
     // leaves that fence as a plain <pre><code class="language-mermaid">, which the rehype
@@ -44,8 +70,9 @@ export default defineConfig({
     syntaxHighlight: { type: "shiki", excludeLangs: ["mermaid"] },
     shikiConfig: { theme: "github-dark", wrap: true },
     // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
-    // [attacher, options]: unified calls remarkRewriteLinks(roots).
-    remarkPlugins: [[remarkRewriteLinks, { roots, i18n }]],
+    // [attacher, options]: unified calls remarkRewriteLinks(roots). The base is
+    // passed explicitly (remark runs outside Vite → no BASE_URL there).
+    remarkPlugins: [[remarkRewriteLinks, { roots, i18n, base: publicMode ? publish.base : "/" }]],
     // ```mermaid fence → <pre class="mermaid"> (rendered client-side; see lib/client/mermaid.ts).
     rehypePlugins: [rehypeMermaid],
   },
