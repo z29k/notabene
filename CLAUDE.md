@@ -11,8 +11,8 @@ edits. The viewer is the support; **the protocol (the review skill) is the produ
 Two installable pieces, one npm workspace:
 
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro renderer
-  + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf`, plus `doctor` /
-  `status` / `stop` / `migrate` / `comments` / `journal`). Published to npm.
+  + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf` / `lint`, plus
+  `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Published to npm.
 - **`packages/plugin`** — the Claude Code plugin. Its single skill
   (`skills/notabene/SKILL.md`) doubles as the agent-agnostic protocol spec.
 

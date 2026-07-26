@@ -16,6 +16,7 @@ aucun frontmatter se rend très bien (noms de fichiers humanisés, ordre alphab�
 title: Internal network map        # <title> de la page + fil d'Ariane (prime sur le premier H1)
 description: Segments and VLANs.   # builds publics : meta description + OpenGraph + JSON-LD
 publish: false                     # builds publics : exclut cette page entièrement
+lastUpdated: 2026-05-04            # pied de page : prime sur la date git « Mis à jour le »
 sidebar:
   label: Network map               # texte de la sidebar (sinon title, sinon nom de fichier humanisé)
   order: 9                         # position parmi les pages sœurs (croissant)
@@ -28,6 +29,7 @@ sidebar:
 | `title` | `<title>` de la page, fil d'Ariane, titre du résultat de recherche. Se replie sur le premier `# H1`, puis sur le nom du fichier |
 | `description` | [Builds publics](../guide/publish/index.md) : `<meta name="description">`, description OpenGraph/Twitter, JSON-LD |
 | `publish: false` | [Builds publics](../guide/publish/private-content.md) : la page n'est **pas construite** — ni route, ni nav, ni recherche, ni llms, ni double, ni sitemap. Les builds dev/normaux la montrent toujours |
+| `lastUpdated` | Prime sur la [date dérivée de git](../guide/configuration.fr.md#pied-de-page--lien-dédition--dernière-mise-à-jour) dans le *Mis à jour le* du pied de page. Toute date que YAML sait parser. Utile quand l'historique git induit en erreur (contenu importé ou généré) |
 | `sidebar.label` | Texte de l'entrée dans la sidebar. Résolution : `sidebar.label` → `title` → nom de fichier humanisé |
 | `sidebar.order` | Clé de tri parmi les pages sœurs, croissante. Les entrées sans valeur gardent l'ordre alphabétique, après celles qui sont ordonnées. Groupes et pages partagent un seul ordre |
 | `sidebar.indexLabel` | Sur la page d'accueil d'un dossier : renomme son entrée *Aperçu* localisée |

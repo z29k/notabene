@@ -86,6 +86,10 @@ only where you're curious:
   Markdown twins, sitemap, OpenGraph), private-content scoping, GitHub Pages workflow
   included. The [documentation site](https://z29k.github.io/notabene/) is notabene
   publishing itself.
+- **[Link validation](https://z29k.github.io/notabene/reference/cli)** - `notabene lint`
+  checks every internal link against the routes the last build **actually emitted** -
+  dead links with did-you-mean suggestions, plus public→private leaks after
+  `build --public`.
 - **[A git-native store](https://z29k.github.io/notabene/reference/store-contract)** -
   comments + journal as versioned JSON in your repo: diffs in PRs, conflict-free merges,
   a schema agents can rely on.
