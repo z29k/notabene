@@ -24,7 +24,8 @@ port required:
 4. **Mark** the comment resolved (or `addressed` in approve mode) and **append the
    journal**: one entry per pass, one change record per page touched, linked back to the
    comment ids.
-5. **Verify**: the renderer build always runs; then your `verify[]` checks.
+5. **Verify**: the renderer build always runs, then `notabene lint` (inter-doc links
+   validated against the routes that build just emitted), then your `verify[]` checks.
 6. **Report** and ask before committing — never a silent commit, never a bulk delete.
 
 Comments a reviewer puts **on hold** (⏸) are skipped — they're your work-in-progress.

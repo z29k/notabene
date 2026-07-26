@@ -21,6 +21,7 @@ The npm package is scoped (`@z29k/notabene`); the installed command is just
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene build --public` | Read-only **static** site for public hosting — [see the guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]` |
 | `notabene preview` | Serve the built site |
+| `notabene lint` | Validate inter-doc links against the **last build's** emitted routes (did-you-mean suggestions; `--json`). After `build --public`, also catches links from public pages into [private content](../guide/publish/private-content.md). Exit 1 = broken links, 2 = no build yet |
 | `notabene pdf` | Export a PDF via headless Chromium (bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep (or `puppeteer-core` + `--chrome`) |
 | `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
 | `notabene comments ls` | List comments — `--open` `--json` `--page <p>` (for agents/scripts) |

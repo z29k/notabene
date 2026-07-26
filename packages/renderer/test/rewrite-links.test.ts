@@ -49,6 +49,11 @@ describe("remarkRewriteLinks", () => {
     expect(run("/repo/docs/a.fr.md", "./b.md", SUF)).toBe("/docs/b");
   });
 
+  it("collapses a folder's index like Astro's glob loader; keeps a root-level index", () => {
+    expect(run("/repo/docs/index.md", "./guide/index.md")).toBe("/docs/guide"); // folder landing
+    expect(run("/repo/docs/guide/a.md", "../index.md")).toBe("/docs/index"); // root index keeps its id
+  });
+
   it("public base: prefixes rewritten routes, leaves non-rewritten links untouched", () => {
     expect(run("/repo/docs/index.md", "./guide/a.md", OFF, "/repo")).toBe("/repo/docs/guide/a");
     expect(run("/repo/docs/fr/index.md", "./guide/a.md", DIR, "/repo")).toBe("/repo/fr/docs/guide/a");
