@@ -45,6 +45,11 @@ export default {
   // PDF export (the "Export PDF" menu + /print routes). Optional — omit for defaults.
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },
 
+  // Custom landing page: a repo-relative Markdown file rendered above the space cards
+  // on "/" (README-like welcome; relative links become routes; per-locale map allowed).
+  // Best kept OUTSIDE your spaces — inside one it also renders as a normal page.
+  // home: "docs/home.md",
+
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface
   // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin;

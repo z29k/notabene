@@ -64,6 +64,8 @@ jobs:
           # sibling of the glob-excluded page → scoping hides EVERY translation at once.
           printf '# Accueil\n\nVersion française de la page d accueil.\n' > /tmp/consumer/docs/index.fr.md
           printf '# Brouillon\n\nGLOBCANARY sous-arbre exclu (FR).\n' > /tmp/consumer/docs/wip/draft.fr.md
+          # Custom home page: rendered on "/" above the space cards (public + normal).
+          printf '# Welcome\n\nHOMECANARY custom landing content.\n' > /tmp/consumer/home.md
           cat > /tmp/consumer/notabene.config.mjs << 'CFG'
           export default {
             siteName: "CI",
@@ -73,6 +75,7 @@ jobs:
               { key: "notes", label: "Notes", path: "notes", publish: false },
             ],
             store: "docs/.notabene",
+            home: "home.md",
             i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
             publish: { exclude: ["docs/wip/**"] },
           };
@@ -98,6 +101,7 @@ jobs:
           done
           test ! -e /tmp/public-site/journal && test ! -e /tmp/public-site/comments && test ! -e /tmp/public-site/review
           # Base prefix applied to emitted links.
+          grep -q "HOMECANARY" /tmp/public-site/index.html || { echo "MISSING: custom home content on /"; exit 1; }
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
           # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,

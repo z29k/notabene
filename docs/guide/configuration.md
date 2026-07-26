@@ -54,6 +54,27 @@ The renderer picks the processor **by file extension**:
 `format: "commonmark"` (what `init` scaffolds) drops the MDX dependency entirely — the
 safe, most-lenient starting point for a plain-Markdown repo.
 
+## Custom home page
+
+By default the landing page (`/`) shows the site name and one card per space. Point
+`home` at a Markdown file to render **your own welcome** above those cards — the classic
+move is a README-like intro written *for the site*, with relative links that become
+routes:
+
+```js
+home: "docs/home.md",
+```
+
+- Full pipeline: Mermaid, code highlighting, and **inter-doc links rewritten** to site
+  routes — link straight into your spaces (`[install](./guide/install.md)`).
+- Best kept **outside** your spaces (a dedicated doc): inside a space it would *also*
+  render as a normal page of that space.
+- With [i18n](./multilingual.md), pass a per-locale map:
+  `home: { en: "docs/home.md", fr: "docs/home.fr.md" }` — each locale's landing
+  (`/`, `/fr`) renders its own file.
+- This site's [home page](/notabene/) is exactly that — see
+  [`docs/home.md`](https://github.com/z29k/notabene/blob/main/docs/home.md).
+
 ## Sidebar labels & ordering
 
 By default a page's sidebar entry is its **humanized file name** and siblings sort

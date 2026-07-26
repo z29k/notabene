@@ -276,6 +276,38 @@ export const clientRoots = (publicMode ? roots.filter((r) => r.publish) : roots)
   ...(i18n.enabled ? { labelI18n: r.labelI18n, descriptionI18n: r.descriptionI18n } : {}),
 }));
 
+// Custom site home (§ SiteHome). Optional: a repo-relative Markdown file rendered as
+// the landing-page content, above the space cards — the classic use is a README-like
+// welcome written FOR the site (relative links to doc pages get rewritten to routes).
+// A plain string applies to every locale; a per-locale map resolves like
+// roots[].label (localizeField). The file may live OUTSIDE any space (recommended: a
+// dedicated doc); inside a space it ALSO renders as a normal page of that space.
+// Loaded through a dedicated content collection ("nb-home", see content.config.ts) so
+// it gets the full pipeline (Shiki, Mermaid, link rewriting). Omitted → the default
+// landing (site name + space cards) is byte-identical to before.
+function normalizeHomePath(raw) {
+  const rel = String(raw).replace(/\\/g, "/").replace(/^\.\//, "");
+  const abs = path.resolve(REPO_ROOT, rel);
+  if (!abs.startsWith(REPO_ROOT + path.sep)) {
+    throw new Error(`notabene: home file "${raw}" escapes the repo root.`);
+  }
+  if (!fs.existsSync(abs)) {
+    throw new Error(`notabene: home file "${raw}" not found (the path is repo-relative).`);
+  }
+  return rel;
+}
+const homeCfg = userConfig.home ?? null;
+export const home =
+  homeCfg == null
+    ? null
+    : typeof homeCfg === "string"
+      ? normalizeHomePath(homeCfg)
+      : Object.fromEntries(Object.entries(homeCfg).map(([loc, p]) => [loc, normalizeHomePath(p)]));
+export const homeFiles = home == null ? [] : [...new Set(typeof home === "string" ? [home] : Object.values(home))];
+if (homeFiles.length > 0 && roots.some((r) => r.key === "nb-home")) {
+  throw new Error('notabene: the space key "nb-home" is reserved for the custom home collection — rename that root.');
+}
+
 /**
  * Logical `page` path (e.g. "docs/plans/services/x") → site route. Most specific root
  * (longest path) first — a nested space (docs/plans) must win over its parent (docs).
@@ -318,5 +350,7 @@ export default {
   storeRel,
   storeAbs,
   clientRoots,
+  home,
+  homeFiles,
   routeForPage,
 };
