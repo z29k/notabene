@@ -118,7 +118,7 @@ CLI :
 | `notabene dev` | Lance le serveur de revue sur les docs de ce repo (live-reload) ; `--detach` = daemon en arrière-plan |
 | `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL) - `--json` |
 | `notabene stop` | Arrête le serveur détaché |
-| `notabene build` | Build le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
+| `notabene build` | Build le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact). `--public [--site URL] [--base /sub] [--out DIR]` = site statique en lecture seule pour hébergement public (llms.txt, doubles .md, sitemap) |
 | `notabene preview` | Sert le site buildé |
 | `notabene pdf` | Exporte un PDF via Chromium headless (vrai volet de signets + numéros de page) ; `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Requiert la peer dep optionnelle `puppeteer` (ou `puppeteer-core` + `--chrome`) |
 | `notabene migrate` | Convertit le store vers le format un-fichier-par-commentaire (estampille `schemaVersion` 3) |
@@ -183,6 +183,7 @@ export default {
 
   // author: "Alex", authorEmail: "alex@x.io",  // identité de commentaire par défaut (sinon git user.name / user.email)
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // export PDF (menu Export + /print)
+  // publish: { site: "https://user.github.io", base: "/repo", exclude: [] },  // cible de `build --public`
 };
 ```
 
@@ -201,6 +202,7 @@ export default {
 | `authorEmail` | git `user.email` | Email d'auteur par défaut ; embarqué façon git (`Name <email>`) pour des identités uniques |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | Export PDF — `enabled` active le menu Export + les routes `/print` ; `pageSize`/`margin` règlent la boîte `@page` |
 | `i18n` | — | Doc multilingue : `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` (voir plus bas). Omettre pour une seule langue |
+| `publish` | — | Cible de `build --public` : `{ site, base, exclude }` (voir [Publier un site public](#publier-un-site-public)). À affiner avec `roots[].publish: false` ou le frontmatter `publish: false` |
 
 ### Libellés et ordre de la barre latérale
 

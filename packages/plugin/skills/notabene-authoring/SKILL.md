@@ -60,6 +60,8 @@ file-name prefixes:
 ```yaml
 ---
 title: Cartographie du réseau interne   # page <title> + breadcrumb (overrides the H1)
+description: Plan des segments et VLANs # public builds: meta description + OpenGraph
+publish: false                          # public builds: keep this page OUT of `build --public`
 sidebar:
   label: Cartographie                   # sidebar text (else title, else humanized file name)
   order: 9                              # position among siblings (ascending)
@@ -75,9 +77,15 @@ sidebar:
   collapses to the folder path) or `<folder>/readme.md`. Put the `sidebar` frontmatter there
   and it applies to the whole group; that page becomes the group's *Overview* entry (label
   localized per UI language, e.g. FR *Aperçu* — override it with `sidebar.indexLabel`).
+- **`description`** feeds the meta description / OpenGraph / JSON-LD of a **public build**
+  (`notabene build --public`) — one plain sentence summarizing the page.
+- **`publish: false`** keeps the page **out of public builds** entirely (route, nav, search,
+  `llms.txt`, Markdown twin, sitemap) — the dev/review site always shows it. **Preserve this
+  key when editing a page that carries it.** Whole spaces (`roots[].publish: false`) and
+  sub-trees (`publish.exclude` globs in the config) scope the same way.
 - Frontmatter is **optional**: with none, the sidebar shows humanized file names sorted
-  alphabetically (unchanged). Only `title` and `sidebar` are interpreted — any other keys pass
-  through untouched.
+  alphabetically (unchanged). Only `title`, `description`, `publish` and `sidebar` are
+  interpreted — any other keys pass through untouched.
 
 ## Mermaid diagrams (logigrammes, séquences, ER…)
 

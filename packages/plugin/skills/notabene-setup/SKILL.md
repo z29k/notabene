@@ -111,6 +111,7 @@ has **`docs.detected`** instead.
      verify: [],                // extra post-edit checks the review loop runs
      review: "auto",            // "approve" = you validate each edit (with a diff) at /review
      // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // PDF export (optional)
+     // publish: { site: "https://user.github.io", base: "/repo" },  // `build --public` target (optional)
      // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name/.email)
    };
    ```
@@ -132,7 +133,10 @@ regenerate from the template.
 2. **Edit in place** (Edit tool) — leave untouched fields and comments alone, **show the
    diff, confirm**. Common changes: add/remove/rename a `roots[]` entry; `format`; `port`;
    `review` (auto ↔ approve); `siteName`/`tagline`/`locale`; `author`/`authorEmail`; `pdf`
-   (PDF export); `verify[]`; `host` (⚠ security — only on explicit request).
+   (PDF export); `publish` (`{ site, base, exclude }` — the `notabene build --public`
+   target: a read-only static site for public hosting; scope with `roots[].publish: false`
+   / `exclude` globs / per-page frontmatter `publish: false`); `verify[]`; `host`
+   (⚠ security — only on explicit request).
 3. **Surface the consequences — never silently** (some edits orphan comments):
    - **`store` moved** → existing comments stay at the old path. Offer to move the store dir.
    - **`roots[].key` renamed** → changes URL slugs and the stored `space`/`page` prefix →

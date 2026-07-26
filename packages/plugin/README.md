@@ -77,5 +77,10 @@ LAN exposure (`--host`) is explicit opt-in. The plugin **never commits** and nev
 the store. The `.notabene/` store is meant to be **committed** in your repo — it's the
 public data contract agents read.
 
+Want the docs themselves online? The renderer can emit a **read-only public site** (no
+review UI, no store data, llms.txt + Markdown twins for the agent web) with
+`notabene build --public` — see
+[Publish a public site](https://github.com/z29k/notabene#publish-a-public-site).
+
 See the [repo](https://github.com/z29k/notabene) for the full docs, the renderer CLI, and
 the review protocol.

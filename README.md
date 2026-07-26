@@ -116,7 +116,7 @@ CLI:
 | `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon |
 | `notabene status` | Is the detached server running? (pid, port, URL) - `--json` |
 | `notabene stop` | Stop the detached server |
-| `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
+| `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact). `--public [--site URL] [--base /sub] [--out DIR]` = read-only static site for public hosting (llms.txt, .md twins, sitemap) |
 | `notabene preview` | Serve the built site |
 | `notabene pdf` | Export a PDF via headless Chromium (real bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep (or `puppeteer-core` + `--chrome`) |
 | `notabene migrate` | Convert the store to the one-file-per-comment layout (stamps `schemaVersion` 3) |
@@ -181,6 +181,7 @@ export default {
 
   // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name / user.email)
   // pdf: { enabled: true, pageSize: "A4", margin: "18mm" },  // PDF export (Export menu + /print)
+  // publish: { site: "https://user.github.io", base: "/repo", exclude: [] },  // `build --public` target
 };
 ```
 
@@ -199,6 +200,7 @@ export default {
 | `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | PDF export — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
 | `i18n` | — | Multi-language docs: `{ locales, defaultLocale, strategy: "directory"\|"suffix" }` (see below). Omit for one language |
+| `publish` | — | `build --public` target: `{ site, base, exclude }` (see [Publish a public site](#publish-a-public-site)). Scope with `roots[].publish: false` or frontmatter `publish: false` |
 
 ### Sidebar labels & ordering
 
