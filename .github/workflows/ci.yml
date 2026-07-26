@@ -60,6 +60,10 @@ jobs:
           mkdir -p /tmp/consumer/notes /tmp/consumer/docs/wip
           printf '# Notes\n\nSPACECANARY private space.\n' > /tmp/consumer/notes/index.md
           printf '# Draft\n\nGLOBCANARY excluded sub-tree.\n' > /tmp/consumer/docs/wip/draft.md
+          # Bilingual (suffix strategy): a FR home → per-locale llms/twins/hreflang; a FR
+          # sibling of the glob-excluded page → scoping hides EVERY translation at once.
+          printf '# Accueil\n\nVersion française de la page d accueil.\n' > /tmp/consumer/docs/index.fr.md
+          printf '# Brouillon\n\nGLOBCANARY sous-arbre exclu (FR).\n' > /tmp/consumer/docs/wip/draft.fr.md
           cat > /tmp/consumer/notabene.config.mjs << 'CFG'
           export default {
             siteName: "CI",
@@ -69,15 +73,19 @@ jobs:
               { key: "notes", label: "Notes", path: "notes", publish: false },
             ],
             store: "docs/.notabene",
+            i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
             publish: { exclude: ["docs/wip/**"] },
           };
           CFG
           node packages/renderer/bin/notabene.mjs build --root /tmp/consumer --public \
             --site https://ci.example.com --base /repo --out /tmp/public-site
-          # Present: the reading site + the agent surface.
-          for f in index.html 404.html llms.txt llms-full.txt robots.txt sitemap-index.xml .nojekyll docs/index/index.md; do
+          # Present: the reading site + the agent surface, in BOTH locales.
+          for f in index.html 404.html llms.txt llms-full.txt robots.txt sitemap-index.xml .nojekyll \
+                   docs/index/index.md fr/llms.txt fr/llms-full.txt fr/docs/index/index.md; do
             test -f "/tmp/public-site/$f" || { echo "MISSING: $f"; exit 1; }
           done
+          grep -q 'hreflang="fr" href="https://ci.example.com/repo/fr/' /tmp/public-site/docs/index/index.html \
+            || { echo "MISSING: absolute FR hreflang"; exit 1; }
           # Absent: store data, review/identity chrome, any /api surface, server bundle,
           # and everything scoped private (page / space / glob).
           ! grep -RIq "LEAKCANARY" /tmp/public-site || { echo "LEAK: store data in public artifact"; exit 1; }
