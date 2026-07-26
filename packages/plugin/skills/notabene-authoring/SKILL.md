@@ -82,7 +82,10 @@ sidebar:
 - **`publish: false`** keeps the page **out of public builds** entirely (route, nav, search,
   `llms.txt`, Markdown twin, sitemap) — the dev/review site always shows it. **Preserve this
   key when editing a page that carries it.** Whole spaces (`roots[].publish: false`) and
-  sub-trees (`publish.exclude` globs in the config) scope the same way.
+  sub-trees (`publish.exclude` globs in the config) scope the same way. **Don't link from a
+  public page to private content** — the link 404s in the public artifact and the build
+  won't warn; check the target's frontmatter (and the config's `publish.exclude` /
+  `roots[].publish`) before adding an inter-doc link.
 - Frontmatter is **optional**: with none, the sidebar shows humanized file names sorted
   alphabetically (unchanged). Only `title`, `description`, `publish` and `sidebar` are
   interpreted — any other keys pass through untouched.

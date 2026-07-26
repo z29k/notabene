@@ -350,8 +350,11 @@ publish: { site: "https://docs.example.com" }                 // custom domain a
 publish: { exclude: ["docs/internal/**"] }                    // domain kept out of the repo — see below
 ```
 
-The other two scoping levels live where the thing they scope lives — a space in
-`roots[]`, a page in its frontmatter:
+### Keep content private (out of the public build)
+
+Three levels, from coarse to fine — each lives where the thing it scopes lives:
+
+**A whole space** — flag the `roots[]` entry:
 
 ```js
 roots: [
@@ -360,12 +363,31 @@ roots: [
 ],
 ```
 
+**A sub-tree** — `publish.exclude` globs on `<space key>/<page id>` (that's the page's
+URL path without any locale prefix, so **one pattern hides every translation**):
+
+```js
+publish: { exclude: ["docs/internal/**", "docs/*/draft"] },
+```
+
+**A single page** — its own frontmatter:
+
 ```yaml
 ---
 description: One-line summary — becomes the public meta description / OpenGraph.
-publish: false   # this page never ships in a public build (dev always shows it)
+publish: false   # this page never ships in a public build
 ---
 ```
+
+**The guarantee**: private content isn't hidden, it's **not built** — no route (the URL
+404s), no sidebar entry, no search hit, no `llms.txt` line, no `.md` twin, no sitemap
+entry, no print/PDF inclusion, and the space's name/path never reach the public HTML.
+`notabene dev` and normal builds always show everything — review your private docs
+exactly like the rest.
+
+**One caveat**: if a *public* page links to a *private* one, that link 404s in the
+public artifact — the build doesn't rewrite or warn about it. Keep public pages free of
+links into private content (or make the linking page private too).
 
 ### Domain managed server-side? Omit `site`
 

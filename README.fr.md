@@ -360,8 +360,11 @@ publish: { site: "https://docs.example.com" }                   // domaine custo
 publish: { exclude: ["docs/internal/**"] }                      // domaine hors du repo — voir plus bas
 ```
 
-Les deux autres niveaux de scoping vivent là où vit ce qu'ils masquent — un espace dans
-`roots[]`, une page dans son frontmatter :
+### Garder du contenu privé (hors du build public)
+
+Trois niveaux, du plus large au plus fin — chacun vit là où vit ce qu'il masque :
+
+**Un espace entier** — marquer l'entrée `roots[]` :
 
 ```js
 roots: [
@@ -370,12 +373,34 @@ roots: [
 ],
 ```
 
+**Un sous-arbre** — globs `publish.exclude` sur `<clé d'espace>/<id de page>` (c'est le
+chemin URL de la page sans préfixe de langue, donc **un motif masque toutes les
+traductions**) :
+
+```js
+publish: { exclude: ["docs/internal/**", "docs/*/brouillon"] },
+```
+
+**Une seule page** — son propre frontmatter :
+
 ```yaml
 ---
 description: Résumé en une phrase — devient la meta description / OpenGraph publique.
-publish: false   # cette page ne part jamais dans un build public (dev la montre toujours)
+publish: false   # cette page ne part jamais dans un build public
 ---
 ```
+
+**La garantie** : le contenu privé n'est pas masqué, il n'est **pas construit** — pas de
+route (l'URL fait 404), pas d'entrée de sidebar, pas de résultat de recherche, pas de
+ligne dans `llms.txt`, pas de double `.md`, pas d'entrée de sitemap, pas d'inclusion
+impression/PDF, et le nom/chemin de l'espace n'atteint jamais le HTML public.
+`notabene dev` et les builds normaux montrent toujours tout — on revoit sa doc privée
+exactement comme le reste.
+
+**Un piège à connaître** : si une page *publique* pointe vers une page *privée*, ce lien
+fait 404 dans l'artefact public — le build ne le réécrit pas et ne prévient pas. Garder
+les pages publiques sans lien vers du contenu privé (ou rendre la page qui pointe privée
+elle aussi).
 
 ### Domaine géré côté serveur ? Omettre `site`
 
