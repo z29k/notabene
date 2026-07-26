@@ -141,6 +141,10 @@ jobs:
           grep -q 'stylesheet" href="/repo/_nb/theme.css"' /tmp/public-site/index.html || { echo "MISSING: theme link"; exit 1; }
           grep -q -- ':root{--nb-accent:#00ff99}' /tmp/public-site/index.html || { echo "MISSING: inline tokens"; exit 1; }
           grep -q "@layer nb-base" /tmp/public-site/_astro/*.css || { echo "MISSING: layered renderer styles"; exit 1; }
+          # Scheme toggle: pre-paint forcing script, toggle button, light-dark() tokens.
+          grep -q "nb-scheme" /tmp/public-site/index.html || { echo "MISSING: scheme init script"; exit 1; }
+          grep -q "js-scheme-toggle" /tmp/public-site/index.html || { echo "MISSING: scheme toggle button"; exit 1; }
+          grep -q "light-dark(" /tmp/public-site/_astro/*.css || { echo "MISSING: light-dark() tokens"; exit 1; }
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
           # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,

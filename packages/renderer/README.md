@@ -50,7 +50,7 @@ Every entry links into the [documentation](https://z29k.github.io/notabene/):
 - [The agent review loop](https://z29k.github.io/notabene/guide/review-loop) -
   file-I/O-first protocol; optional **approve mode** with real git diffs at `/review`.
 - [A real doc site](https://z29k.github.io/notabene/guide/configuration) - spaces,
-  frontmatter sidebar, search, commentable Mermaid, dark mode, responsive.
+  frontmatter sidebar, search, commentable Mermaid, light/dark toggle, responsive.
 - [MDX and CommonMark/GFM](https://z29k.github.io/notabene/guide/configuration) - lenient
   `.md`, strict `.mdx`, mixable.
 - [Multi-language docs](https://z29k.github.io/notabene/guide/multilingual) - clean

@@ -57,8 +57,9 @@ export default {
 
   // Theme: override the public `--nb-*` design tokens (validated — a typo throws) and/or
   // load your own stylesheet AFTER the renderer's (cascade layers → your CSS always wins).
-  // Only touch --nb-* tokens + the documented hooks; internals may change between versions.
-  // theme: { tokens: { accent: "#7c3aed" }, css: "docs/notabene-theme.css" },
+  // A plain value applies to both color schemes; a light-dark(a, b) pair sets each — the
+  // header's scheme toggle flips them. Only touch --nb-* tokens + the documented hooks.
+  // theme: { tokens: { accent: "light-dark(#7c3aed, #b79bff)" }, css: "docs/notabene-theme.css" },
 
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface

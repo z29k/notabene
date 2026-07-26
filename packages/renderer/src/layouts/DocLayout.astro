@@ -152,6 +152,12 @@ const ogImage = absPublic && branding.socialImage ? absPublic(assetPath("og", br
 // `--nb-*` contract. Rendered at the END of <head> so they cascade after the bundled
 // renderer styles (same specificity → document order wins).
 const themeCssHref = theme.css ? withBase(assetPath("theme", theme.css)) : null;
+// Pre-paint scheme forcing: apply the persisted manual light/dark preference before
+// the first style resolution (same inline-head precedent as the locale scripts).
+// Mirrors lib/client/scheme (is:inline bodies are raw text — no imports here).
+const schemeInitScript =
+  '(function(){try{var s=localStorage.getItem("nb-scheme");' +
+  'if(s==="light"||s==="dark")document.documentElement.setAttribute("data-scheme",s);}catch(e){}})();';
 // Social/SEO meta (public builds only — a dev-local tool has no use for OG cards).
 // og:type: the site home is a website, everything else an article.
 const isHomeUrl = current === "/" || (clientI18n.enabled && current === `/${locale}`);
@@ -195,6 +201,7 @@ const hasRail = page != null;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title} · {siteName}</title>
+    <script is:inline set:html={schemeInitScript} />
     <link rel="icon" type={faviconType} href={faviconHref} />
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
@@ -359,6 +366,11 @@ const hasRail = page != null;
           </details>
         )
       }
+      <button type="button" class="topbar-link topbar-util nb-scheme-toggle js-scheme-toggle" aria-label={m.schemeAuto} title={m.schemeAuto}>
+        <svg class="nb-scheme-icon--auto" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" /></svg>
+        <svg class="nb-scheme-icon--light" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
+        <svg class="nb-scheme-icon--dark" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+      </button>
       {!publicMode && (
         <button id="nb-identity-chip" class="topbar-me topbar-util" type="button" title={m.identityHint} aria-label={m.identityHint} data-i18n-aria="identityHint">
           <span aria-hidden="true">👤</span>
@@ -428,6 +440,12 @@ const hasRail = page != null;
               </>
             )
           }
+          <button type="button" class="drawer-link nb-scheme-toggle js-scheme-toggle" aria-label={m.schemeAuto} title={m.schemeAuto}>
+            <svg class="nb-scheme-icon--auto" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none" /></svg>
+            <svg class="nb-scheme-icon--light" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1" /></svg>
+            <svg class="nb-scheme-icon--dark" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+            <span data-i18n="scheme">{m.scheme}</span>
+          </button>
           {!publicMode && (
             <button id="nb-identity-chip-drawer" class="drawer-me" type="button" aria-label={m.identityHint}>
               <span aria-hidden="true">👤</span>
@@ -491,11 +509,39 @@ const hasRail = page != null;
     {ReviewChrome && <ReviewChrome locale={locale} />}
 
     <script>
+      import { applyPref, nextPref, storedPref } from "../lib/client/scheme";
       import { closeOverlay, currentOverlay, initShell, openOverlay } from "../lib/client/shell";
       import { localizeField } from "../lib/i18n-content.mjs";
 
       // Wire the shared scrim / Escape / resize-to-desktop overlay closers once.
       initShell();
+
+      // Scheme toggle (auto → light → dark → auto). The icon follows [data-scheme]
+      // via CSS; only the accessible label needs JS.
+      {
+        const MSG = JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}");
+        const schemeBtns = Array.from(document.querySelectorAll<HTMLElement>(".js-scheme-toggle"));
+        const schemeLabel = () => {
+          const p = storedPref();
+          return p === "light" ? MSG.schemeLight : p === "dark" ? MSG.schemeDark : MSG.schemeAuto;
+        };
+        const refreshScheme = () => {
+          const l = schemeLabel();
+          for (const b of schemeBtns) {
+            b.setAttribute("aria-label", l);
+            b.setAttribute("title", l);
+          }
+        };
+        if (schemeBtns.length) {
+          refreshScheme();
+          for (const b of schemeBtns) {
+            b.addEventListener("click", () => {
+              applyPref(nextPref(storedPref()));
+              refreshScheme();
+            });
+          }
+        }
+      }
 
       // i18n chrome. Doc pages carry their locale in <html lang> → remember it as the
       // visitor's CURRENT language. Aggregate pages ship every catalog (#notabene-i18n-all)
