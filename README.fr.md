@@ -70,7 +70,7 @@ anglais) - creusez seulement là où c'est utile :
   comprises) sur `/review`.
 - **[Un vrai site de doc](https://z29k.github.io/notabene/guide/configuration)** - espaces,
   sidebar pilotée par frontmatter, recherche, diagrammes **Mermaid** commentables avec
-  lightbox pan/zoom, mode sombre, responsive.
+  lightbox pan/zoom, sélecteur clair/sombre, responsive.
 - **[MDX *et* CommonMark/GFM](https://z29k.github.io/notabene/guide/configuration)** -
   `.md` tolérant, `.mdx` strict, mélangeables par extension.
 - **[Doc multilingue](https://z29k.github.io/notabene/guide/multilingual)** - URL propres

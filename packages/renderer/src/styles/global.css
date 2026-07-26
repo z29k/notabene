@@ -17,19 +17,24 @@
 
 
 :root {
-  /* ── public theming contract (--nb-*) ── */
-  --nb-bg: #ffffff;
-  --nb-bg-soft: #f6f7f9;
-  --nb-bg-elev: #ffffff;
-  --nb-border: #e4e7ec;
-  --nb-text: #1c2024;
-  --nb-text-soft: #5b6470;
-  --nb-text-faint: #8a929e;
-  --nb-accent: #2f6feb;
-  --nb-accent-soft: #e8f0ff;
-  --nb-ref: #2f6feb;
-  --nb-work: #b5651d;
-  --nb-code-bg: #0d1117;
+  /* Both schemes are first-class; the manual toggle forces one via [data-scheme]
+     (set by the renderer's scheme toggle — themes must not touch this attribute).
+     Every light-dark() below — the renderer's AND a theme's — flips with it. */
+  color-scheme: light dark;
+
+  /* ── public theming contract (--nb-*) — color tokens are light-dark() pairs ── */
+  --nb-bg: light-dark(#ffffff, #0e1116);
+  --nb-bg-soft: light-dark(#f6f7f9, #151a21);
+  --nb-bg-elev: light-dark(#ffffff, #161b22);
+  --nb-border: light-dark(#e4e7ec, #272e38);
+  --nb-text: light-dark(#1c2024, #e7ebf0);
+  --nb-text-soft: light-dark(#5b6470, #aab2bd);
+  --nb-text-faint: light-dark(#8a929e, #768091);
+  --nb-accent: light-dark(#2f6feb, #6ea0ff);
+  --nb-accent-soft: light-dark(#e8f0ff, #182539);
+  --nb-ref: light-dark(#2f6feb, #6ea0ff);
+  --nb-work: light-dark(#b5651d, #e0a060);
+  --nb-code-bg: light-dark(#0d1117, #0b0e13);
   --nb-topbar-h: 52px;
   --nb-sidebar-w: 290px;
   --nb-toc-w: 320px;
@@ -63,21 +68,14 @@
   --sans: var(--nb-sans);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --nb-bg: #0e1116;
-    --nb-bg-soft: #151a21;
-    --nb-bg-elev: #161b22;
-    --nb-border: #272e38;
-    --nb-text: #e7ebf0;
-    --nb-text-soft: #aab2bd;
-    --nb-text-faint: #768091;
-    --nb-accent: #6ea0ff;
-    --nb-accent-soft: #182539;
-    --nb-ref: #6ea0ff;
-    --nb-work: #e0a060;
-    --nb-code-bg: #0b0e13;
-  }
+/* Manual scheme forcing (the topbar toggle; persisted as localStorage "nb-scheme",
+   applied pre-paint by DocLayout's inline head script). One property flips every
+   light-dark() in the document, native form controls and scrollbars included. */
+:root[data-scheme="light"] {
+  color-scheme: light;
+}
+:root[data-scheme="dark"] {
+  color-scheme: dark;
 }
 
 * {
@@ -2148,16 +2146,54 @@ button.topbar-me:hover {
   margin-right: 8px;
   border-radius: 4px;
 }
+/* Logo variant swap — forcing-aware: the media query only applies when no manual
+   scheme is forced; the [data-scheme] rules take over otherwise. */
 .brand-logo--dark {
   display: none;
 }
 @media (prefers-color-scheme: dark) {
-  .brand-logo--light {
+  :root:not([data-scheme="light"]) .brand-logo--light {
     display: none;
   }
-  .brand-logo--dark {
+  :root:not([data-scheme="light"]) .brand-logo--dark {
     display: inline-block;
   }
+}
+:root[data-scheme="dark"] .brand-logo--light {
+  display: none;
+}
+:root[data-scheme="dark"] .brand-logo--dark {
+  display: inline-block;
+}
+
+/* ── scheme toggle (topbar + drawer) — icon follows the STORED preference:
+   auto (half disc) / light (sun) / dark (moon), driven by [data-scheme]. ── */
+button.nb-scheme-toggle {
+  font-family: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 7px;
+  border-radius: 6px;
+}
+button.nb-scheme-toggle:hover {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+.nb-scheme-toggle svg {
+  display: none;
+}
+:root:not([data-scheme]) .nb-scheme-icon--auto {
+  display: block;
+}
+:root[data-scheme="light"] .nb-scheme-icon--light {
+  display: block;
+}
+:root[data-scheme="dark"] .nb-scheme-icon--dark {
+  display: block;
 }
 
 } /* @layer nb-base */

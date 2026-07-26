@@ -69,7 +69,7 @@ only where you're curious:
   (cascades included) at `/review`.
 - **[A real doc site](https://z29k.github.io/notabene/guide/configuration)** - spaces,
   frontmatter-driven sidebar, search, commentable **Mermaid** diagrams with a pan/zoom
-  lightbox, dark mode, responsive.
+  lightbox, a light/dark toggle, responsive.
 - **[MDX *and* CommonMark/GFM](https://z29k.github.io/notabene/guide/configuration)** -
   lenient `.md`, strict `.mdx`, mixable per extension.
 - **[Multi-language docs](https://z29k.github.io/notabene/guide/multilingual)** - clean

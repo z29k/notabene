@@ -260,8 +260,15 @@ Pure name/type helpers in `src/lib/asset-types.ts` (unit-tested).
 
 **Theming contract.** The `--nb-*` custom properties in `styles/global.css` are the
 PUBLIC theming surface (list mirrored in `lib/theme-tokens.mjs` — keep the two in sync);
-un-prefixed variables are internal aliases consuming them, and `print.css` overrides the
-INTERNALS to force a light PDF palette — so token-only themes can never break print.
+color tokens are **`light-dark()` pairs** under `color-scheme: light dark`, and the
+manual scheme toggle (topbar/drawer, tri-state auto→light→dark, localStorage
+`nb-scheme`, pre-paint inline head script) forces one via `[data-scheme]` on `<html>` —
+one property flips every pair, themes included (themes must never set `data-scheme` or
+`color-scheme`). Client helpers in `lib/client/scheme.ts` (pure parts unit-tested);
+`mermaid.ts` re-renders diagrams on `nb-scheme-change` from their stashed sources.
+Un-prefixed variables are internal aliases consuming the contract, and `print.css`
+overrides the INTERNALS (+ its own `color-scheme: light`) to force a light PDF
+palette — so token-only themes can never break print.
 The renderer's styles live in cascade layers (`@layer nb-base, nb-print`), so consumer
 CSS (config `theme: { css, tokens }` — css served at `/_nb/theme.css` via the asset
 route, tokens validated by `validateTokens` and inlined as `:root{--nb-…}` at the end of
