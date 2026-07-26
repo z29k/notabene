@@ -53,6 +53,9 @@ describe("remarkRewriteLinks", () => {
     expect(run("/repo/docs/index.md", "./guide/index.md")).toBe("/docs/guide"); // folder landing
     expect(run("/repo/docs/guide/a.md", "../index.md")).toBe("/docs/index"); // root index keeps its id
   });
+  it("suffix i18n keeps folder-index ids verbatim (makeSuffixGenerateId convention)", () => {
+    expect(run("/repo/docs/index.md", "./guide/index.md", SUF)).toBe("/docs/guide/index");
+  });
 
   it("public base: prefixes rewritten routes, leaves non-rewritten links untouched", () => {
     expect(run("/repo/docs/index.md", "./guide/a.md", OFF, "/repo")).toBe("/repo/docs/guide/a");

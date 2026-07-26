@@ -13,22 +13,32 @@ export default {
       key: "guide",
       label: "Guide",
       path: "docs/guide",
-      description: "Install notabene, run your first review loop, and grow into every feature.",
+      description: {
+        en: "Install notabene, run your first review loop, and grow into every feature.",
+        fr: "Installer notabene, boucler une première revue, puis explorer chaque fonctionnalité.",
+      },
     },
     {
       key: "reference",
-      label: "Reference",
+      label: { en: "Reference", fr: "Référence" },
       path: "docs/reference",
-      description: "The exhaustive surfaces: CLI, config keys, frontmatter, the store contract, safety.",
+      description: {
+        en: "The exhaustive surfaces: CLI, config keys, frontmatter, the store contract, safety.",
+        fr: "Les surfaces exhaustives : CLI, clés de config, frontmatter, contrat du store, sécurité.",
+      },
     },
   ],
 
   store: "docs/.notabene",
 
+  // Bilingual docs (suffix strategy: EN files keep their paths/URLs; FR = *.fr.md
+  // siblings). Also the public demo of the language switcher + per-locale llms.txt.
+  i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
+
   // Custom landing page: rendered above the space cards on "/" (README-like welcome,
   // written for the site — relative links become routes). Deliberately OUTSIDE the
-  // two spaces so it isn't also a doc page.
-  home: "docs/home.md",
+  // two spaces so it isn't also a doc page. Per-locale, like the docs.
+  home: { en: "docs/home.md", fr: "docs/home.fr.md" },
 
   // Identity: the ink-bottle logo in the topbar + as favicon + as the social card.
   branding: {

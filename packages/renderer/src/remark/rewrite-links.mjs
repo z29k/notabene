@@ -52,11 +52,16 @@ export function makeLinkMapper({ roots, i18n }) {
     if (!r) return null;
     const rawRel = slug(path.relative(r.abs, abs));
     let { locale, id } = decode(rawRel, i18n);
-    // Astro's glob loader collapses a FOLDER's index file to the folder id
-    // ("publish/index" → "publish") — mirror it, or links to `<folder>/index.md`
-    // target a route that only exists as an .html file on lenient static hosts
-    // (404 in dev/preview and on strict ones). A root-level "index" keeps its id.
-    if (/\/index$/i.test(id)) id = id.replace(/\/index$/i, "");
+    // Mirror the ACTUAL id convention of the content loader. Astro's DEFAULT
+    // generateId collapses a FOLDER's index file to the folder id ("publish/index"
+    // → "publish") — without mirroring it, links to `<folder>/index.md` target a
+    // route that only exists as an .html file on lenient static hosts (404 in
+    // dev/preview). But suffix i18n swaps in makeSuffixGenerateId, which keeps ids
+    // VERBATIM (no collapse) — so the collapse must follow the same switch as
+    // content.config.ts. A root-level "index" keeps its id in both conventions.
+    if (!(i18n.enabled && i18n.strategy === "suffix") && /\/index$/i.test(id)) {
+      id = id.replace(/\/index$/i, "");
+    }
     // Suffix mode: a canonical target reached from a non-default-locale source → prefer the
     // same-locale sibling when it exists.
     if (
