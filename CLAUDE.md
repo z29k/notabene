@@ -258,6 +258,16 @@ variant swapped by CSS media query — `.brand-logo--light/--dark` in global.css
 public builds with `publish.site` — `og:image`/`twitter:image` (+ `summary_large_image`).
 Pure name/type helpers in `src/lib/asset-types.ts` (unit-tested).
 
+**Theming contract.** The `--nb-*` custom properties in `styles/global.css` are the
+PUBLIC theming surface (list mirrored in `lib/theme-tokens.mjs` — keep the two in sync);
+un-prefixed variables are internal aliases consuming them, and `print.css` overrides the
+INTERNALS to force a light PDF palette — so token-only themes can never break print.
+The renderer's styles live in cascade layers (`@layer nb-base, nb-print`), so consumer
+CSS (config `theme: { css, tokens }` — css served at `/_nb/theme.css` via the asset
+route, tokens validated by `validateTokens` and inlined as `:root{--nb-…}` at the end of
+`<head>`) always wins regardless of Astro's stylesheet injection order. Themes must only
+target `--nb-*` + the documented hooks (see `docs/guide/customize.md`).
+
 **Custom site home.** Config `home: "<repo-relative .md>"` (or a per-locale map, resolved
 via `localizeField`) renders that file as the landing content above the space cards —
 loaded through a dedicated `nb-home` collection (`content.config.ts`, base = repo root,

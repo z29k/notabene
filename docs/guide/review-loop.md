@@ -3,7 +3,7 @@ title: The review loop
 description: File-I/O-first protocol any agent can follow — and the optional human-in-the-loop approve mode with real git diffs.
 sidebar:
   label: The review loop
-  order: 4
+  order: 5
 ---
 
 # The review loop

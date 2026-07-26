@@ -1,44 +1,82 @@
-/* notabene renderer — readable theme, auto light/dark. */
+/* notabene renderer — readable theme, auto light/dark.
+
+   THEMING CONTRACT: the `--nb-*` custom properties below are the PUBLIC theming
+   surface — override them from a consumer theme (config `theme.css` / `theme.tokens`,
+   loaded after this file). The un-prefixed variables are INTERNAL aliases consuming
+   the contract; never target them in a theme — print.css deliberately overrides the
+   internals to force a light palette on /print, so a theme can restyle the site
+   without ever breaking the PDF export. Token list mirrored in lib/theme-tokens.mjs
+   (validated config) and documented in the customize guide. */
+
+/* Cascade layers: the renderer's own styles live in layers so a consumer theme
+   (config `theme.css` / `theme.tokens`, UN-layered) always wins the cascade —
+   whatever order Astro injects the bundled stylesheets in. nb-print > nb-base. */
+@layer nb-base, nb-print;
+
+@layer nb-base {
+
 
 :root {
-  --bg: #ffffff;
-  --bg-soft: #f6f7f9;
-  --bg-elev: #ffffff;
-  --border: #e4e7ec;
-  --text: #1c2024;
-  --text-soft: #5b6470;
-  --text-faint: #8a929e;
-  --accent: #2f6feb;
-  --accent-soft: #e8f0ff;
-  --ref: #2f6feb;
-  --work: #b5651d;
-  --code-bg: #0d1117;
-  --topbar-h: 52px;
-  --sidebar-w: 290px;
-  --toc-w: 320px;
+  /* ── public theming contract (--nb-*) ── */
+  --nb-bg: #ffffff;
+  --nb-bg-soft: #f6f7f9;
+  --nb-bg-elev: #ffffff;
+  --nb-border: #e4e7ec;
+  --nb-text: #1c2024;
+  --nb-text-soft: #5b6470;
+  --nb-text-faint: #8a929e;
+  --nb-accent: #2f6feb;
+  --nb-accent-soft: #e8f0ff;
+  --nb-ref: #2f6feb;
+  --nb-work: #b5651d;
+  --nb-code-bg: #0d1117;
+  --nb-topbar-h: 52px;
+  --nb-sidebar-w: 290px;
+  --nb-toc-w: 320px;
   /* Reading measure for the doc content. Responsive: ~50rem on laptops, growing to 80rem
      on large screens so wide monitors aren't mostly empty gutter — capped so prose lines
      stay readable. Tables/code/prose fill it; diagrams/images stay natural size, centered. */
-  --content-max: clamp(50rem, 62vw, 80rem);
-  --radius: 8px;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --nb-content-max: clamp(50rem, 62vw, 80rem);
+  --nb-radius: 8px;
+  --nb-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --nb-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* ── internal aliases (consume the contract; print.css overrides THESE) ── */
+  --bg: var(--nb-bg);
+  --bg-soft: var(--nb-bg-soft);
+  --bg-elev: var(--nb-bg-elev);
+  --border: var(--nb-border);
+  --text: var(--nb-text);
+  --text-soft: var(--nb-text-soft);
+  --text-faint: var(--nb-text-faint);
+  --accent: var(--nb-accent);
+  --accent-soft: var(--nb-accent-soft);
+  --ref: var(--nb-ref);
+  --work: var(--nb-work);
+  --code-bg: var(--nb-code-bg);
+  --topbar-h: var(--nb-topbar-h);
+  --sidebar-w: var(--nb-sidebar-w);
+  --toc-w: var(--nb-toc-w);
+  --content-max: var(--nb-content-max);
+  --radius: var(--nb-radius);
+  --mono: var(--nb-mono);
+  --sans: var(--nb-sans);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0e1116;
-    --bg-soft: #151a21;
-    --bg-elev: #161b22;
-    --border: #272e38;
-    --text: #e7ebf0;
-    --text-soft: #aab2bd;
-    --text-faint: #768091;
-    --accent: #6ea0ff;
-    --accent-soft: #182539;
-    --ref: #6ea0ff;
-    --work: #e0a060;
-    --code-bg: #0b0e13;
+    --nb-bg: #0e1116;
+    --nb-bg-soft: #151a21;
+    --nb-bg-elev: #161b22;
+    --nb-border: #272e38;
+    --nb-text: #e7ebf0;
+    --nb-text-soft: #aab2bd;
+    --nb-text-faint: #768091;
+    --nb-accent: #6ea0ff;
+    --nb-accent-soft: #182539;
+    --nb-ref: #6ea0ff;
+    --nb-work: #e0a060;
+    --nb-code-bg: #0b0e13;
   }
 }
 
@@ -2121,3 +2159,5 @@ button.topbar-me:hover {
     display: inline-block;
   }
 }
+
+} /* @layer nb-base */

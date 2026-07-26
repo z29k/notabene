@@ -10,6 +10,7 @@ const TYPES: Record<string, string> = {
   webp: "image/webp",
   gif: "image/gif",
   avif: "image/avif",
+  css: "text/css",
 };
 
 /** Lowercased extension of a path ("docs/a/logo.SVG" → "svg"; none → ""). */

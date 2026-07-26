@@ -55,6 +55,11 @@ export default {
   // socialImage = og:image of PUBLIC builds (needs publish.site for the absolute URL).
   // branding: { logo: "assets/logo.svg", favicon: "assets/favicon.svg", socialImage: "assets/og.png" },
 
+  // Theme: override the public `--nb-*` design tokens (validated — a typo throws) and/or
+  // load your own stylesheet AFTER the renderer's (cascade layers → your CSS always wins).
+  // Only touch --nb-* tokens + the documented hooks; internals may change between versions.
+  // theme: { tokens: { accent: "#7c3aed" }, css: "docs/notabene-theme.css" },
+
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface
   // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin;

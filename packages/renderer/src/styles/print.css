@@ -4,6 +4,9 @@
    and `notabene pdf` drives the same page headlessly for the high-fidelity artifact
    (real PDF bookmark outline from the heading structure, running headers/footers). */
 
+@layer nb-print {
+
+
 /* ── Force a LIGHT palette for print output (PDF on white paper), whatever the
    viewer's system theme. Same specificity as global.css's dark block, loaded later
    → overrides it in both light and dark. Code blocks stay dark on purpose: Shiki
@@ -224,3 +227,5 @@ body {
   max-width: 100%;
   height: auto;
 }
+
+} /* @layer nb-print */

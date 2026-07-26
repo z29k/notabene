@@ -3,7 +3,7 @@ title: PDF export
 description: Print-ready views of any scope from the browser, or a bookmarked PDF file from the CLI.
 sidebar:
   label: PDF export
-  order: 6
+  order: 7
 ---
 
 # PDF export
