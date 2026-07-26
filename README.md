@@ -382,6 +382,15 @@ never requires a rebuild.
 | canonical, `og:url`, JSON-LD | emitted | not emitted — they only mean something with an origin |
 | sitemap + robots.txt `Sitemap:` line | emitted | not emitted — the specs require absolute URLs |
 
+**What that costs, concretely: search-engine visibility — nothing else.** Without a
+sitemap, canonical URLs or valid `hreflang`, crawlers only discover pages by following
+links, nothing consolidates duplicates if the docs answer on several domains, and
+multilingual pages send no language signals to search engines. Social link previews keep
+their title/description but lose the URL card. **Human readers and AI agents lose
+nothing** — every page, twin and llms file works identically. Rule of thumb: internal
+hosting, a mirror, or a domain that isn't settled → omit `site`; a public site whose
+search ranking matters → set `site`.
+
 Everything else (routes, nav, search, OpenGraph title/description, Markdown twins,
 scoping) is identical. `base` stays independent: set it whenever the site lives
 under a sub-path, with or without a domain — a sub-path always affects the rendered

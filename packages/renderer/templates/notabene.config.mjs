@@ -51,6 +51,7 @@ export default {
   // OPTIONAL — omit it to keep the domain out of the repo (server-side vhost/proxy):
   // the artifact then bakes no absolute URL (llms/twin links go root-relative; the
   // origin-only surfaces — sitemap, canonical, og:url, JSON-LD — are not emitted).
+  // The cost is search-engine visibility only — readers and AI agents lose nothing.
   // `base` = sub-path when hosted under a prefix (GitHub Pages project site →
   // "/<repo>") — unlike the domain, it always affects rendering. CLI flags
   // --site/--base override. Scope what goes public (dev always shows everything):

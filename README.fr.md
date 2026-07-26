@@ -392,6 +392,16 @@ de domaine ne demande jamais de rebuild.
 | canonical, `og:url`, JSON-LD | émis | non émis — ils n'ont de sens qu'avec une origine |
 | sitemap + ligne `Sitemap:` de robots.txt | émis | non émis — les specs exigent des URL absolues |
 
+**Ce que ça coûte, concrètement : la visibilité dans les moteurs de recherche — rien
+d'autre.** Sans sitemap, sans canonical et sans `hreflang` valides, les crawlers ne
+découvrent les pages qu'en suivant les liens, rien ne consolide les doublons si la doc
+répond sur plusieurs domaines, et les pages multilingues n'envoient aucun signal de langue
+aux moteurs. Les aperçus de liens sur les réseaux gardent titre/description mais perdent
+la carte URL. **Les lecteurs humains et les agents IA ne perdent rien** — chaque page,
+double `.md` et fichier llms fonctionne à l'identique. En pratique : hébergement interne,
+miroir, ou domaine pas encore arrêté → omettre `site` ; site public dont le référencement
+compte → poser `site`.
+
 Tout le reste (routes, nav, recherche, titre/description OpenGraph, doubles Markdown,
 scoping) est identique. `base` reste indépendant : à poser dès que le site vit sous un
 sous-chemin, avec ou sans domaine — un sous-chemin affecte toujours les liens rendus, il
