@@ -168,6 +168,13 @@ parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to 
   Flags: `--scope`, `--locale`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
   pagination hangs in a hidden tab and can't emit a real PDF outline — see the pdf-export memory).
 
+**Page footer meta.** Config `editPattern` ("{path}" placeholder REQUIRED, validated at
+load) → an "Edit this page" link under every doc page; last-updated = git AUTHOR date via
+ONE streamed `git log` per build (`src/lib/git-dates.mjs`, pure parser unit-tested;
+frontmatter `lastUpdated` overrides; silent null outside git), formatted per page locale
+(UTC-pinned) + `article:modified_time` in public builds. Public builds now use a
+SEPARATE outDir (`<workDir>/dist-public`) so `preview` keeps working after a public build.
+
 ## Architecture: public publish mode (`build --public`)
 
 Opt-in **per build** (never a repo state): `notabene build --public [--site URL] [--base

@@ -489,7 +489,10 @@ function astroSetup() {
     ...process.env,
     NOTABENE_ROOT: repoRoot,
     NOTABENE_CONFIG: configPath,
-    NOTABENE_OUT_DIR: path.join(workDir, "dist"),
+    // Public builds get their OWN outDir: a public build overwriting dist/ used to
+    // leave `preview` (which expects dist/server/entry.mjs) broken until the next
+    // normal build. Two dirs → the two artifacts coexist.
+    NOTABENE_OUT_DIR: path.join(workDir, publicBuild ? "dist-public" : "dist"),
     NOTABENE_CACHE_DIR: path.join(workDir, "cache"),
     ...(gitAuthor ? { NOTABENE_AUTHOR: gitAuthor } : {}),
     ...(gitEmail ? { NOTABENE_AUTHOR_EMAIL: gitEmail } : {}),
@@ -550,7 +553,7 @@ function pruneOrphanAssets(distDir) {
 }
 
 function finishPublicBuild(workDir) {
-  const distDir = path.join(workDir, "dist");
+  const distDir = path.join(workDir, "dist-public");
   const pruned = pruneOrphanAssets(distDir);
   if (pruned > 0) console.log(`notabene: pruned ${pruned} unreferenced asset(s) from the public artifact.`);
   // Jekyll (classic gh-pages branch hosting) drops _astro/** without this. Inert elsewhere.

@@ -28,6 +28,7 @@ optional. The narrative version with examples is in the
 | `review` | `"auto"` | `"auto"` = agent resolves comments; `"approve"` = agent proposes (`addressed`), you validate each at `/review` with a diff ([review loop](../guide/review-loop.md)) |
 | `author` | git `user.name` | Default comment author; each browser overrides it per-device via the identity dialog |
 | `authorEmail` | git `user.email` | Default author email; embedded git-style (`Name <email>`) so identities stay unique |
+| `editPattern` | — | "Edit this page" link under every doc page: a URL with a `{path}` placeholder (repo-relative source path), e.g. `https://github.com/o/r/edit/main/{path}`. Placeholder required — validated at load |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | [PDF export](../guide/pdf-export.md) — `enabled` toggles the Export menu + `/print` routes; `pageSize`/`margin` set the `@page` box |
 | `i18n` | — | [Multi-language docs](../guide/multilingual.md): `{ locales, defaultLocale, strategy: "directory"\|"suffix" }`. Omit for one language |
 | `publish` | — | [Public build](../guide/publish/configuration.md) target: `{ site, base, exclude }`. `site` optional — omitted = [origin-agnostic artifact](../guide/publish/server-side-domain.md) |

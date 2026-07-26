@@ -28,6 +28,7 @@ le [guide de configuration](../guide/configuration.md).
 | `review` | `"auto"` | `"auto"` = l'agent résout les commentaires ; `"approve"` = l'agent propose (`addressed`), vous validez chacun sur `/review` avec un diff ([boucle de revue](../guide/review-loop.md)) |
 | `author` | git `user.name` | Auteur de commentaire par défaut ; chaque navigateur le remplace par appareil via le dialogue d'identité |
 | `authorEmail` | git `user.email` | E-mail d'auteur par défaut ; intégré façon git (`Name <email>`) pour garder les identités uniques |
+| `editPattern` | — | Lien « Modifier cette page » sous chaque page : une URL avec un placeholder `{path}` (chemin source relatif au repo), ex. `https://github.com/o/r/edit/main/{path}`. Placeholder obligatoire — validé au chargement |
 | `pdf` | `{ enabled: true, pageSize: "A4", margin: "18mm" }` | [Export PDF](../guide/pdf-export.md) — `enabled` active le menu Export + les routes `/print` ; `pageSize`/`margin` définissent la boîte `@page` |
 | `i18n` | — | [Doc multilingue](../guide/multilingual.md) : `{ locales, defaultLocale, strategy: "directory"\|"suffix" }`. Omettez pour une seule langue |
 | `publish` | — | Cible du [build public](../guide/publish/configuration.md) : `{ site, base, exclude }`. `site` optionnel — omis = [artefact agnostique de l'origine](../guide/publish/server-side-domain.md) |

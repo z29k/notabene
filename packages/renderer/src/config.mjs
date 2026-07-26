@@ -126,6 +126,18 @@ export const author = userConfig.author ?? process.env.NOTABENE_AUTHOR ?? "you";
 // own via the identity dialog. Embedded git-style ("Name <email>") into comment authors.
 export const authorEmail = userConfig.authorEmail ?? process.env.NOTABENE_AUTHOR_EMAIL ?? "";
 
+// "Edit this page" link (optional). A URL pattern whose `{path}` placeholder is
+// replaced by the page's repo-relative source path, e.g.
+//   editPattern: "https://github.com/you/repo/edit/main/{path}"
+// Rendered under every doc page (dev AND public builds). The placeholder is
+// REQUIRED — without it every link would silently be the same URL (nimbus lesson:
+// validate at load, never ship broken links).
+const editPatternCfg = userConfig.editPattern ?? null;
+if (editPatternCfg != null && !String(editPatternCfg).includes("{path}")) {
+  throw new Error('notabene: editPattern must contain the "{path}" placeholder.');
+}
+export const editPattern = editPatternCfg == null ? null : String(editPatternCfg);
+
 // PDF export (§ /print routes). Optional, backward-compatible (zero-config → defaults).
 //   enabled  — show the Export menu + serve /print (default true).
 //   pageSize — @page size keyword or dimensions ("A4", "Letter", "210mm 297mm").
@@ -377,6 +389,7 @@ export default {
   reviewMode,
   author,
   authorEmail,
+  editPattern,
   pdf,
   publicMode,
   publish,

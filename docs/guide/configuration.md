@@ -92,6 +92,19 @@ home: "docs/home.md",
 - This site's [home page](/notabene/) is exactly that — see
   [`docs/home.md`](https://github.com/z29k/notabene/blob/main/docs/home.md).
 
+## Page footer: edit link & last-updated
+
+Two zero-config touches under every doc page:
+
+- **Last updated** — the page's git **author date** (one streamed `git log` per build;
+  a `lastUpdated` frontmatter date overrides it; silently absent outside a git repo).
+  Public builds also emit it as `article:modified_time`.
+- **Edit this page** — set `editPattern` and every page links to its source:
+
+```js
+editPattern: "https://github.com/you/repo/edit/main/{path}",
+```
+
 ## Sidebar labels & ordering
 
 By default a page's sidebar entry is its **humanized file name** and siblings sort
