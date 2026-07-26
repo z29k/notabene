@@ -249,6 +249,15 @@ locale-less pages (home, `404`, `/comments`) SSR the default locale with
 when i18n is enabled** → mono-language output byte-identical) so the client applier re-localizes
 them. Declared once; no `.notabene` schema change.
 
+**Branding.** Config `branding: { logo, logoDark, favicon, socialImage }` — repo-relative
+image files validated at config load (`normalizeRepoFile`) and served through the
+prerendered `pages/_nb/[...asset].ts` route at stable `/_nb/<name>.<ext>` paths (bytes
+read from the consumer repo; nothing configured → no routes). `DocLayout`/`PrintLayout`
+emit the favicon link (unset → a built-in inline data-URI mark), the topbar logo (dark
+variant swapped by CSS media query — `.brand-logo--light/--dark` in global.css), and —
+public builds with `publish.site` — `og:image`/`twitter:image` (+ `summary_large_image`).
+Pure name/type helpers in `src/lib/asset-types.ts` (unit-tested).
+
 **Custom site home.** Config `home: "<repo-relative .md>"` (or a per-locale map, resolved
 via `localizeField`) renders that file as the landing content above the space cards —
 loaded through a dedicated `nb-home` collection (`content.config.ts`, base = repo root,

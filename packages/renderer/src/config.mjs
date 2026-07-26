@@ -285,14 +285,14 @@ export const clientRoots = (publicMode ? roots.filter((r) => r.publish) : roots)
 // Loaded through a dedicated content collection ("nb-home", see content.config.ts) so
 // it gets the full pipeline (Shiki, Mermaid, link rewriting). Omitted → the default
 // landing (site name + space cards) is byte-identical to before.
-function normalizeHomePath(raw) {
+function normalizeRepoFile(raw, what) {
   const rel = String(raw).replace(/\\/g, "/").replace(/^\.\//, "");
   const abs = path.resolve(REPO_ROOT, rel);
   if (!abs.startsWith(REPO_ROOT + path.sep)) {
-    throw new Error(`notabene: home file "${raw}" escapes the repo root.`);
+    throw new Error(`notabene: ${what} file "${raw}" escapes the repo root.`);
   }
   if (!fs.existsSync(abs)) {
-    throw new Error(`notabene: home file "${raw}" not found (the path is repo-relative).`);
+    throw new Error(`notabene: ${what} file "${raw}" not found (the path is repo-relative).`);
   }
   return rel;
 }
@@ -301,12 +301,29 @@ export const home =
   homeCfg == null
     ? null
     : typeof homeCfg === "string"
-      ? normalizeHomePath(homeCfg)
-      : Object.fromEntries(Object.entries(homeCfg).map(([loc, p]) => [loc, normalizeHomePath(p)]));
+      ? normalizeRepoFile(homeCfg, "home")
+      : Object.fromEntries(Object.entries(homeCfg).map(([loc, p]) => [loc, normalizeRepoFile(p, "home")]));
 export const homeFiles = home == null ? [] : [...new Set(typeof home === "string" ? [home] : Object.values(home))];
 if (homeFiles.length > 0 && roots.some((r) => r.key === "nb-home")) {
   throw new Error('notabene: the space key "nb-home" is reserved for the custom home collection — rename that root.');
 }
+
+// Branding (§ identity). All optional, all repo-relative files served through the
+// prerendered /_nb/<name>.<ext> asset route (src/pages/_nb/) — the run-from-package
+// answer to "my assets live in MY repo": nothing is scaffolded, the config points.
+//   logo / logoDark — topbar image next to the site name (dark variant swapped in CSS).
+//   favicon         — <link rel="icon"> (svg/ico/png). Unset → a built-in default
+//                     (inline data-URI) so tabs are never blank.
+//   socialImage     — og:image / twitter:image of PUBLIC builds (needs publish.site
+//                     for the absolute URL the crawlers require).
+const brandingCfg = userConfig.branding ?? {};
+const brandFile = (key) => (brandingCfg[key] == null ? null : normalizeRepoFile(brandingCfg[key], `branding.${key}`));
+export const branding = {
+  logo: brandFile("logo"),
+  logoDark: brandFile("logoDark"),
+  favicon: brandFile("favicon"),
+  socialImage: brandFile("socialImage"),
+};
 
 /**
  * Logical `page` path (e.g. "docs/plans/services/x") → site route. Most specific root
@@ -352,5 +369,6 @@ export default {
   clientRoots,
   home,
   homeFiles,
+  branding,
   routeForPage,
 };

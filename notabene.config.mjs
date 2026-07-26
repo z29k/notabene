@@ -30,6 +30,13 @@ export default {
   // two spaces so it isn't also a doc page.
   home: "docs/home.md",
 
+  // Identity: the ink-bottle logo in the topbar + as favicon + as the social card.
+  branding: {
+    logo: "assets/notabene-logo.jpg",
+    favicon: "assets/notabene-logo.jpg",
+    socialImage: "assets/notabene-logo.jpg",
+  },
+
   // Dogfood the flagship feature: agent proposes, humans validate at /review.
   review: "approve",
 

@@ -66,6 +66,7 @@ jobs:
           printf '# Brouillon\n\nGLOBCANARY sous-arbre exclu (FR).\n' > /tmp/consumer/docs/wip/draft.fr.md
           # Custom home page: rendered on "/" above the space cards (public + normal).
           printf '# Welcome\n\nHOMECANARY custom landing content.\n' > /tmp/consumer/home.md
+          printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="navy"/></svg>' > /tmp/consumer/brand.svg
           cat > /tmp/consumer/notabene.config.mjs << 'CFG'
           export default {
             siteName: "CI",
@@ -76,6 +77,7 @@ jobs:
             ],
             store: "docs/.notabene",
             home: "home.md",
+            branding: { logo: "brand.svg", favicon: "brand.svg", socialImage: "brand.svg" },
             i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
             publish: { exclude: ["docs/wip/**"] },
           };
@@ -102,6 +104,11 @@ jobs:
           test ! -e /tmp/public-site/journal && test ! -e /tmp/public-site/comments && test ! -e /tmp/public-site/review
           # Base prefix applied to emitted links.
           grep -q "HOMECANARY" /tmp/public-site/index.html || { echo "MISSING: custom home content on /"; exit 1; }
+          # Branding: assets emitted + favicon/logo/og wired into the pages.
+          for a in favicon.svg logo.svg og.svg; do test -f "/tmp/public-site/_nb/$a" || { echo "MISSING: /_nb/$a"; exit 1; }; done
+          grep -q 'rel="icon" type="image/svg+xml" href="/repo/_nb/favicon.svg"' /tmp/public-site/index.html || { echo "MISSING: favicon link"; exit 1; }
+          grep -q 'class="brand-logo" src="/repo/_nb/logo.svg"' /tmp/public-site/index.html || { echo "MISSING: topbar logo"; exit 1; }
+          grep -q 'property="og:image" content="https://ci.example.com/repo/_nb/og.svg"' /tmp/public-site/index.html || { echo "MISSING: og:image"; exit 1; }
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
           # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,
