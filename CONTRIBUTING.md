@@ -37,6 +37,12 @@ npm run demo    # generate ./.demo (gitignored, git-backed, approve mode) + star
 # or customize (deterministic per --seed; default out is ./.demo):
 node scripts/gen-fixture.mjs --format mdx --locale fr --review approve \
   --spaces 3 --pages 6 --seed 7 --git
+# bilingual demo (adds the other of en/fr): --i18n directory|suffix
+# public-scoping seeds (a private space, a publish.exclude'd wip/ sub-tree, a
+# frontmatter publish:false page, `description` frontmatter, a `publish` block):
+node scripts/gen-fixture.mjs --publish --i18n directory
+node packages/renderer/bin/notabene.mjs build --root .demo --public --out /tmp/demo-public
+grep -r "PRIVATE marker" /tmp/demo-public   # must find nothing
 ```
 
 The demo lands in a gitignored `.demo/` at the repo root (a nested git repo when `--git`),
