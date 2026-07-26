@@ -193,6 +193,7 @@ if (!isSiteHome) {
       mdHref={mdHref}
       editHref={editHref}
       lastUpdatedIso={lastUpdatedIso}
+      indexable={!!entry && !isHome}
       description={typeof entry?.data?.description === "string" ? entry.data.description : undefined}
     >
       {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}

@@ -80,6 +80,9 @@ interface Props {
   /** Aggregate pages (comments/journal/review/…): no per-page locale, so localize the chrome
    *  CLIENT-SIDE to the visitor's current language (localStorage) + show a client switcher. */
   i18nClientChrome?: boolean;
+  /** Public builds: mark this page's article as Pagefind-indexable (doc pages only —
+   *  synthetic space homes duplicate their index entry and must stay out). */
+  indexable?: boolean;
 }
 
 const {
@@ -97,6 +100,7 @@ const {
   editHref,
   lastUpdatedIso,
   i18nClientChrome = false,
+  indexable = false,
 } = Astro.props;
 // UI chrome follows THIS page's locale (t() falls back to English per key).
 const m = t(locale);
@@ -207,7 +211,7 @@ const hasRail = page != null;
 ---
 
 <!doctype html>
-<html lang={locale}>
+<html lang={locale} data-nb-public={publicMode ? "" : undefined}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -489,7 +493,15 @@ const hasRail = page != null;
             </details>
           )
         }
-        <article id="doc-content" class="prose" data-space={space} data-page={page}>
+        <article
+          id="doc-content"
+          class="prose"
+          data-space={space}
+          data-page={page}
+          {...publicMode && indexable
+            ? { "data-pagefind-body": true, "data-pagefind-meta": "space[data-space], title[data-title]", "data-title": title }
+            : {}}
+        >
           <slot />
         </article>
         {(editHref || lastUpdatedLabel) && (
@@ -716,10 +728,12 @@ const hasRail = page != null;
 
     <script>
       import { withBase } from "../lib/base";
-      import { esc } from "../lib/client/esc";
+      import { hitHtml, type SearchHit } from "../lib/client/search-hits";
       import { localizeField } from "../lib/i18n-content.mjs";
 
-      // Client-side search: JSON index (title + headings + excerpt), scored.
+      // Client-side search: JSON index (title + headings + excerpt), scored — or, on a
+      // public build whose artifact carries a Pagefind bundle, the Pagefind engine
+      // (per-language stemming + highlighted excerpts; bundle written by the CLI epilogue).
       const input = document.getElementById("search-input") as HTMLInputElement | null;
       const box = document.getElementById("search-results");
 
@@ -763,27 +777,63 @@ const hasRail = page != null;
         return 0;
       }
 
+      // Pagefind probe, once: only on a public page (data-nb-public), and only if the
+      // bundle is actually in the artifact (pagefind not installed at build time → the
+      // import 404s and we settle on the JSON engine). It picks its per-language index
+      // from <html lang> by itself.
+      // biome-ignore lint/suspicious/noExplicitAny: external runtime module, no shipped types.
+      let pfEngine: any | null | undefined;
+      // biome-ignore lint/suspicious/noExplicitAny: external runtime module, no shipped types.
+      async function pagefindEngine(): Promise<any | null> {
+        if (pfEngine !== undefined) return pfEngine;
+        if (!document.documentElement.hasAttribute("data-nb-public")) {
+          pfEngine = null;
+          return pfEngine;
+        }
+        try {
+          const mod = await import(/* @vite-ignore */ withBase("/pagefind/pagefind.js"));
+          await mod.options({ baseUrl: import.meta.env.BASE_URL });
+          pfEngine = mod;
+        } catch {
+          pfEngine = null;
+        }
+        return pfEngine;
+      }
+
       if (input && box) {
         input.addEventListener("input", async () => {
-          const q = input.value.trim().toLowerCase();
+          const qRaw = input.value.trim();
+          const q = qRaw.toLowerCase();
           if (!q) {
             box.hidden = true;
             box.innerHTML = "";
             return;
           }
-          const data = (await ensureIndex()).filter((d) => !SEARCH_I18N?.enabled || d.locale === searchLocale);
-          const hits = data
-            .map((doc) => ({ doc, s: score(doc, q) }))
-            .filter((x) => x.s > 0)
-            .sort((a, b) => b.s - a.s)
-            .slice(0, 12);
+          let hits: Omit<SearchHit, "spaceLabel">[];
+          const engine = await pagefindEngine();
+          if (engine) {
+            const res = await engine.debouncedSearch(qRaw, {}, 120);
+            if (res === null) return; // superseded by a newer keystroke
+            // biome-ignore lint/suspicious/noExplicitAny: pagefind result shape.
+            const top = await Promise.all(res.results.slice(0, 12).map((r: any) => r.data()));
+            // biome-ignore lint/suspicious/noExplicitAny: pagefind fragment shape.
+            hits = top.map((d: any) => ({
+              href: String(d.url),
+              spaceKey: String(d.meta?.space ?? ""),
+              title: String(d.meta?.title ?? d.url),
+              excerptHtml: typeof d.excerpt === "string" ? d.excerpt : undefined,
+            }));
+          } else {
+            const data = (await ensureIndex()).filter((d) => !SEARCH_I18N?.enabled || d.locale === searchLocale);
+            hits = data
+              .map((doc) => ({ doc, s: score(doc, q) }))
+              .filter((x) => x.s > 0)
+              .sort((a, b) => b.s - a.s)
+              .slice(0, 12)
+              .map(({ doc }) => ({ href: doc.href, spaceKey: doc.space, title: doc.title }));
+          }
           box.innerHTML = hits.length
-            ? hits
-                .map(
-                  ({ doc }) =>
-                    `<a href="${doc.href}"><span class="r-space ${doc.space}">${esc(spaceLabel(doc.space))}</span><span class="r-title">${esc(doc.title)}</span></a>`,
-                )
-                .join("")
+            ? hits.map((h) => hitHtml({ ...h, spaceLabel: spaceLabel(h.spaceKey) })).join("")
             : `<div class="r-empty">${M.searchNoResults}</div>`;
           box.hidden = false;
         });

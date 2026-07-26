@@ -552,10 +552,40 @@ function pruneOrphanAssets(distDir) {
   return removed;
 }
 
-function finishPublicBuild(workDir) {
+// Static full-text search for the public artifact — Pagefind is an OPTIONAL peer dep
+// (same contract as puppeteer for `notabene pdf`): installed → index the FINAL artifact
+// (post-prune, so the index inherits its truth: private pages are structurally absent);
+// missing → keep the built-in JSON search, with an install hint. Only doc pages carry
+// `data-pagefind-body` (DocLayout, public mode), which scopes indexing to article content
+// and excludes chrome, /print/**, 404 and space/site homes wholesale.
+async function indexPublicSearch(distDir) {
+  let pagefind;
+  try {
+    pagefind = await import("pagefind");
+  } catch {
+    console.log(
+      "notabene: `pagefind` not installed — the public site keeps the built-in JSON search.\n" +
+        "    npm i -D pagefind    # static full-text search (per-language stemming, excerpts)",
+    );
+    return;
+  }
+  // Mermaid sources are stashed in the HTML for client-side rendering — index noise.
+  const { index, errors } = await pagefind.createIndex({ excludeSelectors: ["pre.mermaid"], verbose: false });
+  if (!index) throw new Error(`pagefind createIndex: ${(errors ?? []).join("; ") || "failed"}`);
+  const added = await index.addDirectory({ path: distDir });
+  if (added.errors?.length) throw new Error(`pagefind addDirectory: ${added.errors.join("; ")}`);
+  const written = await index.writeFiles({ outputPath: path.join(distDir, "pagefind") });
+  if (written.errors?.length) throw new Error(`pagefind writeFiles: ${written.errors.join("; ")}`);
+  await pagefind.close();
+  console.log(`notabene: pagefind search index written (${added.page_count} file(s) scanned).`);
+}
+
+async function finishPublicBuild(workDir) {
   const distDir = path.join(workDir, "dist-public");
   const pruned = pruneOrphanAssets(distDir);
   if (pruned > 0) console.log(`notabene: pruned ${pruned} unreferenced asset(s) from the public artifact.`);
+  // AFTER the prune (the sweep must never see — or drop — the search bundle).
+  await indexPublicSearch(distDir);
   // Jekyll (classic gh-pages branch hosting) drops _astro/** without this. Inert elsewhere.
   fs.writeFileSync(path.join(distDir, ".nojekyll"), "");
   const outFlag = flag("--out");
@@ -637,10 +667,10 @@ async function runAstro(astroCmd) {
   // (same resolution trick as the adapter path) — the consumer repo is never written to.
   const spawnCwd = publicBuild ? workDir : repoRoot;
   const child = spawn(process.execPath, args, { stdio: "inherit", cwd: spawnCwd, env });
-  child.on("exit", (code) => {
+  child.on("exit", async (code) => {
     if ((code ?? 0) === 0 && publicBuild) {
       try {
-        finishPublicBuild(workDir);
+        await finishPublicBuild(workDir);
       } catch (err) {
         fail(`public build epilogue failed: ${err instanceof Error ? err.message : err}`);
       }

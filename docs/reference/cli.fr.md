@@ -19,7 +19,7 @@ Le package npm est scopé (`@z29k/notabene`) ; la commande installée est simple
 | `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL) — `--json` |
 | `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Construit le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
-| `notabene build --public` | Site **statique** en lecture seule pour hébergement public — [voir le guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]` |
+| `notabene build --public` | Site **statique** en lecture seule pour hébergement public — [voir le guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]`. Avec la dépendance de dev optionnelle `pagefind`, l'artefact gagne une [recherche plein texte statique](../guide/publish/index.md#recherche-plein-texte-optionnelle) |
 | `notabene preview` | Sert le site construit |
 | `notabene lint` | Valide les liens inter-docs contre les routes émises par le **dernier build** (suggestions « did you mean » ; `--json`). Après `build --public`, attrape aussi les liens de pages publiques vers du [contenu privé](../guide/publish/private-content.md). Exit 1 = liens cassés, 2 = pas encore de build |
 | `notabene pdf` | Exporte un PDF via Chromium headless (sommaire de signets + numéros de page) ; `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Nécessite la peer dep optionnelle `puppeteer` (ou `puppeteer-core` + `--chrome`) |

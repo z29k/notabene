@@ -204,6 +204,7 @@ a:hover {
 .search-results a {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
   padding: 7px 9px;
   border-radius: 6px;
@@ -230,6 +231,23 @@ a:hover {
 .r-empty {
   padding: 10px;
   color: var(--text-faint);
+}
+/* Pagefind excerpt (public builds) — full-width second line under the chip + title. */
+.r-excerpt {
+  flex-basis: 100%;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-faint);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.r-excerpt mark {
+  background: var(--accent-soft);
+  color: var(--text);
+  border-radius: 3px;
+  padding: 0 2px;
 }
 
 /* Flexible gap that separates the primary nav (Comments/Journal) from the ancillary

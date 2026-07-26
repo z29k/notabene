@@ -31,6 +31,23 @@ notabene build --public --site https://you.github.io --base /your-repo --out ./_
   doc as one Markdown document in reading order), plus `robots.txt`, a sitemap, canonical
   URLs, OpenGraph/Twitter meta and JSON-LD. Try it here: [/llms.txt](/notabene/llms.txt).
 
+## Full-text search (optional)
+
+The public site inherits the built-in search as-is. Install
+[Pagefind](https://pagefind.app) as a dev dependency and `build --public` upgrades it to
+**static full-text search**:
+
+```bash
+npm i -D pagefind
+```
+
+The build indexes the final artifact: per-language stemming (a `/fr/` visitor searches a
+French index with French word forms), highlighted excerpts under each result, and a
+payload that stays small as the docs grow — the browser fetches only the index chunks a
+query needs. Zero configuration, same search box. Not installed → the public site keeps
+the built-in JSON search. And private content cannot leak into the index: indexing runs
+on the artifact, where [scoped pages](./private-content.md) don't exist.
+
 ## Where next
 
 - [Configuring `publish`](./configuration.md) — `site`, `base`, `exclude`, with examples.
