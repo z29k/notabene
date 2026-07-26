@@ -48,6 +48,20 @@ grep -r "PRIVATE marker" /tmp/demo-public   # must find nothing
 The demo lands in a gitignored `.demo/` at the repo root (a nested git repo when `--git`),
 so it's easy to browse and never gets committed.
 
+## The documentation site (dogfood)
+
+`docs/` is the user documentation, and this repo is its own notabene consumer (root
+`notabene.config.mjs`, store at `docs/.notabene`). Edit the pages in `docs/`, preview and
+review them with the loop itself:
+
+```bash
+node packages/renderer/bin/notabene.mjs dev --root .      # comment the docs locally
+node packages/renderer/bin/notabene.mjs build --root . --public --out /tmp/site  # what Pages will serve
+```
+
+`.github/workflows/docs.yml` deploys to z29k.github.io/notabene on push to `main`. The
+READMEs are short landings — user-facing detail belongs in `docs/`, in one place.
+
 ## Conventions
 
 - **Node, not Bun** — the OSS target is npm/pnpm/Node. Don't add Bun assumptions.

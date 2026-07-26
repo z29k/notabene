@@ -1,0 +1,44 @@
+name: docs
+
+# Publish this repo's own documentation (docs/, rendered by notabene itself) to
+# GitHub Pages — dogfooding `notabene build --public`. The site/base come from
+# the root notabene.config.mjs (`publish:` block); the artifact is the read-only
+# public site: no review UI, no store data, llms.txt + .md twins included.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "notabene.config.mjs"
+      - "packages/renderer/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Build the public site
+        run: node packages/renderer/bin/notabene.mjs build --public --out ./_site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+      - id: deployment
+        uses: actions/deploy-pages@v4

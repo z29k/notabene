@@ -16,6 +16,14 @@ Two installable pieces, one npm workspace:
 - **`packages/plugin`** — the Claude Code plugin. Its single skill
   (`skills/notabene/SKILL.md`) doubles as the agent-agnostic protocol spec.
 
+**Dogfood:** this repo is also its own consumer — `docs/` holds the user documentation
+(two spaces, `guide` + `reference`), wired by the root `notabene.config.mjs` (store at
+`docs/.notabene`, `review: "approve"`). `.github/workflows/docs.yml` publishes it to
+GitHub Pages (z29k.github.io/notabene) on push to `main` via `build --public`. Review it
+locally with `node packages/renderer/bin/notabene.mjs dev --root .`. The three READMEs
+are short landings; the docs site is the single source of user-facing detail — update
+`docs/`, not the READMEs, when documenting features.
+
 ## Commands
 
 Everything runs against a **consumer repo** (see run-from-package model below), so the

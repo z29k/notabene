@@ -80,7 +80,7 @@ public data contract agents read.
 Want the docs themselves online? The renderer can emit a **read-only public site** (no
 review UI, no store data, llms.txt + Markdown twins for the agent web) with
 `notabene build --public` — see
-[Publish a public site](https://github.com/z29k/notabene#publish-a-public-site).
+[Publish a public site](https://z29k.github.io/notabene/guide/publish).
 
 See the [repo](https://github.com/z29k/notabene) for the full docs, the renderer CLI, and
 the review protocol.
