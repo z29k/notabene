@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
-import { i18n, publicMode, publish, siteName, tagline } from "../../config.mjs";
-import { withBase } from "../../lib/base";
+import { i18n, publicMode, siteName, tagline } from "../../config.mjs";
+
 import { renderLlmsFull } from "../../lib/llms";
-import { gatherAgentSpaces, llmsIndexPath } from "../../lib/llms-content";
+import { gatherAgentSpaces, llmsIndexPath, publicHref } from "../../lib/llms-content";
 
 // /llms-full.txt (+ /<locale>/llms-full.txt) — the whole doc as ONE Markdown
 // document (PUBLIC builds only), pages in nav order, each block opened by a rule +
@@ -22,7 +22,7 @@ export const GET: APIRoute = async ({ props }) => {
   const text = renderLlmsFull({
     siteName,
     tagline,
-    absolute: (p) => `${publish.site}${withBase(p)}`,
+    absolute: publicHref,
     indexPath: llmsIndexPath(locale),
     spaces,
   });

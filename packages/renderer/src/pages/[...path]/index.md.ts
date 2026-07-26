@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
-import { i18n, publicMode, publish } from "../../config.mjs";
-import { withBase } from "../../lib/base";
+import { i18n, publicMode } from "../../config.mjs";
+
 import { ensureH1, twinHeader } from "../../lib/llms";
-import { gatherAgentSpaces, llmsIndexPath } from "../../lib/llms-content";
+import { gatherAgentSpaces, llmsIndexPath, publicHref } from "../../lib/llms-content";
 
 // Markdown twin of every doc page (PUBLIC builds only): `<route>/index.md` serves
 // the page's raw Markdown source with a one-line pointer header (rendered URL +
@@ -29,8 +29,7 @@ export async function getStaticPaths() {
 
 export const GET: APIRoute = ({ props }) => {
   const { title, route, body, locale } = props as { title: string; route: string; body: string; locale: string };
-  const abs = (p: string) => `${publish.site}${withBase(p)}`;
-  const md = twinHeader(abs(route), abs(llmsIndexPath(locale))) + ensureH1(body, title);
+  const md = twinHeader(publicHref(route), publicHref(llmsIndexPath(locale))) + ensureH1(body, title);
   return new Response(md.endsWith("\n") ? md : `${md}\n`, {
     headers: { "content-type": "text/markdown; charset=utf-8" },
   });

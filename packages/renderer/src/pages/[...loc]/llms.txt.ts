@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro";
-import { i18n, publicMode, publish, siteName, tagline } from "../../config.mjs";
-import { withBase } from "../../lib/base";
+import { i18n, publicMode, siteName, tagline } from "../../config.mjs";
+
 import { renderLlmsIndex } from "../../lib/llms";
-import { gatherAgentSpaces, llmsFullPath, llmsIndexPath } from "../../lib/llms-content";
+import { gatherAgentSpaces, llmsFullPath, llmsIndexPath, publicHref } from "../../lib/llms-content";
 
 // /llms.txt (+ /<locale>/llms.txt) — machine-readable index of the doc for agents
 // (PUBLIC builds only): one section per space, every page in nav order, each link
@@ -21,7 +21,7 @@ export const GET: APIRoute = async ({ props }) => {
   const text = renderLlmsIndex({
     siteName,
     tagline,
-    absolute: (p) => `${publish.site}${withBase(p)}`,
+    absolute: publicHref,
     spaces,
     fullPath: llmsFullPath(locale),
     otherLocales: i18n.enabled

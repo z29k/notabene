@@ -320,13 +320,87 @@ notabene build --public --site https://vous.github.io --base /votre-repo --out .
   une seule page (frontmatter `publish: false`). Le contenu exclu disparaît partout à la
   fois : routes, navigation, recherche, impression/PDF, `llms.txt`, doubles Markdown,
   sitemap. `notabene dev` montre toujours tout.
-- `--site` est l'origine déployée (obligatoire) ; `--base` le sous-chemin pour un hébergement
-  de type « project page » ; `--out` copie l'artefact vers un chemin stable (il refuse
-  d'écraser ce qu'il n'a pas généré). À poser une fois dans `notabene.config.mjs` :
-  `publish: { site: "https://vous.github.io", base: "/votre-repo" }`.
+### Configurer `publish`
+
+Tout tient dans une clé de config optionnelle — les flags CLI (`--site`/`--base`) la
+surchargent, et `--out` copie l'artefact vers un chemin stable (il refuse d'écraser ce
+qu'il n'a pas généré) :
+
+```js
+// notabene.config.mjs
+export default {
+  // …
+  publish: {
+    // ORIGINE déployée. Grave des URL absolues dans canonical, og:url, JSON-LD,
+    // hreflang, llms.txt, le sitemap et la ligne Sitemap de robots.txt.
+    // OPTIONNELLE — l'omettre pour garder le domaine hors du repo (section
+    // suivante). Origine seule ("https://hote"), sans chemin : le sous-chemin
+    // va dans `base`.
+    site: "https://vous.github.io",
+
+    // Sous-chemin quand le site est servi sous un préfixe (GitHub Pages type
+    // « project site » → "/<repo>"). Préfixe chaque lien et chaque asset —
+    // contrairement au domaine, un sous-chemin affecte toujours le rendu, il ne
+    // peut pas être géré côté serveur.
+    base: "/votre-repo",
+
+    // Sous-arbres à garder hors des builds publics — globs sur
+    // `<clé d'espace>/<id de page>` (indépendants de la langue : un motif masque
+    // toutes les traductions). `*` = un segment, `**` = toute profondeur.
+    exclude: ["docs/internal/**", "docs/*/brouillon"],
+  },
+};
+```
+
+Trois configurations types :
+
+```js
+publish: { site: "https://vous.github.io", base: "/mon-repo" }  // GitHub Pages, project site
+publish: { site: "https://docs.example.com" }                   // domaine custom à la racine
+publish: { exclude: ["docs/internal/**"] }                      // domaine hors du repo — voir plus bas
+```
+
+Les deux autres niveaux de scoping vivent là où vit ce qu'ils masquent — un espace dans
+`roots[]`, une page dans son frontmatter :
+
+```js
+roots: [
+  { key: "docs",  label: "Docs",  path: "docs" },
+  { key: "notes", label: "Notes", path: "notes", publish: false },  // espace entier privé
+],
+```
+
+```yaml
+---
+description: Résumé en une phrase — devient la meta description / OpenGraph publique.
+publish: false   # cette page ne part jamais dans un build public (dev la montre toujours)
+---
+```
+
+### Domaine géré côté serveur ? Omettre `site`
+
+Quand le domaine public est l'affaire du **serveur** — vhost ou reverse proxy devant,
+plusieurs miroirs, ou domaine pas encore choisi — il suffit de ne pas poser `site` (et de
+ne pas passer `--site`). L'artefact devient **agnostique de l'origine** : aucune URL
+absolue gravée, le *même* artefact fonctionne derrière n'importe quel domaine, et changer
+de domaine ne demande jamais de rebuild.
+
+| Surface | Avec `site` | Sans |
+| --- | --- | --- |
+| `llms.txt` / `llms-full.txt` / doubles `.md` | URL absolues | chemins racine-relatifs (un agent les résout contre l'origine d'où il a téléchargé le fichier) |
+| alternates `hreflang` | absolues | en chemins |
+| canonical, `og:url`, JSON-LD | émis | non émis — ils n'ont de sens qu'avec une origine |
+| sitemap + ligne `Sitemap:` de robots.txt | émis | non émis — les specs exigent des URL absolues |
+
+Tout le reste (routes, nav, recherche, titre/description OpenGraph, doubles Markdown,
+scoping) est identique. `base` reste indépendant : à poser dès que le site vit sous un
+sous-chemin, avec ou sans domaine — un sous-chemin affecte toujours les liens rendus, il
+ne peut pas être délégué au serveur.
+
+### Déployer
 
 Déployable sur n'importe quel hébergeur statique ; pour **GitHub Pages** (Settings → Pages →
-Source : *GitHub Actions*), voir le workflow complet dans le [README anglais](./README.md#publish-a-public-site).
+Source : *GitHub Actions*), voir le workflow complet dans le [README anglais](./README.md#deploy-via-github-pages).
 La boucle de revue locale est intacte : `notabene dev` et `notabene build` se comportent
 exactement comme avant — publier est un choix, à chaque build.
 

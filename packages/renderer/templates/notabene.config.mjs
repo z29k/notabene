@@ -47,10 +47,13 @@ export default {
 
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface
-  // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin
-  // (required for a public build); `base` = sub-path when hosted under a prefix
-  // (GitHub Pages project site → "/<repo>"). CLI flags --site/--base override.
-  // Scope what goes public (dev always shows everything):
+  // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin;
+  // OPTIONAL — omit it to keep the domain out of the repo (server-side vhost/proxy):
+  // the artifact then bakes no absolute URL (llms/twin links go root-relative; the
+  // origin-only surfaces — sitemap, canonical, og:url, JSON-LD — are not emitted).
+  // `base` = sub-path when hosted under a prefix (GitHub Pages project site →
+  // "/<repo>") — unlike the domain, it always affects rendering. CLI flags
+  // --site/--base override. Scope what goes public (dev always shows everything):
   //   - a whole space:  `publish: false` on a roots[] entry (above)
   //   - a sub-tree:     `exclude` globs on `<space key>/<page id>` (locale-independent)
   //   - a single page:  frontmatter `publish: false`

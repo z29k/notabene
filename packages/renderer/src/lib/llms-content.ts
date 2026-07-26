@@ -3,7 +3,8 @@
 // the print/PDF export exactly — space home first, then the nav tree flattened
 // (buildNav + flattenNav) — so the corpus reads in the same order a human gets.
 import { getCollection } from "astro:content";
-import { i18n, roots } from "../config.mjs";
+import { i18n, publish, roots } from "../config.mjs";
+import { withBase } from "./base";
 import { decode, localizeField, routeFor } from "./i18n-content.mjs";
 import { buildNav, pageTitle } from "./nav";
 import { flattenNav } from "./print-scope";
@@ -61,6 +62,13 @@ export async function gatherAgentSpaces(locale: string): Promise<AgentSpace[]> {
     });
   }
   return out;
+}
+
+/** Public URL of a base-less path: absolute when `publish.site` is set, root-relative
+ *  (base-aware) otherwise — a site-less public artifact stays origin-agnostic, and an
+ *  agent resolves the path against whatever origin it fetched the file from. */
+export function publicHref(p: string): string {
+  return publish.site ? `${publish.site}${withBase(p)}` : withBase(p);
 }
 
 /** Base-less path of a locale's llms.txt index (default locale unprefixed). */

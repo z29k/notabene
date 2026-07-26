@@ -253,9 +253,12 @@ reading experience (nav, search, diagrams + lightbox, i18n, print/PDF routes) pl
 `/llms-full.txt`, sitemap, `robots.txt`, canonical URLs, OG/Twitter meta and JSON-LD.
 **Scope what goes public**: a whole space (`publish: false` on a `roots[]` entry), a
 sub-tree (`publish.exclude` globs), or a single page (frontmatter `publish: false`) -
-`notabene dev` always shows everything. Host it anywhere static; a ready-made GitHub Pages
-workflow is in the [repo README](https://github.com/z29k/notabene#publish-a-public-site).
-Configure once via `publish: { site, base, exclude }` in `notabene.config.mjs`.
+`notabene dev` always shows everything. **Domain managed server-side?** Omit `site` and
+the artifact bakes no absolute URL at all - the same output works behind any domain (the
+origin-only surfaces - sitemap, canonical, og:url, JSON-LD - are simply not emitted).
+Host it anywhere static; full configuration guide + a ready-made GitHub Pages workflow in
+the [repo README](https://github.com/z29k/notabene#publish-a-public-site). Configure once
+via `publish: { site, base, exclude }` in `notabene.config.mjs`.
 
 ## The `.notabene` contract
 

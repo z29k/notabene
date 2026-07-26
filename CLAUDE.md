@@ -164,8 +164,11 @@ parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to 
 
 Opt-in **per build** (never a repo state): `notabene build --public [--site URL] [--base
 /sub] [--out DIR]` sets `NOTABENE_PUBLIC=1` → `config.mjs` exports `publicMode` +
-`publish { site, base }` (config key `publish:`, flags override via
-`NOTABENE_SITE`/`NOTABENE_BASE`; `site` = origin only, REQUIRED in public mode). The
+`publish { site, base, exclude }` (config key `publish:`, flags override via
+`NOTABENE_SITE`/`NOTABENE_BASE`; `site` = origin only, OPTIONAL — absent → an
+**origin-agnostic artifact** for server-side domain management: llms/twin/robots links go
+root-relative via `publicHref` (`lib/llms-content.ts`), hreflang stays path-based, and the
+origin-only surfaces — sitemap, canonical, og:url, JSON-LD — are not emitted at all). The
 artifact is a **pure-static, read-only site**; a normal dev/build is byte-identical to
 before the feature.
 

@@ -125,6 +125,15 @@ jobs:
           # Base prefix applied to emitted links.
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
+          # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,
+          # no Sitemap line in robots.txt, root-relative llms/twin links, and NOT ONE
+          # absolute origin baked anywhere in the artifact.
+          node packages/renderer/bin/notabene.mjs build --root /tmp/consumer --public \
+            --base /repo --out /tmp/public-relative
+          test -f /tmp/public-relative/llms.txt && test ! -e /tmp/public-relative/sitemap-index.xml
+          ! grep -q "Sitemap:" /tmp/public-relative/robots.txt || { echo "robots.txt points at a sitemap that is not emitted"; exit 1; }
+          grep -q '](/repo/docs/index/index.md)' /tmp/public-relative/llms.txt || { echo "MISSING: root-relative llms links"; exit 1; }
+          ! grep -RIq "https://ci.example.com" /tmp/public-relative || { echo "LEAK: baked origin in origin-agnostic artifact"; exit 1; }
           # Scoping must not affect normal builds — rebuild non-public with the
           # publish:false page present.
           node packages/renderer/bin/notabene.mjs build --root /tmp/consumer

@@ -15,6 +15,15 @@ import { REPO_ROOT, host, i18n, mdxEnabled, port, publicMode, publish, roots } f
 // (e.g. src/styles/global.css, client scripts) — Vite's fs.allow must include it too.
 const PKG_ROOT = fileURLToPath(new URL(".", import.meta.url));
 
+// A site-less public build is a supported, deliberate mode (domain managed server-side) —
+// say so once, with what it changes, so nobody hunts for a missing sitemap.
+if (publicMode && !publish.site) {
+  console.warn(
+    "notabene: public build without a site URL → origin-agnostic artifact (no sitemap/canonical/og:url; " +
+      "llms.txt and .md-twin links are root-relative). Pass --site or set publish.site to bake absolute URLs.",
+  );
+}
+
 // notabene renderer — a navigable site over a repo's docs + a human↔agent review
 // loop. DEV-LOCAL tool, not deployed. Plain Astro (not Starlight): content lives
 // OUTSIDE the app (glob `base` derived from notabene.config `roots[]`), and we keep
@@ -47,11 +56,12 @@ export default defineConfig({
   // MDX only in "mdx" format (§10.bis). In "commonmark", .md files go through
   // Astro's native markdown pipeline (lenient CommonMark/GFM). The interactive app
   // routes (comments/review/journal + /api/*) are INJECTED — absent from a public
-  // build (see src/integrations/app-routes.mjs). The sitemap ships only in public
-  // builds (it needs `site`; a dev-local tool has no use for it).
+  // build (see src/integrations/app-routes.mjs). The sitemap needs absolute URLs →
+  // only in public builds WITH a site; a site-less public build stays
+  // origin-agnostic (no sitemap rather than a wrong one).
   integrations: [
     ...(mdxEnabled ? [mdx()] : []),
-    ...(publicMode ? [sitemap(), notabenePublicRoutes()] : [notabeneAppRoutes()]),
+    ...(publicMode ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()] : [notabeneAppRoutes()]),
   ],
   markdown: {
     // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs

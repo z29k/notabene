@@ -143,12 +143,18 @@ export const pdf = {
 // Opt-in PER BUILD via NOTABENE_PUBLIC=1 (set by the CLI flag), never a repo
 // state: a normal dev/build run stays byte-identical to pre-publish behavior.
 //   publish.site — absolute ORIGIN of the deployed site (e.g.
-//                  "https://user.github.io"). REQUIRED in public mode: canonical
-//                  URLs, llms.txt, hreflang and the sitemap all need it. Must not
-//                  carry a path — a sub-path belongs in `base`.
+//                  "https://user.github.io"). OPTIONAL: with it, absolute URLs are
+//                  baked (canonical, og:url, JSON-LD, hreflang, llms.txt, sitemap,
+//                  robots' Sitemap line). WITHOUT it the artifact is
+//                  ORIGIN-AGNOSTIC — same output behind any domain (server-side
+//                  vhost/proxy): those surfaces fall back to root-relative paths
+//                  and the origin-only ones (sitemap, canonical, og:url, JSON-LD)
+//                  are simply not emitted. Must not carry a path — a sub-path
+//                  belongs in `base`.
 //   publish.base — optional sub-path when the site is served under a prefix
 //                  (GitHub Pages project site → "/<repo>"). Default "/". Applied
-//                  to Astro's `base` ONLY in public mode.
+//                  to Astro's `base` ONLY in public mode. Unlike the domain, a
+//                  sub-path always affects rendering — it cannot be server-side.
 // CLI flags --site/--base override the config (via NOTABENE_SITE/NOTABENE_BASE).
 export const publicMode = process.env.NOTABENE_PUBLIC === "1";
 const publishCfg = userConfig.publish ?? {};
@@ -192,11 +198,6 @@ export const publish = {
   base: normalizeBase(process.env.NOTABENE_BASE ?? publishCfg.base),
   exclude: publishExclude,
 };
-if (publicMode && !publish.site) {
-  throw new Error(
-    "notabene: a public build needs the deployed site's URL — pass --site https://… or set publish.site in notabene.config.mjs.",
-  );
-}
 
 // Content i18n (multi-language docs). Optional, backward-compatible: no `i18n` block →
 // one locale (the global `locale`), `enabled:false` → identical to a mono-language site.

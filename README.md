@@ -312,10 +312,82 @@ notabene build --public --site https://you.github.io --base /your-repo --out ./_
   `["docs/internal/**"]` — locale-independent, hides every translation), or a single page
   (frontmatter `publish: false`). Scoped content vanishes everywhere at once: routes, nav,
   search, print/PDF, `llms.txt`, twins, sitemap. `notabene dev` always shows everything.
-- `--site` is the deployed origin (required); `--base` is the sub-path for project-page
-  hosting; `--out` copies the artifact to a stable path (it refuses to overwrite anything
-  it didn't generate). Set them once in `notabene.config.mjs` instead:
-  `publish: { site: "https://you.github.io", base: "/your-repo" }`.
+### Configuring `publish`
+
+Everything lives under one optional config key — the CLI flags (`--site`/`--base`)
+override it, and `--out` copies the artifact to a stable path (it refuses to overwrite
+anything it didn't generate):
+
+```js
+// notabene.config.mjs
+export default {
+  // …
+  publish: {
+    // Deployed ORIGIN. Bakes absolute URLs into canonical, og:url, JSON-LD,
+    // hreflang, llms.txt, the sitemap and robots.txt's Sitemap line.
+    // OPTIONAL — omit it to keep the domain out of the repo (next section).
+    // Origin only ("https://host"), no path: a sub-path goes in `base`.
+    site: "https://you.github.io",
+
+    // Sub-path when the site is served under a prefix (GitHub Pages project
+    // site → "/<repo>"). Prefixes every link and asset URL — unlike the
+    // domain, a sub-path always affects rendering, it can't be server-side.
+    base: "/your-repo",
+
+    // Sub-trees to keep out of public builds — globs matched against
+    // `<space key>/<page id>` (locale-independent: one pattern hides every
+    // translation of a page). `*` = one path segment, `**` = any depth.
+    exclude: ["docs/internal/**", "docs/*/draft"],
+  },
+};
+```
+
+Three typical setups:
+
+```js
+publish: { site: "https://you.github.io", base: "/my-repo" }  // GitHub Pages, project site
+publish: { site: "https://docs.example.com" }                 // custom domain at the root
+publish: { exclude: ["docs/internal/**"] }                    // domain kept out of the repo — see below
+```
+
+The other two scoping levels live where the thing they scope lives — a space in
+`roots[]`, a page in its frontmatter:
+
+```js
+roots: [
+  { key: "docs",  label: "Docs",  path: "docs" },
+  { key: "notes", label: "Notes", path: "notes", publish: false },  // whole space stays private
+],
+```
+
+```yaml
+---
+description: One-line summary — becomes the public meta description / OpenGraph.
+publish: false   # this page never ships in a public build (dev always shows it)
+---
+```
+
+### Domain managed server-side? Omit `site`
+
+When the public domain is the **server's** business — a vhost or reverse proxy in
+front, several mirrors, or a domain that isn't chosen yet — just don't set `site`
+(and pass no `--site`). The artifact becomes **origin-agnostic**: not one absolute
+URL is baked in, so the *same* output works behind any domain, and changing domains
+never requires a rebuild.
+
+| Surface | With `site` | Without |
+| --- | --- | --- |
+| `llms.txt` / `llms-full.txt` / `.md` twins | absolute URLs | root-relative paths (agents resolve them against the origin they fetched from) |
+| `hreflang` alternates | absolute | path-based |
+| canonical, `og:url`, JSON-LD | emitted | not emitted — they only mean something with an origin |
+| sitemap + robots.txt `Sitemap:` line | emitted | not emitted — the specs require absolute URLs |
+
+Everything else (routes, nav, search, OpenGraph title/description, Markdown twins,
+scoping) is identical. `base` stays independent: set it whenever the site lives
+under a sub-path, with or without a domain — a sub-path always affects the rendered
+links, so it can't be left to the server.
+
+### Deploy via GitHub Pages
 
 Deploy anywhere static. For **GitHub Pages** (Settings → Pages → Source: *GitHub Actions*):
 
