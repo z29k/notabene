@@ -124,6 +124,25 @@ jobs:
           grep -q "light-dark(" /tmp/public-site/_astro/*.css || { echo "MISSING: light-dark() tokens"; exit 1; }
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
+          # Pagefind (optional dep, present via the workspace root): bundle emitted, one
+          # index per locale, and no scoped/store content in the fragments — they are
+          # gzip (the -RIq sweeps above SKIP binaries), so decompress before grepping.
+          test -f /tmp/public-site/pagefind/pagefind.js || { echo "MISSING: pagefind bundle"; exit 1; }
+          python3 - <<'PF'
+          import glob, gzip, json
+          entry = json.load(open("/tmp/public-site/pagefind/pagefind-entry.json"))
+          langs = entry["languages"]
+          assert "en" in langs and "fr" in langs and all(v["page_count"] > 0 for v in langs.values()), langs
+          frags = glob.glob("/tmp/public-site/pagefind/fragment/*.pf_fragment")
+          assert frags, "no pagefind fragments"
+          bad = []
+          for f in frags:
+              body = gzip.decompress(open(f, "rb").read()).decode("utf-8", "replace")
+              url = json.loads(body[len("pagefind_dcd"):])["url"]
+              bad += [(c, url) for c in ("LEAKCANARY", "PRIVATECANARY", "SPACECANARY", "GLOBCANARY") if c in body]
+              if "/print/" in url or "/404" in url: bad.append(("non-doc route indexed", url))
+          assert not bad, bad
+          PF
           # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,
           # no Sitemap line in robots.txt, root-relative llms/twin links, and NOT ONE
           # absolute origin baked anywhere in the artifact.

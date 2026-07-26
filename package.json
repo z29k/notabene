@@ -19,6 +19,7 @@
     "packages/renderer"
   ],
   "devDependencies": {
+    "pagefind": "^1.5.2",
     "playwright-core": "^1.61.1"
   }
 }

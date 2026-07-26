@@ -19,7 +19,7 @@ The npm package is scoped (`@z29k/notabene`); the installed command is just
 | `notabene status` | Is the detached server running? (pid, port, URL) — `--json` |
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
-| `notabene build --public` | Read-only **static** site for public hosting — [see the guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]` |
+| `notabene build --public` | Read-only **static** site for public hosting — [see the guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]`. With the optional `pagefind` dev dep installed, the artifact gets [static full-text search](../guide/publish/index.md#full-text-search-optional) |
 | `notabene preview` | Serve the built site |
 | `notabene lint` | Validate inter-doc links against the **last build's** emitted routes (did-you-mean suggestions; `--json`). After `build --public`, also catches links from public pages into [private content](../guide/publish/private-content.md). Exit 1 = broken links, 2 = no build yet |
 | `notabene pdf` | Export a PDF via headless Chromium (bookmark outline + page numbers); `--scope doc\|space:K\|folder:K/P\|page:K/I`, `--locale`, `--out`, `--chrome`. Needs the optional `puppeteer` peer dep (or `puppeteer-core` + `--chrome`) |

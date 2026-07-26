@@ -200,6 +200,17 @@ before the feature.
   didn't generate). `ReviewChrome.astro` carries the identity dialog + review-badge script;
   `PublicZoom.astro`/`lib/client/blocks-lightbox.ts` keep the diagram/image lightbox in
   public pages without the comment code.
+- **Full-text search (Pagefind, optional).** `pagefind` is an OPTIONAL peer dep (same
+  contract as puppeteer for `pdf`): installed → the epilogue indexes the FINAL artifact
+  (AFTER the prune → private pages can't leak; one index per `<html lang>`) into
+  `<dist>/pagefind/`; missing → install hint, the JSON search ships. Only doc articles
+  are indexed: `DocLayout` adds `data-pagefind-body` + `space`/`title` meta (public mode,
+  `indexable` prop — synthetic space homes excluded to avoid duplicating their index
+  entry); `pre.mermaid` sources are `excludeSelectors`-ed. The search script probes the
+  bundle at runtime (`data-nb-public` on `<html>`, `baseUrl` from `BASE_URL`) and falls
+  back to the JSON engine; both render through `lib/client/search-hits.ts` (pure,
+  unit-tested). CI decompresses the gzip fragments for the leak canaries (`grep -RIq`
+  skips binaries).
 - **Agent surface** (public only; `getStaticPaths` return `[]` otherwise): per-page
   Markdown twins at `<route>/index.md` (`pages/[...path]/index.md.ts` — raw source
   verbatim + a pointer header; advertised via `<link rel="alternate"

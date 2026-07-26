@@ -139,7 +139,8 @@ regenerate from the template.
    `review` (auto ↔ approve); `siteName`/`tagline`/`locale`; `author`/`authorEmail`; `pdf`
    (PDF export); `publish` (`{ site, base, exclude }` — the `notabene build --public`
    target: a read-only static site for public hosting; scope with `roots[].publish: false`
-   / `exclude` globs / per-page frontmatter `publish: false`); `home` (a repo-relative
+   / `exclude` globs / per-page frontmatter `publish: false`; the optional `pagefind`
+   dev dep upgrades its search to static full-text); `home` (a repo-relative
    Markdown file — or per-locale map — rendered as the landing page above the space
    cards); `branding` (`{ logo, logoDark, favicon, socialImage }` — repo-relative image
    files); `theme` (`{ tokens, css }` — `--nb-*` design-token overrides, validated, and/or

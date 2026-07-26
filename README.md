@@ -83,9 +83,10 @@ only where you're curious:
   own stylesheet (cascade-layer-safe: your CSS always wins).
 - **[Publish a public site](https://z29k.github.io/notabene/guide/publish)** - a
   read-only static build with an **agent-readable surface** (`llms.txt`, per-page
-  Markdown twins, sitemap, OpenGraph), private-content scoping, GitHub Pages workflow
-  included. The [documentation site](https://z29k.github.io/notabene/) is notabene
-  publishing itself.
+  Markdown twins, sitemap, OpenGraph), private-content scoping, optional **full-text
+  search** (Pagefind: per-language stemming, highlighted excerpts), GitHub Pages
+  workflow included. The [documentation site](https://z29k.github.io/notabene/) is
+  notabene publishing itself.
 - **[Link validation](https://z29k.github.io/notabene/reference/cli)** - `notabene lint`
   checks every internal link against the routes the last build **actually emitted** -
   dead links with did-you-mean suggestions, plus public→private leaks after

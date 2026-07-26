@@ -84,9 +84,10 @@ c'est utile :
   stables ou votre propre feuille de style (cascade layers : votre CSS gagne toujours).
 - **[Publier un site public](https://z29k.github.io/notabene/guide/publish)** - un build
   statique en lecture seule avec **surface lisible par les agents** (`llms.txt`, doubles
-  Markdown par page, sitemap, OpenGraph), scoping du contenu privé, workflow GitHub Pages
-  fourni. Le [site de documentation](https://z29k.github.io/notabene/) est notabene qui se
-  publie lui-même.
+  Markdown par page, sitemap, OpenGraph), scoping du contenu privé, **recherche plein
+  texte** optionnelle (Pagefind : stemming par langue, extraits surlignés), workflow
+  GitHub Pages fourni. Le [site de documentation](https://z29k.github.io/notabene/) est
+  notabene qui se publie lui-même.
 - **[Validation des liens](https://z29k.github.io/notabene/reference/cli)** - `notabene
   lint` vérifie chaque lien interne contre les routes que le dernier build a **réellement
   émises** - liens morts avec suggestions, et fuites public→privé après `build --public`.
