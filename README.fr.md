@@ -56,8 +56,9 @@ Sous Claude Code ? `/plugin marketplace add z29k/notabene` puis
 
 ## Fonctionnalités
 
-Chaque entrée est un lien vers la [documentation](https://z29k.github.io/notabene/) (en
-anglais) - creusez seulement là où c'est utile :
+Chaque entrée est un lien vers la [documentation](https://z29k.github.io/notabene/)
+(disponible en français via le sélecteur de langue du site) - creusez seulement là où
+c'est utile :
 
 - **[Commentaires ancrés](https://z29k.github.io/notabene/guide/first-review)** - sur une
   sélection de texte, une page entière, un **diagramme ou une image**. Fils, résolution,
