@@ -33,6 +33,8 @@ no database — everything lives as JSON in your git.
 
 - **[The review loop](./guide/review-loop.md)** — the file-I/O-first protocol any agent
   can follow, and the human-in-the-loop approve mode.
+- **[Customize the look](./guide/customize.md)** — branding, `--nb-*` design tokens,
+  your own stylesheet.
 - **[Multi-language docs](./guide/multilingual.md)** — clean prefixed URLs, a switcher,
   per-language comments.
 - **[PDF export](./guide/pdf-export.md)** — print-ready views, bookmarked PDFs.

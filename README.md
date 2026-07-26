@@ -77,6 +77,10 @@ only where you're curious:
 - **[PDF export](https://z29k.github.io/notabene/guide/pdf-export)** - any page, folder,
   space or the whole doc: cover + clickable TOC in the browser, or a **bookmarked PDF**
   via `notabene pdf`.
+- **[Make it yours](https://z29k.github.io/notabene/guide/customize)** - a custom
+  [home page](https://z29k.github.io/notabene/guide/configuration#custom-home-page),
+  logo + favicon + social card, and theming via stable `--nb-*` design tokens or your
+  own stylesheet (cascade-layer-safe: your CSS always wins).
 - **[Publish a public site](https://z29k.github.io/notabene/guide/publish)** - a
   read-only static build with an **agent-readable surface** (`llms.txt`, per-page
   Markdown twins, sitemap, OpenGraph), private-content scoping, GitHub Pages workflow

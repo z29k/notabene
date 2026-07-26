@@ -7,7 +7,7 @@ import "../styles/global.css";
 import "../styles/print.css";
 import { assetExt, assetPath, contentTypeFor } from "../lib/asset-types";
 import { withBase } from "../lib/base";
-import { branding, clientI18n, pdf, siteName } from "../config.mjs";
+import { branding, clientI18n, pdf, siteName, theme } from "../config.mjs";
 import { t } from "../i18n.mjs";
 
 interface Props {
@@ -22,6 +22,9 @@ const faviconHref = branding.favicon
   ? withBase(assetPath("favicon", branding.favicon))
   : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6feb'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='19' font-weight='bold' text-anchor='middle' fill='white'%3EN%3C/text%3E%3C/svg%3E";
 const faviconType = branding.favicon ? contentTypeFor(assetExt(branding.favicon)) : "image/svg+xml";
+// Theme applies on /print too (fonts, radius, custom hooks) — but print.css overrides
+// the color INTERNALS, so a theme can never darken the paper output.
+const themeCssHref = theme.css ? withBase(assetPath("theme", theme.css)) : null;
 ---
 
 <!doctype html>
@@ -32,6 +35,8 @@ const faviconType = branding.favicon ? contentTypeFor(assetExt(branding.favicon)
     <title>{title} · {siteName}</title>
     <link rel="icon" type={faviconType} href={faviconHref} />
     <style is:inline set:html={`@page { size: ${pdf.pageSize}; margin: ${pdf.margin}; }`}></style>
+    {themeCssHref && <link rel="stylesheet" href={themeCssHref} />}
+    {theme.tokensCss && <style is:inline set:html={theme.tokensCss} />}
   </head>
   <body>
     <div class="pg-toolbar no-print">

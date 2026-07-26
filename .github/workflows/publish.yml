@@ -92,6 +92,7 @@ jobs:
           # Custom home page: rendered on "/" above the space cards (public + normal).
           printf '# Welcome\n\nHOMECANARY custom landing content.\n' > /tmp/consumer/home.md
           printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="navy"/></svg>' > /tmp/consumer/brand.svg
+          printf ':root{--nb-accent:#ff00aa}' > /tmp/consumer/theme.css
           cat > /tmp/consumer/notabene.config.mjs << 'CFG'
           export default {
             siteName: "CI",
@@ -103,6 +104,7 @@ jobs:
             store: "docs/.notabene",
             home: "home.md",
             branding: { logo: "brand.svg", favicon: "brand.svg", socialImage: "brand.svg" },
+            theme: { css: "theme.css", tokens: { accent: "#00ff99" } },
             i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
             publish: { exclude: ["docs/wip/**"] },
           };
@@ -134,6 +136,11 @@ jobs:
           grep -q 'rel="icon" type="image/svg+xml" href="/repo/_nb/favicon.svg"' /tmp/public-site/index.html || { echo "MISSING: favicon link"; exit 1; }
           grep -q 'class="brand-logo" src="/repo/_nb/logo.svg"' /tmp/public-site/index.html || { echo "MISSING: topbar logo"; exit 1; }
           grep -q 'property="og:image" content="https://ci.example.com/repo/_nb/og.svg"' /tmp/public-site/index.html || { echo "MISSING: og:image"; exit 1; }
+          # Theming: consumer stylesheet served + inline token overrides + layered base.
+          grep -q -- '--nb-accent:#ff00aa' /tmp/public-site/_nb/theme.css || { echo "MISSING: theme.css"; exit 1; }
+          grep -q 'stylesheet" href="/repo/_nb/theme.css"' /tmp/public-site/index.html || { echo "MISSING: theme link"; exit 1; }
+          grep -q -- ':root{--nb-accent:#00ff99}' /tmp/public-site/index.html || { echo "MISSING: inline tokens"; exit 1; }
+          grep -q "@layer nb-base" /tmp/public-site/_astro/*.css || { echo "MISSING: layered renderer styles"; exit 1; }
           grep -q 'href="/repo/' /tmp/public-site/index.html || { echo "MISSING: base prefix on links"; exit 1; }
           grep -q 'https://ci.example.com/repo/' /tmp/public-site/llms.txt || { echo "MISSING: absolute URLs in llms.txt"; exit 1; }
           # Origin-agnostic mode (domain managed server-side): no --site → no sitemap,

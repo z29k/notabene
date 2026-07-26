@@ -11,6 +11,7 @@ import {
   author,
   authorEmail,
   branding,
+  theme,
   clientI18n,
   clientRoots,
   pdf,
@@ -147,6 +148,10 @@ const faviconType = branding.favicon ? contentTypeFor(assetExt(branding.favicon)
 const logoHref = branding.logo ? withBase(assetPath("logo", branding.logo)) : null;
 const logoDarkHref = branding.logoDark ? withBase(assetPath("logo-dark", branding.logoDark)) : null;
 const ogImage = absPublic && branding.socialImage ? absPublic(assetPath("og", branding.socialImage)) : null;
+// Theme (config `theme`): stylesheet + inline token overrides, both targeting the
+// `--nb-*` contract. Rendered at the END of <head> so they cascade after the bundled
+// renderer styles (same specificity → document order wins).
+const themeCssHref = theme.css ? withBase(assetPath("theme", theme.css)) : null;
 // Social/SEO meta (public builds only — a dev-local tool has no use for OG cards).
 // og:type: the site home is a website, everything else an article.
 const isHomeUrl = current === "/" || (clientI18n.enabled && current === `/${locale}`);
@@ -230,6 +235,8 @@ const hasRail = page != null;
       </>
     )}
     {jsonLd && <script type="application/ld+json" is:inline set:html={jsonLd} />}
+    {themeCssHref && <link rel="stylesheet" href={themeCssHref} />}
+    {theme.tokensCss && <style is:inline set:html={theme.tokensCss} />}
   </head>
   <body>
     <header class="topbar">

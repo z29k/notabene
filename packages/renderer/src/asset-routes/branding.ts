@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { APIRoute } from "astro";
-import { REPO_ROOT, branding } from "../config.mjs";
+import { REPO_ROOT, branding, theme } from "../config.mjs";
 import { assetExt, assetPath, contentTypeFor } from "../lib/asset-types";
 
 // Branding assets (config `branding`): logo / logo-dark / favicon / og served at
@@ -14,6 +14,7 @@ const NAMES: Record<string, string | null> = {
   "logo-dark": branding.logoDark,
   favicon: branding.favicon,
   og: branding.socialImage,
+  theme: theme.css,
 };
 
 export function getStaticPaths() {

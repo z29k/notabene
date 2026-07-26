@@ -13,6 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { decode as decodeLocale, routeFor as i18nRouteFor, localizeField } from "./lib/i18n-content.mjs";
+import { tokensToCss, validateTokens } from "./lib/theme-tokens.mjs";
 
 export const REPO_ROOT = process.env.NOTABENE_ROOT ? path.resolve(process.env.NOTABENE_ROOT) : process.cwd();
 
@@ -325,6 +326,24 @@ export const branding = {
   socialImage: brandFile("socialImage"),
 };
 
+// Theme (§ theming contract). Two knobs, combinable; both target ONLY the `--nb-*`
+// tokens documented in lib/theme-tokens.mjs + styles/global.css:
+//   theme.css    — a repo-relative stylesheet loaded AFTER the renderer's styles
+//                  (served at /_nb/theme.css like the branding assets).
+//   theme.tokens — quick inline overrides without a CSS file: { accent: "#7c3aed" }.
+//                  Keys are validated against the contract (a typo throws, never
+//                  silently no-ops); values are emitted verbatim.
+// print.css overrides the INTERNAL variables, so themes can never break the PDF.
+const themeCfg = userConfig.theme ?? {};
+const themeTokens = themeCfg.tokens ?? {};
+validateTokens(themeTokens);
+export const theme = {
+  css: themeCfg.css == null ? null : normalizeRepoFile(themeCfg.css, "theme.css"),
+  tokens: themeTokens,
+  /** Inline `<style>` body for the token overrides ("" when none). */
+  tokensCss: tokensToCss(themeTokens),
+};
+
 /**
  * Logical `page` path (e.g. "docs/plans/services/x") → site route. Most specific root
  * (longest path) first — a nested space (docs/plans) must win over its parent (docs).
@@ -370,5 +389,6 @@ export default {
   home,
   homeFiles,
   branding,
+  theme,
   routeForPage,
 };

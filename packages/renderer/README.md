@@ -57,6 +57,8 @@ Every entry links into the [documentation](https://z29k.github.io/notabene/):
   prefixed URLs, switcher, per-language comments.
 - [PDF export](https://z29k.github.io/notabene/guide/pdf-export) - print views in the
   browser, bookmarked PDFs via `notabene pdf`.
+- [Make it yours](https://z29k.github.io/notabene/guide/customize) - custom home page,
+  logo/favicon/social card, theming via `--nb-*` design tokens or your own stylesheet.
 - [Publish a public site](https://z29k.github.io/notabene/guide/publish) - read-only
   static build with `llms.txt` + Markdown twins, private-content scoping, GitHub Pages
   workflow.
