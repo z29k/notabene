@@ -53,5 +53,8 @@ Notes:
   to your domain.
 - The artifact ships a `.nojekyll`, so `_astro/` assets survive even classic
   gh-pages-branch hosting.
+- `npm i -D pagefind` in your repo and this exact workflow ships
+  [full-text search](./index.md#full-text-search-optional) too — `npm ci` installs it,
+  the build picks it up. Nothing to change here.
 - This documentation site is deployed by exactly this workflow —
   [see it in the repo](https://github.com/z29k/notabene/blob/main/.github/workflows/docs.yml).
