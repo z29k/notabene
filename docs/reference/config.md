@@ -19,6 +19,7 @@ optional. The narrative version with examples is in the
 | `format` | `"mdx"` | `"mdx"` (.mdx strict + .md lenient) or `"commonmark"` (no MDX at all). `init` scaffolds `"commonmark"` |
 | `roots[]` | `[{docs}]` | Doc spaces: `{ key, label, path, exclude, description, publish }`. `label`/`description` accept a per-locale map with i18n; `publish: false` keeps the space out of [public builds](../guide/publish/private-content.md) |
 | `store` | `"docs/.notabene"` | Comments + journal folder — commit it ([contract](./store-contract.md)) |
+| `home` | — | [Custom landing page](../guide/configuration.md#custom-home-page): a repo-relative Markdown file (or per-locale map) rendered above the space cards on `/` |
 | `port` | `3009` | `astro dev` port |
 | `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` exposes the write API to the LAN ([safety](./safety.md)) |
 | `verify[]` | `[]` | Post-edit checks the agent runs (the renderer build always runs) |

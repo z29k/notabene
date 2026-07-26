@@ -249,6 +249,14 @@ locale-less pages (home, `404`, `/comments`) SSR the default locale with
 when i18n is enabled** → mono-language output byte-identical) so the client applier re-localizes
 them. Declared once; no `.notabene` schema change.
 
+**Custom site home.** Config `home: "<repo-relative .md>"` (or a per-locale map, resolved
+via `localizeField`) renders that file as the landing content above the space cards —
+loaded through a dedicated `nb-home` collection (`content.config.ts`, base = repo root,
+verbatim extension-less ids so per-locale dots survive; key reserved, guarded in
+`config.mjs`) → full pipeline incl. link rewriting. `SiteHome.astro` falls back to the
+pre-feature default (byte-identical) when unset. The file may live outside any root
+(recommended; inside one it also renders as a normal page).
+
 **Per-locale site home.** The landing page (space cards) is a **real per-locale page**, NOT an
 aggregate: `src/components/SiteHome.astro` renders it in one locale (sidebar nav tree + space
 names + cards all server-rendered in that locale). The default-locale home is `/` (`index.astro`);

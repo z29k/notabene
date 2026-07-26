@@ -25,6 +25,11 @@ export default {
 
   store: "docs/.notabene",
 
+  // Custom landing page: rendered above the space cards on "/" (README-like welcome,
+  // written for the site — relative links become routes). Deliberately OUTSIDE the
+  // two spaces so it isn't also a doc page.
+  home: "docs/home.md",
+
   // Dogfood the flagship feature: agent proposes, humans validate at /review.
   review: "approve",
 

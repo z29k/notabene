@@ -80,6 +80,7 @@ const MESSAGES = {
 
     homeDocumentation: "documentation",
     homeLede: "Sourced live from the repo.",
+    homeSpacesTitle: "Browse the docs",
     notFoundTitle: "Page not found",
     notFoundBody: "The page you're looking for doesn't exist or may have moved.",
     notFoundPathLabel: "Requested path",
@@ -205,6 +206,7 @@ const MESSAGES = {
 
     homeDocumentation: "documentation",
     homeLede: "Sourcé en direct depuis le repo.",
+    homeSpacesTitle: "Parcourir la doc",
     notFoundTitle: "Page introuvable",
     notFoundBody: "La page que vous recherchez n'existe pas ou a été déplacée.",
     notFoundPathLabel: "Chemin demandé",
