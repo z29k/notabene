@@ -3,12 +3,14 @@ import "../styles/global.css";
 import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import PublicZoom from "../components/PublicZoom.astro";
+import { assetExt, assetPath, contentTypeFor } from "../lib/asset-types";
 import { withBase } from "../lib/base";
 import { twinPath } from "../lib/llms";
 import type { Space } from "../lib/nav";
 import {
   author,
   authorEmail,
+  branding,
   clientI18n,
   clientRoots,
   pdf,
@@ -136,6 +138,15 @@ const hreflangHref = (h: string) => (publicMode && publish.site ? `${publish.sit
 const absPublic = publicMode && publish.site ? (p: string) => `${publish.site}${withBase(p)}` : null;
 const pubHref = publicMode ? (p: string) => (publish.site ? `${publish.site}${withBase(p)}` : withBase(p)) : null;
 const llmsPath = locale === clientI18n.defaultLocale ? "/llms.txt" : `/${locale}/llms.txt`;
+// Branding (config `branding`, served via /_nb/ — see pages/_nb/[...asset].ts).
+// Favicon falls back to a built-in inline mark so tabs are never blank.
+const DEFAULT_FAVICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232f6feb'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='19' font-weight='bold' text-anchor='middle' fill='white'%3EN%3C/text%3E%3C/svg%3E";
+const faviconHref = branding.favicon ? withBase(assetPath("favicon", branding.favicon)) : DEFAULT_FAVICON;
+const faviconType = branding.favicon ? contentTypeFor(assetExt(branding.favicon)) : "image/svg+xml";
+const logoHref = branding.logo ? withBase(assetPath("logo", branding.logo)) : null;
+const logoDarkHref = branding.logoDark ? withBase(assetPath("logo-dark", branding.logoDark)) : null;
+const ogImage = absPublic && branding.socialImage ? absPublic(assetPath("og", branding.socialImage)) : null;
 // Social/SEO meta (public builds only — a dev-local tool has no use for OG cards).
 // og:type: the site home is a website, everything else an article.
 const isHomeUrl = current === "/" || (clientI18n.enabled && current === `/${locale}`);
@@ -179,6 +190,7 @@ const hasRail = page != null;
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title} · {siteName}</title>
+    <link rel="icon" type={faviconType} href={faviconHref} />
     <script type="application/json" id="notabene-roots" is:inline set:html={JSON.stringify(clientRoots)} />
     <script type="application/json" id="notabene-i18n" is:inline set:html={JSON.stringify(m)} />
     {/* Review mode + default identity are review-app data; a public page must not
@@ -210,9 +222,11 @@ const hasRail = page != null;
         {absPublic && <meta property="og:url" content={absPublic(current)} />}
         <meta property="og:site_name" content={siteName} />
         <meta property="og:locale" content={locale} />
-        <meta name="twitter:card" content="summary" />
+        {ogImage && <meta property="og:image" content={ogImage} />}
+        <meta name="twitter:card" content={ogImage ? "summary_large_image" : "summary"} />
         <meta name="twitter:title" content={title} />
         {description && <meta name="twitter:description" content={description} />}
+        {ogImage && <meta name="twitter:image" content={ogImage} />}
       </>
     )}
     {jsonLd && <script type="application/ld+json" is:inline set:html={jsonLd} />}
@@ -229,7 +243,11 @@ const hasRail = page != null;
       >
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
       </button>
-      <a href={withBase("/")} class="brand">{siteName} <span>· {tagline}</span></a>
+      <a href={withBase("/")} class="brand">
+        {logoHref && <img class:list={["brand-logo", { "brand-logo--light": !!logoDarkHref }]} src={logoHref} alt="" />}
+        {logoDarkHref && <img class="brand-logo brand-logo--dark" src={logoDarkHref} alt="" />}
+        {siteName} <span>· {tagline}</span>
+      </a>
       <div class="search">
         <input id="search-input" type="search" placeholder={m.searchPlaceholder} data-i18n-ph="searchPlaceholder" autocomplete="off" />
         <div id="search-results" class="search-results" hidden></div>

@@ -50,6 +50,11 @@ export default {
   // Best kept OUTSIDE your spaces — inside one it also renders as a normal page.
   // home: "docs/home.md",
 
+  // Branding: repo-relative image files, served by the renderer at /_nb/….
+  // logo (+ logoDark) = topbar image; favicon = tab icon (unset → built-in default);
+  // socialImage = og:image of PUBLIC builds (needs publish.site for the absolute URL).
+  // branding: { logo: "assets/logo.svg", favicon: "assets/favicon.svg", socialImage: "assets/og.png" },
+
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface
   // (llms.txt, per-page .md twins, sitemap, OG/JSON-LD). `site` = deployed origin;

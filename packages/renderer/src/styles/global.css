@@ -2100,3 +2100,24 @@ button.topbar-me:hover {
   white-space: nowrap;
   border: 0;
 }
+
+/* ── branding: topbar logo (config `branding.logo` / `.logoDark`) ───────────── */
+.brand-logo {
+  height: 24px;
+  width: auto;
+  display: inline-block;
+  vertical-align: -6px;
+  margin-right: 8px;
+  border-radius: 4px;
+}
+.brand-logo--dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  .brand-logo--light {
+    display: none;
+  }
+  .brand-logo--dark {
+    display: inline-block;
+  }
+}

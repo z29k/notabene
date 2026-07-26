@@ -54,6 +54,23 @@ The renderer picks the processor **by file extension**:
 `format: "commonmark"` (what `init` scaffolds) drops the MDX dependency entirely — the
 safe, most-lenient starting point for a plain-Markdown repo.
 
+## Branding
+
+Point the header, browser tab and social cards at your own assets — repo-relative files,
+served by the renderer (nothing to copy anywhere):
+
+```js
+branding: {
+  logo: "assets/logo.svg",           // topbar image, next to the site name
+  logoDark: "assets/logo-dark.svg",  // optional dark-mode variant (else logo everywhere)
+  favicon: "assets/favicon.svg",     // .svg / .ico / .png — unset → a built-in default mark
+  socialImage: "assets/og.png",      // og:image / twitter:image of PUBLIC builds
+},
+```
+
+`socialImage` needs [`publish.site`](./publish/configuration.md) — crawlers require an
+absolute URL. The favicon also covers the [print/PDF views](./pdf-export.md).
+
 ## Custom home page
 
 By default the landing page (`/`) shows the site name and one card per space. Point
