@@ -84,8 +84,8 @@ only where you're curious:
 - **[Publish a public site](https://z29k.github.io/notabene/guide/publish)** - a
   read-only static build with an **agent-readable surface** (`llms.txt`, per-page
   Markdown twins, sitemap, OpenGraph), private-content scoping, optional **full-text
-  search** (Pagefind: per-language stemming, highlighted excerpts), GitHub Pages
-  workflow included. The [documentation site](https://z29k.github.io/notabene/) is
+  search** (Pagefind: per-language stemming, highlighted excerpts — in the dev app
+  too), GitHub Pages workflow included. The [documentation site](https://z29k.github.io/notabene/) is
   notabene publishing itself.
 - **[Link validation](https://z29k.github.io/notabene/reference/cli)** - `notabene lint`
   checks every internal link against the routes the last build **actually emitted** -

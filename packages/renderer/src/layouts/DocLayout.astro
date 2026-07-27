@@ -777,16 +777,17 @@ const hasRail = page != null;
         return 0;
       }
 
-      // Pagefind probe, once: only on a public page (data-nb-public), and only if the
-      // bundle is actually in the artifact (pagefind not installed at build time → the
-      // import 404s and we settle on the JSON engine). It picks its per-language index
-      // from <html lang> by itself.
+      // Pagefind probe, once: on a public page (data-nb-public, bundle in the artifact)
+      // or on the DEV server (integrations/dev-search.mjs serves a live index built
+      // from the sources). Either way, pagefind not installed → the import 404s and we
+      // settle on the JSON engine. It picks its per-language index from <html lang> by
+      // itself. Normal build + preview: neither flag → JSON engine, no probe.
       // biome-ignore lint/suspicious/noExplicitAny: external runtime module, no shipped types.
       let pfEngine: any | null | undefined;
       // biome-ignore lint/suspicious/noExplicitAny: external runtime module, no shipped types.
       async function pagefindEngine(): Promise<any | null> {
         if (pfEngine !== undefined) return pfEngine;
-        if (!document.documentElement.hasAttribute("data-nb-public")) {
+        if (!document.documentElement.hasAttribute("data-nb-public") && !import.meta.env.DEV) {
           pfEngine = null;
           return pfEngine;
         }

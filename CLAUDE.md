@@ -210,7 +210,17 @@ before the feature.
   bundle at runtime (`data-nb-public` on `<html>`, `baseUrl` from `BASE_URL`) and falls
   back to the JSON engine; both render through `lib/client/search-hits.ts` (pure,
   unit-tested). CI decompresses the gzip fragments for the leak canaries (`grep -RIq`
-  skips binaries).
+  skips binaries). **DEV gets the same engine WITHOUT a build**
+  (`integrations/dev-search.mjs`, non-public only): a Vite middleware serves
+  `/pagefind/` from a per-consumer temp bundle built via `addCustomRecord` over the dev
+  server's own `/search-index.json` (always fresh — rendered from the live collections;
+  DEV serves it untruncated), invalidated by content hash on engine bootstrap requests
+  only (chunk requests keep serving the bundle the running engine initialized against);
+  versioned bundle dirs make the swap atomic. Custom records carry no heading anchors →
+  per-section sub-results stay public-only; the dev index includes private pages (the
+  dev site shows them). Pure parts in `lib/dev-search.mjs` (content types +
+  traversal-guarded resolution, unit-tested); the client probes in dev via
+  `import.meta.env.DEV`; normal build + preview keep the JSON engine.
 - **Agent surface** (public only; `getStaticPaths` return `[]` otherwise): per-page
   Markdown twins at `<route>/index.md` (`pages/[...path]/index.md.ts` — raw source
   verbatim + a pointer header; advertised via `<link rel="alternate"

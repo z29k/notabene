@@ -53,6 +53,12 @@ recherche JSON intégrée. Et le contenu privé ne peut pas fuiter dans l'index 
 l'indexation s'exécute sur l'artefact, où les
 [pages hors périmètre](./private-content.md) n'existent pas.
 
+La même dépendance améliore aussi **l'app de revue `notabene dev`** : son index est
+construit en direct depuis vos sources Markdown et rafraîchi quand elles changent —
+aucun build en jeu. Deux différences propres au dev : le site de dev (donc son index)
+inclut vos pages privées, et les résultats profonds par section (ancres de titres)
+restent réservés au public.
+
 ## Où aller ensuite
 
 - [Configurer `publish`](./configuration.md) — `site`, `base`, `exclude`, avec exemples.
