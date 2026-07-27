@@ -1,17 +1,43 @@
 ---
 title: Installation
-description: Deux briques installables — le renderer npm et le plugin Claude Code. Installez l'une ou les deux.
+description: Deux briques installables — le plugin Claude Code et le renderer npm. Installez l'une ou les deux.
 sidebar:
   order: 1
 ---
 
 # Installation
 
-notabene, c'est **deux briques installables** : le **renderer** (un paquet npm + une CLI)
-et le **plugin Claude Code** (mise en place clé en main + la boucle de revue). Installez
-l'une ou les deux.
+notabene, c'est **deux briques installables** : le **plugin Claude Code** (mise en place
+clé en main + la boucle de revue) et le **renderer** (un paquet npm + une CLI). Elles
+s'installent indépendamment — le plugin n'a **pas** besoin du paquet npm : il récupère le
+renderer tout seul.
 
-## Le renderer — paquet npm
+## Le plugin Claude Code — mise en place + revue
+
+Dans Claude Code :
+
+```
+/plugin marketplace add z29k/notabene
+/plugin install notabene@z29k
+```
+
+C'est toute l'installation — **aucun `npm install` requis**. Le plugin récupère et
+exécute lui-même une version épinglée du renderer via `npx` (le premier lancement la
+télécharge, ~30 s) ; rien n'est scaffoldé dans votre repo, qui n'a même pas besoin d'un
+`package.json`. Le seul prérequis est Node (voir [prérequis](#prérequis) plus bas).
+
+Puis dites simplement **« configure notabene »** (repo vierge) ou **« traite les
+commentaires de la doc »** (déjà configuré) — la bonne skill se déclenche d'elle-même.
+
+Vous préférez une installation manuelle ? Copiez `packages/plugin/skills/notabene/` dans
+le `.claude/skills/` de votre projet. Vous utilisez un tout autre agent ? Le fichier de
+skill **est** la spec du protocole — pointez votre agent dessus (voir
+[la boucle de revue](./review-loop.md)).
+
+## Le renderer — paquet npm (sans Claude)
+
+Pour piloter la CLI vous-même — à la main, en CI, ou depuis un autre outil — installez le
+paquet npm :
 
 ```bash
 npm install -D @z29k/notabene   # or: pnpm add -D @z29k/notabene · bun add -d @z29k/notabene
@@ -30,26 +56,13 @@ scaffoldé ni copié dans votre repo, et la mise à jour se résume à `npm upda
 La surface de commandes complète (build, pdf, status, migrate, comments, journal…) est
 dans la [référence CLI](../reference/cli.md).
 
-## Le plugin Claude Code — mise en place + revue
-
-Dans Claude Code :
-
-```
-/plugin marketplace add z29k/notabene
-/plugin install notabene@z29k
-```
-
-Puis dites simplement **« configure notabene »** (repo vierge) ou **« traite les
-commentaires de la doc »** (déjà configuré) — la bonne skill se déclenche d'elle-même. Le
-plugin récupère et exécute le renderer pour vous via `npx` ; rien n'est scaffoldé dans
-votre repo.
-
-Vous préférez une installation manuelle ? Copiez `packages/plugin/skills/notabene/` dans
-le `.claude/skills/` de votre projet. Vous utilisez un tout autre agent ? Le fichier de
-skill **est** la spec du protocole — pointez votre agent dessus (voir
-[la boucle de revue](./review-loop.md)).
+Installer les deux ne pose aucun problème : le plugin exécute toujours **sa propre
+version épinglée du renderer** (alignée sur la version du plugin), indépendante de celle
+de votre `package.json` — les deux ne se marchent jamais dessus.
 
 ## Prérequis
+
+Les deux voies partagent les mêmes prérequis :
 
 - **Node ≥ 22.12** et `npx` dans votre PATH (les deux sont fournis avec Node).
 - N'importe quel repo avec des fichiers Markdown ou MDX — voir
