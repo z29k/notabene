@@ -15,7 +15,7 @@ The npm package is scoped (`@z29k/notabene`); the installed command is just
 | --- | --- |
 | `notabene doctor` | Read-only state as JSON: config/store/port + detected doc folders — `--json` |
 | `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present); `--detect` auto-detects doc folders |
-| `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon |
+| `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon. With the optional `pagefind` dev dep, its search is [full-text](../guide/publish/index.md#full-text-search-optional) too |
 | `notabene status` | Is the detached server running? (pid, port, URL) — `--json` |
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |

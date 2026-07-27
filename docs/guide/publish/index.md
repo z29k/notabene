@@ -48,6 +48,11 @@ query needs. Zero configuration, same search box. Not installed → the public s
 the built-in JSON search. And private content cannot leak into the index: indexing runs
 on the artifact, where [scoped pages](./private-content.md) don't exist.
 
+The same dependency upgrades the **`notabene dev` review app** too: its index is built
+live from your Markdown sources and refreshed as they change — no build involved. Two
+dev-specific differences: the dev site (and so its index) includes your private pages,
+and per-section deep results (heading anchors) are public-only.
+
 ## Where next
 
 - [Configuring `publish`](./configuration.md) — `site`, `base`, `exclude`, with examples.

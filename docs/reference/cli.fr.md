@@ -15,7 +15,7 @@ Le package npm est scopé (`@z29k/notabene`) ; la commande installée est simple
 | --- | --- |
 | `notabene doctor` | État en lecture seule au format JSON : config/store/port + dossiers de doc détectés — `--json` |
 | `notabene init` | Écrit `notabene.config.mjs` + crée le store (sans effet s'il existe déjà) ; `--detect` auto-détecte les dossiers de doc |
-| `notabene dev` | Démarre le serveur de revue sur les docs de ce repo (rechargement à chaud) ; `--detach` le lance en démon d'arrière-plan |
+| `notabene dev` | Démarre le serveur de revue sur les docs de ce repo (rechargement à chaud) ; `--detach` le lance en démon d'arrière-plan. Avec la dépendance de dev optionnelle `pagefind`, sa recherche devient [plein texte](../guide/publish/index.md#recherche-plein-texte-optionnelle) aussi |
 | `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL) — `--json` |
 | `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Construit le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |

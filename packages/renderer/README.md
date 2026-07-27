@@ -61,7 +61,7 @@ Every entry links into the [documentation](https://z29k.github.io/notabene/):
   logo/favicon/social card, theming via `--nb-*` design tokens or your own stylesheet.
 - [Publish a public site](https://z29k.github.io/notabene/guide/publish) - read-only
   static build with `llms.txt` + Markdown twins, private-content scoping, optional
-  full-text search (Pagefind), GitHub Pages workflow.
+  full-text search (Pagefind, in the dev app too), GitHub Pages workflow.
 - [Link validation](https://z29k.github.io/notabene/reference/cli) - `notabene lint`
   checks internal links against the last build's real routes (did-you-mean suggestions,
   public→private leaks).
@@ -74,7 +74,7 @@ The full CLI (build, pdf, lint, status, migrate, comments, journal…) is in the
 ## Requirements
 
 **Node ≥ 22.12**, npm/pnpm/bun. Optional peer dependencies: `puppeteer` for
-`notabene pdf`, `pagefind` for full-text search in `build --public`.
+`notabene pdf`, `pagefind` for full-text search (dev app + `build --public`).
 
 ## License
 

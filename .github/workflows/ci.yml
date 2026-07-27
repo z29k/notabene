@@ -163,3 +163,16 @@ jobs:
             echo "lint should have failed on a dead link"; exit 1;
           fi
           grep -q "does not exist" /tmp/lint.out || { echo "MISSING: lint diagnostic"; exit 1; }
+          # DEV full-text search: the dev server serves a LIVE Pagefind index built from
+          # the sources (addCustomRecord — no build involved), one index per locale.
+          node packages/renderer/bin/notabene.mjs dev --root /tmp/consumer --detach --port 3111
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:3111/pagefind/pagefind-entry.json -o /tmp/dev-entry.json && break
+            sleep 2
+          done
+          node packages/renderer/bin/notabene.mjs stop --root /tmp/consumer
+          python3 - <<'DEVPF'
+          import json
+          langs = json.load(open("/tmp/dev-entry.json"))["languages"]
+          assert "en" in langs and "fr" in langs and all(v["page_count"] > 0 for v in langs.values()), langs
+          DEVPF

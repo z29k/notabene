@@ -49,7 +49,10 @@ export const GET: APIRoute = async () => {
         href: withBase(routeFor({ space, id, locale }, i18n)),
         title: fmTitle || (titleMatch ? titleMatch[1].replace(/[*_`]/g, "").trim() : id),
         headings,
-        text: strip(body).slice(0, 1500),
+        // DEV serves the FULL text: it feeds the Pagefind dev indexer (and the JSON
+        // fallback fetches over loopback). Builds keep the cap — a browser-download
+        // payload for the naive engine.
+        text: import.meta.env.DEV ? strip(body) : strip(body).slice(0, 1500),
       });
     }
   }

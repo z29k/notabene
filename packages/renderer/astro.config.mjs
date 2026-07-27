@@ -6,6 +6,7 @@ import node from "@astrojs/node";
 import sitemap from "@astrojs/sitemap";
 import { notabeneAppRoutes } from "./src/integrations/app-routes.mjs";
 import { notabeneAssetRoutes } from "./src/integrations/asset-routes.mjs";
+import { notabeneDevSearch } from "./src/integrations/dev-search.mjs";
 import { notabeneRouteTruth } from "./src/integrations/route-truth.mjs";
 import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
@@ -65,7 +66,7 @@ export default defineConfig({
     ...(mdxEnabled ? [mdx()] : []),
     notabeneAssetRoutes(),
     notabeneRouteTruth(),
-    ...(publicMode ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()] : [notabeneAppRoutes()]),
+    ...(publicMode ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()] : [notabeneAppRoutes(), notabeneDevSearch()]),
   ],
   markdown: {
     // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs
