@@ -19,8 +19,14 @@ d'un migrateur (`notabene migrate`).
 <store>/
   meta.json                # { "schemaVersion": 3 }
   journal.json             # un tableau d'entrées de journal
+  protocol.md              # le protocole agent (écrit par `init` ; ce n'est pas de la donnée)
   <page>/<comment-id>.json # UN FICHIER PAR COMMENTAIRE → merges git sans conflit
 ```
+
+`meta.json`, `journal.json` et `protocol.md` sont des **noms réservés** à la racine du
+store ; tout le reste est de la donnée de commentaire. Les lecteurs ne parsent que du
+`.json`, donc `protocol.md` est inerte — il voyage avec le store pour que la spec soit
+toujours à côté des commentaires.
 
 `<page>` est le chemin logique de la page (`docs/guide/setup` — avec l'i18n c'est l'id
 brut encodant la locale, les commentaires sont donc par langue). Les anciens stores v1
@@ -60,10 +66,11 @@ pointe vers son entrée.
 ## Règles que les agents doivent honorer
 
 - Les écritures sont **atomiques** (fichier temporaire + rename) — ne jamais écrire du
-  JSON partiel à la main.
+  JSON partiel à la main. La CLI (`comments done` / `reopen`, `journal add`) s'en charge ;
+  `comments verify` audite le résultat.
 - **Ne jamais supprimer le store en masse** ; supprimez un commentaire précis par id si
   on vous le demande.
 - Ne traiter que `status: "open"` **et** `hold: false`.
-- Le protocole complet vit dans
-  [`packages/plugin/skills/notabene/SKILL.md`](https://github.com/z29k/notabene/blob/main/packages/plugin/skills/notabene/SKILL.md) —
-  pointez-y n'importe quel agent.
+- Le protocole complet vit dans **[`<store>/protocol.md`](./agent-protocol.md)** — écrit par
+  `notabene init`, committé avec le store, rafraîchi en relançant `init`. Pointez-y
+  n'importe quel agent.

@@ -45,7 +45,7 @@ quote. Your agent reads it, edits the source, and journals *what changed & why*.
 
 ```bash
 npm install -D @z29k/notabene   # or pnpm / bun
-npx notabene init               # writes notabene.config.mjs + creates the .notabene store
+npx notabene init               # writes the config, the .notabene store + the agent protocol
 npx notabene dev                # → http://localhost:3009
 ```
 

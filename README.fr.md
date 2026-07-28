@@ -46,7 +46,7 @@ pourquoi*.
 
 ```bash
 npm install -D @z29k/notabene   # ou pnpm / bun
-npx notabene init               # écrit notabene.config.mjs + crée le store .notabene
+npx notabene init               # écrit la config, le store .notabene + le protocole agent
 npx notabene dev                # → http://localhost:3009
 ```
 

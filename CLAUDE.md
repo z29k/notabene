@@ -13,8 +13,9 @@ Two installable pieces, one npm workspace:
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro renderer
   + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf` / `lint`, plus
   `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Published to npm.
-- **`packages/plugin`** — the Claude Code plugin. Its single skill
-  (`skills/notabene/SKILL.md`) doubles as the agent-agnostic protocol spec.
+- **`packages/plugin`** — the Claude Code plugin (3 skills + a forwarder).
+- **`spec/`** — the **canonical protocol**, neutral and agent-agnostic. See
+  *Architecture: the protocol is generated* below: everything else is a build product.
 
 **Dogfood:** this repo is also its own consumer — `docs/` holds the user documentation
 (two spaces, `guide` + `reference`), wired by the root `notabene.config.mjs` (store at
@@ -126,9 +127,37 @@ by agents**. Treat its shape as a public API:
   with no identity set, the dialog is forced before browsing, so comments attribute per person
   (client-side nudge — `isLoopbackHost` in `comments-client.ts`, wired in `DocLayout`).
 
+## Architecture: the protocol is generated (`spec/` is the source)
+
+`spec/protocol.md` is the **canonical, agent-agnostic protocol** (and `spec/authoring.md`
+the authoring palette). Every distributed copy is generated from it by
+`scripts/gen-protocol.mjs` (`npm run gen:protocol`, pure transforms in
+`src/lib/protocol-gen.mjs`) and **committed** — CI regenerates and fails on any diff:
+
+- `packages/plugin/skills/notabene/SKILL.md` + `skills/notabene-authoring/SKILL.md` —
+  spec body + a **Claude overlay** (`spec/claude-overlay*.md`: frontmatter + the 3 rules
+  that are genuinely plugin-specific — setup hand-off, `nb.mjs` forwarder, sibling skill).
+  **Never edit a SKILL.md by hand.**
+- `packages/renderer/protocol.md` — shipped on npm (`files`) AND copied by `notabene init`
+  into `<store>/protocol.md` (offline channel: a Rust/Python repo has no `node_modules`).
+  Banner `<!-- notabene agent protocol vN … -->` is the sentinel `init` checks before ever
+  overwriting; `PROTOCOL_VERSION` is hand-bumped, **never** the package version (it would
+  break the diff gate on every release).
+- `docs/reference/agent-protocol.md` + `docs/guide/authoring.md` — the public pages (EN
+  only; the i18n banner covers FR). They carry a visible *generated* note: a review
+  comment on them must be fixed in `spec/`.
+- `notabene init` also writes a bounded `<!-- notabene:begin -->…<!-- notabene:end -->`
+  block in the consumer's `AGENTS.md` (pure merge in `src/lib/agents-md.mjs`: create /
+  append / replace-between-markers, EOL preserved, `unterminated` → refuse). Both are
+  opt-out (`--no-protocol` / `--no-agents-md`), both refreshed by re-running `init`, both
+  reported by `doctor` (`protocol` / `agents`) — they go stale when the store moves.
+- The spec body uses **absolute URLs only** (a relative `.md` link would break
+  `notabene lint` once it lands in `docs/`) and never invokes unscoped `npx notabene`
+  (that name is not ours on npm) — both are unit-tested.
+
 ## Architecture: the review loop (the product)
 
-`packages/plugin/skills/notabene/SKILL.md` is the protocol. It is **file-I/O-first**: it
+The generated `packages/plugin/skills/notabene/SKILL.md` is the protocol. It is **file-I/O-first**: it
 reads/writes `<store>/` files directly and requires **neither a running server nor a
 port**. Everything (store path, doc spaces, post-edit checks) is discovered from
 `notabene.config.mjs` — nothing is hardcoded. The loop: read open non-held comments →
@@ -136,6 +165,18 @@ locate source page via `roots[]` → resolve the text anchor tolerantly → edit
 → mark resolved + append a journal entry (linking `resolution.journalEntryId`) → verify
 (**always** run the renderer build; then the consumer's `verify[]` checks) → report as a
 table and **ask before committing**. Never bulk-delete the store; never commit unasked.
+
+**Write primitives (so an agent never hand-edits the store).** `comments done <id…>
+[--note] [--journal] [--status] [--force]` picks the status from `review` itself (auto →
+`resolved`, approve → `addressed` — the discipline failure that used to skip the human),
+preserves every other field and writes atomically; `comments reopen <id…> [--reply]` is
+the human's rejection (reason → thread reply); `journal add --json` echoes `{ id }` to
+chain the two. Pure transitions in `src/lib/comment-mutate.mjs`. **`comments verify
+[--json]`** audits the result — statuses, layout, duplicates, and the comment↔journal link
+**in both directions** (a comment whose entry doesn't list it back in `changes[]` renders
+an EMPTY diff at `/review`: invisible in the store, hence an error). Pure checks in
+`src/lib/store-verify.mjs`; exit 1 = errors, 2 = no store, warnings don't fail. CI runs
+journal → done → verify → break the link → verify must fail.
 
 **Two-phase review** (`review: "approve"` in config; default `"auto"`). Instead of
 resolving directly, the agent marks each comment `addressed` and a human validates at

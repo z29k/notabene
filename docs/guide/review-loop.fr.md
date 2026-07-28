@@ -36,6 +36,13 @@ port requis :
 Les commentaires qu'un relecteur met **en attente** (⏸) sont ignorés — ce sont vos
 travaux en cours.
 
+Les étapes 4 et 5 ont des primitives CLI, pour qu'un agent n'édite jamais le JSON du store
+à la main : `notabene comments done <id…> --note … --journal <entryId>` choisit le bon
+statut selon votre mode `review`, et **`notabene comments verify`** audite ce qu'il a écrit
+— statuts, liens commentaire↔journal dans les deux sens, disposition des fichiers. Il sort
+en code non nul sur un vrai problème : c'est donc aussi un garde-fou de CI sur le store que
+vos agents committent.
+
 ## Mode approve : un humain valide chaque édition
 
 Par défaut (`review: "auto"`), l'agent résout les commentaires directement. Passez
@@ -56,9 +63,23 @@ Par défaut (`review: "auto"`), l'agent résout les commentaires directement. Pa
 
 ## L'utiliser depuis n'importe quel agent
 
-Le plugin Claude Code se déclenche sur « traite les commentaires de la doc ». Pour tout
-autre agent, pointez-le vers `packages/plugin/skills/notabene/SKILL.md` dans le repo —
-ce fichier **est** la spec du protocole : layout du store, résolution des ancres,
-règles de journalisation, étapes de vérification. La forme du store est elle-même un
-contrat public versionné — voir la
+Le protocole est une spec en texte brut, et `notabene init` **l'installe dans votre repo**
+pour qu'aucun agent n'ait à la chercher :
+
+- **`<store>/protocol.md`** — la spec complète, committée à côté des commentaires qu'elle
+  décrit. Hors ligne, sans npm, sans réseau. C'est ce fichier que vous montrez à un agent.
+- **`AGENTS.md`** — un bloc borné `<!-- notabene:begin -->…<!-- notabene:end -->` qui
+  indique aux agents qui le lisent au démarrage (Codex CLI, Cursor, Gemini CLI, Zed,
+  Amp…) où vivent les commentaires et le protocole. Rien hors des marqueurs n'est touché ;
+  désactivable via `init --no-agents-md`.
+
+Les deux se rafraîchissent en relançant `notabene init` (idempotent) — à faire après avoir
+déplacé le store ou renommé un espace, et `notabene doctor` signale la dérive. Deux autres
+copies du même texte généré : `npx -y @z29k/notabene@latest protocol` l'imprime, et la page
+[protocole agent](../reference/agent-protocol.md) le publie (avec un jumeau Markdown dans
+les builds publics, pour les agents qui naviguent).
+
+Dans Claude Code, la skill du plugin **est** ce protocole : elle se déclenche sur « traite
+les commentaires de la doc » et n'a besoin d'aucun AGENTS.md. La forme du store est
+elle-même un contrat public versionné — voir la
 [référence du store](../reference/store-contract.md).

@@ -7,10 +7,14 @@ a human↔agent review protocol. Contributions are welcome.
 
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro
   renderer + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf`, plus
-  `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Runs
-  *from the package* against a consumer repo (`NOTABENE_ROOT` / `NOTABENE_CONFIG`).
-- **`packages/plugin`** — the Claude Code plugin (the review skill). The skill file
-  doubles as the agent-agnostic protocol spec.
+  `doctor` / `status` / `stop` / `migrate` / `protocol` / `journal` and
+  `comments ls|done|reopen|verify`). Runs *from the package* against a consumer repo
+  (`NOTABENE_ROOT` / `NOTABENE_CONFIG`).
+- **`packages/plugin`** — the Claude Code plugin (the review skill).
+- **`spec/`** — the **canonical, agent-agnostic protocol** (`protocol.md`, `authoring.md`)
+  plus the Claude overlays. **Both plugin skills, `packages/renderer/protocol.md` and two
+  docs pages are GENERATED from it** (`npm run gen:protocol`) — edit `spec/`, never the
+  outputs; CI regenerates and fails on any diff.
 
 The single source of file-layout truth is `packages/renderer/src/config.mjs` — it
 loads `notabene.config.mjs` and resolves every path. No hardcoded paths elsewhere.
@@ -73,6 +77,11 @@ READMEs are short landings — user-facing detail belongs in `docs/`, in one pla
 - **The `.notabene` contract is public** — it's committed in consumer repos and read
   by agents. Any shape change bumps `schemaVersion` (`<store>/meta.json`) with a
   migrator; never mutate silently. Types: `src/lib/comment-types.ts`.
+- **The protocol is generated** — `spec/protocol.md` is the source of truth; run
+  `npm run gen:protocol` after touching it and commit the outputs. Bump
+  `PROTOCOL_VERSION` (`src/lib/protocol-gen.mjs`) when the spec changes materially — it
+  is deliberately independent of the package version (a version that moved on every
+  release would break the CI diff gate on every release commit).
 - **Dev-local & safe** — the write API binds loopback by default and only runs under
   `notabene dev`. Keep it that way.
 

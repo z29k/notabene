@@ -16,4 +16,6 @@ page per surface:
 - [Frontmatter](./frontmatter.md) — every key a page can carry.
 - [The `.notabene` store contract](./store-contract.md) — the versioned JSON schema
   agents read and write.
+- [The agent protocol](./agent-protocol.md) — the file-I/O-first loop any agent follows
+  to turn comments into edits.
 - [Safety model](./safety.md) — why the write API can't hurt you.

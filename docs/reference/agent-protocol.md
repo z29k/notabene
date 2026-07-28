@@ -1,35 +1,32 @@
 ---
-name: notabene
-description: >-
-  notabene docs review loop: process review comments left on the docs and verify
-  the docs. Use when the user says "address the comments", "process the doc
-  comments", "apply the review feedback", "review/check the docs", or references
-  the global /comments page. Reads the notabene store, edits the docs per the
-  feedback, marks them resolved + writes the journal, then verifies (renderer
-  build, links, project checks). Ignores comments on "hold". This skill does NOT
-  install, configure, or launch the review server — that's `notabene-setup`. Never
-  commits without an explicit request.
+title: The agent protocol
+description: The file-I/O-first protocol any agent follows to turn review comments into edits — store layout, anchors, journaling, verification.
+sidebar:
+  label: Agent protocol
+  order: 5
 ---
 
-<!-- Generated from spec/protocol.md + spec/claude-overlay.md by scripts/gen-protocol.mjs — do not edit. -->
+<!-- Generated from spec/protocol.md by scripts/gen-protocol.mjs — do not edit. -->
 
-# Docs review loop (comments + verification)
+# The notabene review protocol
 
-**notabene**: a navigable renderer over a repo's docs + a human↔agent review loop.
-**Stateless** — the data lives in the consumer repo's git, not in the tool. What follows
-is the generic, agent-agnostic protocol; **three rules override it inside this plugin**:
+> **Generated page.** It is the canonical protocol rendered for the web — edit
+> `spec/protocol.md` in the [notabene repo](https://github.com/z29k/notabene) and run
+> `npm run gen:protocol`; edits made here are overwritten.
 
-1. **Not set up here?** No `notabene.config.mjs` or no `.notabene/` store → **hand off to
-   the `notabene-setup` skill** (or `/notabene:setup`) to install/configure and launch,
-   then resume. Don't fail; delegate — ignore the generic `npx … init` fallback below.
-2. **Every CLI call goes through the plugin forwarder** — `node
-   "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" <cmd> --root <repo-root>` — never `npx notabene`
-   (unscoped: not our package) and never a hardcoded version. This replaces **every**
-   `npx -y @z29k/notabene@latest …` shown below (`comments ls`, `build`, `lint`,
-   `journal add`). The loop still never depends on the CLI: file tools are enough.
-3. **Authoring palette** — for what you can put in a page (Mermaid diagrams, GFM tables,
-   code blocks, inter-doc links) and the MDX-safety rules, use the **`notabene-authoring`**
-   skill rather than the web page linked in Step 4.
+**notabene** renders a repo's Markdown/MDX as a navigable site with Google-Docs-style
+review comments; this protocol is how an **agent turns those comments into edits**. It is
+**file-I/O-first**: you read and write plain JSON files inside the repo. No server, no
+port, no MCP, no API key, no account. Any agent with file access and a shell can run it.
+
+**Not set up here?** If there's **no `notabene.config.mjs`** or **no `.notabene/` store**,
+notabene isn't configured for this repo yet — run `npx -y @z29k/notabene@latest init`
+(writes the config, creates the store), then resume. Don't fail; set it up.
+
+**Running the CLI.** The npm package is **scoped**: `npx -y @z29k/notabene@latest <cmd>`.
+If the renderer is already a local dependency, plain `notabene <cmd>` resolves it. **Never
+run `npx notabene` unscoped** — that name is not ours. Every CLI step below is a
+convenience: with file tools alone the loop still runs end to end.
 
 ## Discovery — EVERYTHING comes from the config (nothing hardcoded)
 

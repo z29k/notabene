@@ -3,7 +3,7 @@ title: Export PDF
 description: Des vues prêtes à imprimer de n'importe quelle portée depuis le navigateur, ou un fichier PDF avec signets depuis la CLI.
 sidebar:
   label: Export PDF
-  order: 7
+  order: 8
 ---
 
 # Export PDF

@@ -3,7 +3,7 @@ title: Safety model
 description: Why the write API can't hurt you — dev-only, loopback-bound, gated writes, identity per person.
 sidebar:
   label: Safety model
-  order: 5
+  order: 6
 ---
 
 # Safety model
@@ -24,7 +24,12 @@ The comments API writes into your git — so it's fenced in, by construction:
   name (+ optional email) before browsing, so comments attribute to real people rather
   than the repo owner's git default.
 - **The agent never commits without asking** and never bulk-deletes the store — that's
-  part of the [protocol](./store-contract.md).
+  part of the [protocol](./agent-protocol.md).
+- **The CLI is a separate surface.** The rules above fence the **HTTP** write API. The
+  store-writing commands (`comments done` / `reopen`, `journal add`) are local commands
+  *you* — or an agent in your terminal — run deliberately: no server, no port, no
+  network. They write atomically, touch one comment at a time, and
+  [`comments verify`](./cli.md) audits the result.
 
 The public artifact is the mirror image: no write API, no store data, no identity —
 [nothing to gate, because nothing is built](../guide/publish/private-content.md#the-guarantee).

@@ -11,6 +11,9 @@ import { spawnSync } from "node:child_process";
 import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { hasAgentsBlock } from "./agents-md.mjs";
+import { parseProtocolVersion } from "./protocol-gen.mjs";
 
 // Directories never worth scanning for docs (build outputs, VCS, deps, the store).
 export const EXCLUDED_DIRS = new Set([
@@ -170,6 +173,42 @@ export function countOpenComments(storeAbs) {
   return n;
 }
 
+/** `<store>/protocol.md` state: present? which revision? same bytes as the renderer's
+ *  own copy (else `notabene init` / `protocol --write` refreshes it)? */
+export function readProtocolState(storeAbs) {
+  const file = path.join(storeAbs, "protocol.md");
+  let text = null;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch {
+    /* no copy in the store */
+  }
+  let packaged = null;
+  try {
+    packaged = fs.readFileSync(fileURLToPath(new URL("../../protocol.md", import.meta.url)), "utf8");
+  } catch {
+    /* not packaged (dev checkout before the first gen:protocol) */
+  }
+  return {
+    path: file,
+    present: text !== null,
+    version: text === null ? null : parseProtocolVersion(text),
+    current: text !== null && packaged !== null ? text === packaged : null,
+  };
+}
+
+/** `AGENTS.md` state: present? does it carry our bounded block? */
+export function readAgentsState(repoRoot) {
+  const file = path.join(repoRoot, "AGENTS.md");
+  let text = null;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch {
+    /* no AGENTS.md */
+  }
+  return { path: file, present: text !== null, block: text !== null && hasAgentsBlock(text) };
+}
+
 /** Is a TCP port free to bind on `host`? */
 export function isPortFree(port, host = "127.0.0.1") {
   return new Promise((resolve) => {
@@ -248,6 +287,11 @@ export async function buildReport({ repoRoot, configPath }) {
   });
 
   report.store = { ...readStoreState(cfg.storeAbs), openComments: countOpenComments(cfg.storeAbs) };
+  // Agent-facing scaffold: is the protocol copy present and current, is the AGENTS.md
+  // entry point in place? Both go stale on a reconfigure (store moved, roots renamed),
+  // and `notabene init` is the (idempotent) repair — the setup skill routes on this.
+  report.protocol = readProtocolState(cfg.storeAbs);
+  report.agents = readAgentsState(repoRoot);
 
   const free = await isPortFree(cfg.port);
   report.port = { number: cfg.port, free, suggested: free ? cfg.port : await findFreePort(cfg.port + 1) };

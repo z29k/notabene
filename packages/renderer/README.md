@@ -31,15 +31,16 @@ the viewer is the support, the protocol is the product.
 
 ```bash
 npm install -D @z29k/notabene   # or: pnpm add -D @z29k/notabene · bun add -d @z29k/notabene
-npx notabene init               # writes notabene.config.mjs + creates the .notabene store
+npx notabene init               # writes the config, the .notabene store + the agent protocol
 npx notabene dev                # → http://localhost:3009
 ```
 
 `init` is the only thing that touches your repo - the renderer **runs from the package**
 (nothing scaffolded, upgrades are `npm update`). Then comment the rendered docs and tell
-your agent to *"address the doc comments"* - the review skill ships as a
+your agent to *"address the doc comments"* - the review loop ships as a
 [Claude Code plugin](https://github.com/z29k/notabene#readme) and as a plain-text
-protocol any agent can follow.
+protocol `init` installs in your repo (`<store>/protocol.md` + an `AGENTS.md` pointer),
+so any agent can follow it.
 
 ## Features
 

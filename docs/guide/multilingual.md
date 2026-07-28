@@ -3,7 +3,7 @@ title: Multi-language docs
 description: Serve the same docs in several languages — clean prefixed URLs, a header switcher, per-language comments.
 sidebar:
   label: Multi-language docs
-  order: 6
+  order: 7
 ---
 
 # Multi-language docs (i18n)

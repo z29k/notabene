@@ -29,8 +29,9 @@ Then just say **"set up notabene"** (fresh repo) or **"address the doc comments"
 (already set up) — the right skill triggers on its own.
 
 Prefer manual install? Copy `packages/plugin/skills/notabene/` into your project's
-`.claude/skills/`. Using another agent entirely? The skill file **is** the protocol
-spec — point your agent at it (see [the review loop](./review-loop.md)).
+`.claude/skills/`. Using another agent entirely? You don't need the plugin at all:
+`notabene init` writes the same protocol to `<store>/protocol.md` and points at it from
+`AGENTS.md` (see [using it from any agent](./review-loop.md#using-it-from-any-agent)).
 
 ## The renderer — npm package (without Claude)
 

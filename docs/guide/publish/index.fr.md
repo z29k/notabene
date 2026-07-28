@@ -3,7 +3,7 @@ title: Publier un site public
 description: Un site statique en lecture seule, lisible par les agents, à partir de vos docs — sans UI de revue, sans données du store, déployable partout.
 sidebar:
   label: Publier un site public
-  order: 8
+  order: 9
 ---
 
 # Publier un site public
