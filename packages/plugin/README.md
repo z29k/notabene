@@ -42,8 +42,10 @@ thin wrappers around the renderer CLI.
 - **`notabene`** — the review loop (**the product**). Reads the `.notabene/` store, edits
   the docs per each comment, marks them resolved (or *addressed* in approve mode), appends
   the journal, and verifies (renderer build + your `verify[]` checks). It is **generated
-  from the agent-agnostic protocol** (`spec/protocol.md`) — the same spec `notabene init`
-  drops into any repo as `<store>/protocol.md` for non-Claude agents.
+  from the published protocol**
+  ([`docs/reference/agent-protocol.md`](https://z29k.github.io/notabene/reference/agent-protocol/))
+  — the same text `notabene init` drops into any repo as `<store>/protocol.md` for
+  non-Claude agents.
 - **`notabene-authoring`** — the doc rendering palette: what you can put in a page
   (CommonMark/GFM, code + Shiki highlighting, **Mermaid diagrams**, inter-doc links) and the
   MDX-safety rules, so the agent can write a complete doc with every tool the renderer supports.

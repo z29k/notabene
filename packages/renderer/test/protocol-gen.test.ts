@@ -13,30 +13,50 @@ import {
   isGeneratedProtocol,
   joinSpec,
   parseProtocolVersion,
-  renderDocsPage,
   renderProtocol,
   renderSkill,
+  specSource,
   splitSpec,
+  stripFrontmatter,
+  stripLeadingComments,
 } from "../src/lib/protocol-gen.mjs";
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const read = (rel: string) => fs.readFileSync(path.join(REPO_ROOT, rel), "utf8");
 
-const SPEC = `# Title\n\nFront door.\n\n${BODY_MARKER}\n\n## Step 1\n\nBody.\n`;
+const PAGE_FM = "---\ntitle: T\nsidebar:\n  order: 5\n---\n";
+const EDITOR_NOTE = "<!-- CANONICAL. Edit here, run gen:protocol. -->\n";
+const SPEC = `${PAGE_FM}\n${EDITOR_NOTE}\n# Title\n\nFront door.\n\n${BODY_MARKER}\n\n## Step 1\n\nBody.\n`;
 const OVERLAY = "---\nname: x\n---\n\n# Claude title\n\nClient rules.\n\n{{body}}\n";
+
+describe("specSource", () => {
+  it("drops the page's site frontmatter (each copy brings its own header)", () => {
+    expect(stripFrontmatter(SPEC).startsWith("<!-- CANONICAL")).toBe(true);
+    expect(stripFrontmatter("# H\n")).toBe("# H\n");
+  });
+  it("drops the editor-only note — meaningless once the text sits in a consumer's store", () => {
+    expect(stripLeadingComments(EDITOR_NOTE + "\n# H\n")).toBe("# H\n");
+    expect(specSource(SPEC).startsWith("# Title")).toBe(true);
+  });
+  it("leaves an unterminated comment alone rather than eating the document", () => {
+    expect(stripLeadingComments("<!-- oops\n# H\n")).toBe("<!-- oops\n# H\n");
+  });
+});
 
 describe("splitSpec", () => {
   it("splits the front door from the shared body", () => {
-    const { header, body } = splitSpec(SPEC);
+    const { header, body } = splitSpec(specSource(SPEC));
     expect(header).toBe("# Title\n\nFront door.");
     expect(body).toBe("## Step 1\n\nBody.\n");
   });
   it("throws when the marker is missing (a silent miss would leak the neutral front door)", () => {
     expect(() => splitSpec("# No marker\n")).toThrow(/nb:body/);
   });
-  it("joins back into one document without the marker", () => {
+  it("joins back into one document — no marker, no frontmatter, no editor note", () => {
     expect(joinSpec(SPEC)).toBe("# Title\n\nFront door.\n\n## Step 1\n\nBody.\n");
     expect(joinSpec(SPEC)).not.toContain(BODY_MARKER);
+    expect(joinSpec(SPEC)).not.toContain("CANONICAL");
+    expect(joinSpec(SPEC)).not.toContain("title: T");
   });
 });
 
@@ -55,11 +75,11 @@ describe("insertion helpers", () => {
 });
 
 describe("renderSkill", () => {
-  const skill = renderSkill({ overlay: OVERLAY, spec: SPEC, sources: ["spec/protocol.md"] });
+  const skill = renderSkill({ overlay: OVERLAY, spec: SPEC, sources: ["docs/reference/agent-protocol.md"] });
 
   it("keeps the frontmatter first, then the provenance banner", () => {
     expect(skill.startsWith("---\nname: x\n---\n")).toBe(true);
-    expect(skill).toMatch(/---\n\n<!-- Generated from spec\/protocol\.md/);
+    expect(skill).toMatch(/---\n\n<!-- Generated from docs\/reference\/agent-protocol\.md/);
   });
   it("uses the overlay's front door and the spec's body", () => {
     expect(skill).toContain("# Claude title");
@@ -74,7 +94,7 @@ describe("renderSkill", () => {
     );
   });
   it("is idempotent (same inputs → byte-identical output)", () => {
-    expect(renderSkill({ overlay: OVERLAY, spec: SPEC, sources: ["spec/protocol.md"] })).toBe(skill);
+    expect(renderSkill({ overlay: OVERLAY, spec: SPEC, sources: ["docs/reference/agent-protocol.md"] })).toBe(skill);
   });
   // The spec is prose: `$…$`, shell snippets, `$&`… A string replacement would read
   // those as substitution patterns and splice the overlay into the middle of the body.
@@ -110,30 +130,28 @@ describe("renderProtocol", () => {
   });
 });
 
-describe("renderDocsPage", () => {
-  const page = renderDocsPage({
-    spec: SPEC,
-    frontmatter: "---\ntitle: T\n---",
-    sources: ["spec/protocol.md"],
-    note: "> **Generated page.**",
-  });
-
-  it("keeps site frontmatter first and warns the reader after the H1", () => {
-    expect(page.startsWith("---\ntitle: T\n---\n")).toBe(true);
-    expect(page).toContain("# Title\n\n> **Generated page.**\n");
-  });
-});
-
 describe("the committed outputs", () => {
+  // The canonical pages (the SOURCE, hand-written) and everything generated from them.
   const outputs = {
+    "docs/reference/agent-protocol.md": read("docs/reference/agent-protocol.md"),
     "packages/plugin/skills/notabene/SKILL.md": read("packages/plugin/skills/notabene/SKILL.md"),
     "packages/renderer/protocol.md": read("packages/renderer/protocol.md"),
-    "docs/reference/agent-protocol.md": read("docs/reference/agent-protocol.md"),
   };
   const authoring = {
-    "packages/plugin/skills/notabene-authoring/SKILL.md": read("packages/plugin/skills/notabene-authoring/SKILL.md"),
     "docs/guide/authoring.md": read("docs/guide/authoring.md"),
+    "packages/plugin/skills/notabene-authoring/SKILL.md": read("packages/plugin/skills/notabene-authoring/SKILL.md"),
   };
+
+  // The "edit me here" note lives in the page's YAML frontmatter: invisible to readers,
+  // never rendered, and stripped from every copy (it would be nonsense in a store).
+  it("keeps the editor-only note in the canonical pages ONLY", () => {
+    expect(outputs["docs/reference/agent-protocol.md"]).toContain("# CANONICAL SOURCE.");
+    expect(authoring["docs/guide/authoring.md"]).toContain("# CANONICAL SOURCE.");
+    for (const [name, text] of [...Object.entries(outputs), ...Object.entries(authoring)]) {
+      if (name.startsWith("docs/")) continue;
+      expect(text).not.toContain("CANONICAL");
+    }
+  });
 
   // Frontmatter belongs at the very top, once. (A `$`-mangled splice re-injected it in
   // the middle of the body — a skill with a second frontmatter block silently rots.)
@@ -155,7 +173,7 @@ describe("the committed outputs", () => {
       expect(text).toContain(heading);
     }
     expect(text).toContain("Math** — no KaTeX/MathJax; `$…$` renders literally.");
-    expect(text).not.toContain(BODY_MARKER);
+    expect(text.includes(BODY_MARKER)).toBe(_name.startsWith("docs/")); // source keeps it, copies don't
   });
 
   // A broken overlay could silently amputate the spec: the diff gate catches a CHANGE,
@@ -174,7 +192,7 @@ describe("the committed outputs", () => {
     ]) {
       expect(text).toContain(heading);
     }
-    expect(text).not.toContain(BODY_MARKER);
+    expect(text.includes(BODY_MARKER)).toBe(_name.startsWith("docs/"));
   });
 
   // `npx notabene <cmd>` resolves nothing unless the renderer is a local dependency:
@@ -186,7 +204,7 @@ describe("the committed outputs", () => {
     }
   });
 
-  it("uses absolute links only (relative .md links would break `notabene lint` on the site)", () => {
+  it("uses absolute links only (a relative .md link would break once copied out of the site)", () => {
     const body = outputs["docs/reference/agent-protocol.md"]
       .replace(/^(```|~~~)[^\n]*\n[\s\S]*?^\1[^\n]*$/gm, "")
       .replace(/`[^`\n]*`/g, "");

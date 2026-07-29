@@ -18,15 +18,15 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm ci
 
-      # The protocol is generated from spec/ into 5 committed files (2 plugin skills, the
-      # packaged protocol.md, 2 docs pages). Regenerate and fail on any diff, so a hand
-      # edit to an output — or a forgotten `npm run gen:protocol` — can never ship a
-      # spec that disagrees with itself. Runs at the ROOT: it spans docs/ and both
-      # packages, unlike every other gate below.
+      # The protocol lives in docs/ (canonical, hand-written) and is generated into 3
+      # committed files: the two plugin skills and the packaged protocol.md. Regenerate
+      # and fail on any diff, so editing the page without regenerating — or hand-editing
+      # a generated copy — can never ship a protocol that disagrees with itself. Runs at
+      # the ROOT: it reads docs/ and writes into both packages, unlike the gates below.
       - name: Generated protocol is up to date
         run: |
           npm run gen:protocol
-          git diff --exit-code -- spec docs packages || {
+          git diff --exit-code -- packages || {
             echo "::error::Generated protocol out of date — run \`npm run gen:protocol\` and commit."
             exit 1
           }

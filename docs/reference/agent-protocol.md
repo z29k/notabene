@@ -4,15 +4,13 @@ description: The file-I/O-first protocol any agent follows to turn review commen
 sidebar:
   label: Agent protocol
   order: 5
+# CANONICAL SOURCE. `npm run gen:protocol` regenerates the plugin skills and
+# packages/renderer/protocol.md (npm + every consumer's <store>/protocol.md) from this
+# page. Absolute links only — the text lands outside this site. Bump PROTOCOL_VERSION
+# (src/lib/protocol-gen.mjs) on a material change.
 ---
 
-<!-- Generated from spec/protocol.md by scripts/gen-protocol.mjs — do not edit. -->
-
 # The notabene review protocol
-
-> **Generated page.** It is the canonical protocol rendered for the web — edit
-> `spec/protocol.md` in the [notabene repo](https://github.com/z29k/notabene) and run
-> `npm run gen:protocol`; edits made here are overwritten.
 
 **notabene** renders a repo's Markdown/MDX as a navigable site with Google-Docs-style
 review comments; this protocol is how an **agent turns those comments into edits**. It is
@@ -27,6 +25,8 @@ notabene isn't configured for this repo yet — run `npx -y @z29k/notabene@lates
 If the renderer is already a local dependency, plain `notabene <cmd>` resolves it. **Never
 run `npx notabene` unscoped** — that name is not ours. Every CLI step below is a
 convenience: with file tools alone the loop still runs end to end.
+
+<!-- nb:body -->
 
 ## Discovery — EVERYTHING comes from the config (nothing hardcoded)
 

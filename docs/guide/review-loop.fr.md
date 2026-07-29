@@ -74,10 +74,10 @@ pour qu'aucun agent n'ait à la chercher :
   désactivable via `init --no-agents-md`.
 
 Les deux se rafraîchissent en relançant `notabene init` (idempotent) — à faire après avoir
-déplacé le store ou renommé un espace, et `notabene doctor` signale la dérive. Deux autres
-copies du même texte généré : `npx -y @z29k/notabene@latest protocol` l'imprime, et la page
-[protocole agent](../reference/agent-protocol.md) le publie (avec un jumeau Markdown dans
-les builds publics, pour les agents qui naviguent).
+déplacé le store ou renommé un espace, et `notabene doctor` signale la dérive. Ce texte,
+c'est la page [protocole agent](../reference/agent-protocol.md) de ce site — la version
+canonique, avec un jumeau Markdown dans les builds publics pour les agents qui naviguent ;
+`npx -y @z29k/notabene@latest protocol` l'imprime hors ligne.
 
 Dans Claude Code, la skill du plugin **est** ce protocole : elle se déclenche sur « traite
 les commentaires de la doc » et n'a besoin d'aucun AGENTS.md. La forme du store est

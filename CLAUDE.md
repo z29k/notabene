@@ -14,8 +14,9 @@ Two installable pieces, one npm workspace:
   + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf` / `lint`, plus
   `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Published to npm.
 - **`packages/plugin`** — the Claude Code plugin (3 skills + a forwarder).
-- **`spec/`** — the **canonical protocol**, neutral and agent-agnostic. See
-  *Architecture: the protocol is generated* below: everything else is a build product.
+The **canonical protocol lives in `docs/`** (it is documentation, not a hidden artifact);
+the plugin skills and the npm-shipped copy are generated from it — see *Architecture: the
+protocol is generated* below.
 
 **Dogfood:** this repo is also its own consumer — `docs/` holds the user documentation
 (two spaces, `guide` + `reference`), wired by the root `notabene.config.mjs` (store at
@@ -127,25 +128,29 @@ by agents**. Treat its shape as a public API:
   with no identity set, the dialog is forced before browsing, so comments attribute per person
   (client-side nudge — `isLoopbackHost` in `comments-client.ts`, wired in `DocLayout`).
 
-## Architecture: the protocol is generated (`spec/` is the source)
+## Architecture: the protocol is generated (the DOC PAGE is the source)
 
-`spec/protocol.md` is the **canonical, agent-agnostic protocol** (and `spec/authoring.md`
-the authoring palette). Every distributed copy is generated from it by
-`scripts/gen-protocol.mjs` (`npm run gen:protocol`, pure transforms in
-`src/lib/protocol-gen.mjs`) and **committed** — CI regenerates and fails on any diff:
+**`docs/reference/agent-protocol.md` is the canonical protocol** (and
+`docs/guide/authoring.md` the authoring palette): hand-written, published, reviewed with
+the loop like any other page — the documentation *is* the spec. Every other copy is
+generated from it by `scripts/gen-protocol.mjs` (`npm run gen:protocol`, pure transforms
+in `src/lib/protocol-gen.mjs`) and **committed** — CI regenerates and fails on any diff.
+Nothing generated ever lands in `docs/`, so a review comment on the protocol is an
+ordinary comment:
 
 - `packages/plugin/skills/notabene/SKILL.md` + `skills/notabene-authoring/SKILL.md` —
-  spec body + a **Claude overlay** (`spec/claude-overlay*.md`: frontmatter + the 3 rules
-  that are genuinely plugin-specific — setup hand-off, `nb.mjs` forwarder, sibling skill).
+  page body + a **Claude overlay** (`packages/plugin/overlays/*.md`: skill frontmatter +
+  the 3 rules that are genuinely plugin-specific — setup hand-off, `nb.mjs` forwarder,
+  sibling skill; they live in the plugin package because that is who they serve).
   **Never edit a SKILL.md by hand.**
 - `packages/renderer/protocol.md` — shipped on npm (`files`) AND copied by `notabene init`
   into `<store>/protocol.md` (offline channel: a Rust/Python repo has no `node_modules`).
   Banner `<!-- notabene agent protocol vN … -->` is the sentinel `init` checks before ever
   overwriting; `PROTOCOL_VERSION` is hand-bumped, **never** the package version (it would
   break the diff gate on every release).
-- `docs/reference/agent-protocol.md` + `docs/guide/authoring.md` — the public pages (EN
-  only; the i18n banner covers FR). They carry a visible *generated* note: a review
-  comment on them must be fixed in `spec/`.
+- Generation drops the page's site frontmatter AND its leading `<!-- CANONICAL … -->`
+  editor note (`specSource`) — an instruction to this repo's editors has no business in a
+  consumer's store. The pages stay EN-only (the i18n banner covers FR).
 - `notabene init` also writes a bounded `<!-- notabene:begin -->…<!-- notabene:end -->`
   block in the consumer's `AGENTS.md` (pure merge in `src/lib/agents-md.mjs`: create /
   append / replace-between-markers, EOL preserved, `unterminated` → refuse). Both are

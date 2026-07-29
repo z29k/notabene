@@ -1,19 +1,21 @@
 // Protocol generation — pure transforms behind `npm run gen:protocol`
 // (scripts/gen-protocol.mjs at the repo root).
 //
-// The CANONICAL protocol is `spec/protocol.md`: a neutral, agent-agnostic document.
-// Every distributed copy is GENERATED from it, so the Claude Code skill, the npm
-// package, the store copy and the docs page can never drift apart:
+// The CANONICAL protocol is the PUBLISHED DOC PAGE, `docs/reference/agent-protocol.md`
+// (and `docs/guide/authoring.md` for the authoring palette): written by hand, reviewed
+// with the loop like any other page. Every other copy is GENERATED from it, so they
+// can never drift apart:
 //
-//   spec/protocol.md ──┬─(+ spec/claude-overlay.md)─→ packages/plugin/skills/notabene/SKILL.md
-//                      ├─(+ banner)────────────────→ packages/renderer/protocol.md  (npm + <store>/)
-//                      └─(+ docs frontmatter)──────→ docs/reference/agent-protocol.md
+//   docs/reference/agent-protocol.md ─┬─(+ plugin overlay)─→ skills/notabene/SKILL.md
+//                                     └─(+ version banner)─→ packages/renderer/protocol.md
+//                                                            (npm + <store>/protocol.md)
 //
-// A spec file is split at BODY_MARKER: everything before it is the audience's
-// front-door (how to run the CLI here, what to do when notabene isn't set up), and
-// everything after is the shared body. An overlay is a template whose `{{body}}` is
-// replaced by that body — so per-audience differences stay in ONE place instead of
-// being sprinkled through the protocol as conditional markers.
+// The page's site frontmatter is stripped (the skill brings its own), then the text is
+// split at BODY_MARKER: everything before it is the audience's front-door (how to run
+// the CLI here, what to do when notabene isn't set up), everything after is the shared
+// body. An overlay is a template whose `{{body}}` receives it — so per-audience
+// differences stay in ONE place instead of being sprinkled through the protocol as
+// conditional markers.
 //
 // Raw-Node importable (bin/ and scripts/ use it outside Vite): no imports at all.
 
@@ -34,6 +36,30 @@ export const BODY_PLACEHOLDER = "{{body}}";
 
 const GENERATOR = "scripts/gen-protocol.mjs";
 
+/** Drop a leading YAML frontmatter block (the doc page's site metadata — a skill and
+ *  the packaged protocol each bring their own header). */
+export function stripFrontmatter(text) {
+  return text.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*\r?\n/, "").trimStart();
+}
+
+/** Drop the HTML comment(s) a canonical page opens with — "edit me here, run
+ *  gen:protocol" is an instruction to THIS repo's editors, meaningless (and
+ *  misleading) once the text is sitting in a consumer's store. */
+export function stripLeadingComments(text) {
+  let out = text.trimStart();
+  while (out.startsWith("<!--")) {
+    const end = out.indexOf("-->");
+    if (end === -1) break;
+    out = out.slice(end + 3).trimStart();
+  }
+  return out;
+}
+
+/** A canonical page reduced to the text every copy shares. */
+export function specSource(text) {
+  return stripLeadingComments(stripFrontmatter(text));
+}
+
 /** `{ header, body }` — throws if the spec has no BODY_MARKER (a silent miss would
  *  ship the neutral front-door inside the Claude skill). */
 export function splitSpec(text) {
@@ -45,9 +71,9 @@ export function splitSpec(text) {
   };
 }
 
-/** The whole spec as one document (front-door + body), marker line removed. */
+/** The whole spec as one document (front-door + body), frontmatter and marker gone. */
 export function joinSpec(text) {
-  const { header, body } = splitSpec(text);
+  const { header, body } = splitSpec(specSource(text));
   return `${header}\n\n${body}`;
 }
 
@@ -100,7 +126,7 @@ export function renderSkill({ overlay, spec, sources }) {
   if (!overlay.includes(BODY_PLACEHOLDER)) {
     throw new Error(`overlay: missing ${BODY_PLACEHOLDER}`);
   }
-  const { body } = splitSpec(spec);
+  const { body } = splitSpec(specSource(spec));
   // Function replacer, NOT a string: the spec is prose full of `$` (`$…$` renders
   // literally, shell snippets) and String.replace would read `$&`/`` $` ``/`$'` as
   // substitution patterns — splicing the overlay back into the middle of the body.
@@ -111,13 +137,4 @@ export function renderSkill({ overlay, spec, sources }) {
 /** The distributed protocol: the neutral document, versioned banner on top. */
 export function renderProtocol({ spec }) {
   return `${protocolBanner()}\n\n${joinSpec(spec).trimEnd()}\n`;
-}
-
-/** Docs-site page: site frontmatter + provenance banner + a VISIBLE note (this repo
- *  reviews its own docs — without it a reviewer's comment would send the agent
- *  editing a generated file that the next regen overwrites). */
-export function renderDocsPage({ spec, frontmatter, sources, note }) {
-  const withNote = note ? insertAfterH1(joinSpec(spec), note) : joinSpec(spec);
-  const banner = generatedBanner(sources);
-  return `${frontmatter.trimEnd()}\n\n${banner}\n\n${withNote.trimEnd()}\n`;
 }

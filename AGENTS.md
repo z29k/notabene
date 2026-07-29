@@ -3,7 +3,8 @@
 This repo *is* notabene (renderer + review protocol) and its own consumer: `docs/` holds
 the user documentation, reviewed with the loop itself. Architecture, conventions and the
 quality gates live in [CLAUDE.md](./CLAUDE.md) — read that before changing code. The
-protocol block below is generated from `spec/protocol.md`; never edit a generated copy.
+protocol is documented in `docs/reference/agent-protocol.md` (canonical) and generated
+from there into the plugin skills and the npm package; never edit a generated copy.
 
 <!-- notabene:begin -->
 ## Documentation review (notabene)

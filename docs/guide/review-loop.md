@@ -67,10 +67,10 @@ agent has to go looking for it:
   opt out with `init --no-agents-md`.
 
 Both are refreshed by re-running `notabene init` (idempotent) — do that after moving the
-store or renaming a space, and `notabene doctor` will tell you when they drift. Two more
-copies of the same generated text: `npx -y @z29k/notabene@latest protocol` prints it, and
-the [agent protocol](../reference/agent-protocol.md) page publishes it (with a Markdown
-twin in public builds, for agents that browse).
+store or renaming a space, and `notabene doctor` will tell you when they drift. The text
+itself is this site's [agent protocol](../reference/agent-protocol.md) page — the
+canonical one, with a Markdown twin in public builds for agents that browse;
+`npx -y @z29k/notabene@latest protocol` prints the same thing offline.
 
 In Claude Code the plugin skill *is* that protocol — it triggers on "address the doc
 comments" and needs no AGENTS.md. The store shape itself is a versioned public contract —

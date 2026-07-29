@@ -11,7 +11,7 @@ description: >-
   commits without an explicit request.
 ---
 
-<!-- Generated from spec/protocol.md + spec/claude-overlay.md by scripts/gen-protocol.mjs — do not edit. -->
+<!-- Generated from docs/reference/agent-protocol.md + packages/plugin/overlays/notabene.md by scripts/gen-protocol.mjs — do not edit. -->
 
 # Docs review loop (comments + verification)
 

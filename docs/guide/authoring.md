@@ -4,15 +4,13 @@ description: The rendering palette — what you can put in a notabene page (Comm
 sidebar:
   label: Authoring docs
   order: 6
+# CANONICAL SOURCE. `npm run gen:protocol` regenerates the plugin skills and
+# packages/renderer/protocol.md (npm + every consumer's <store>/protocol.md) from this
+# page. Absolute links only — the text lands outside this site. Bump PROTOCOL_VERSION
+# (src/lib/protocol-gen.mjs) on a material change.
 ---
 
-<!-- Generated from spec/authoring.md by scripts/gen-protocol.mjs — do not edit. -->
-
 # Authoring notabene docs — the rendering palette
-
-> **Generated page.** It is the canonical protocol rendered for the web — edit
-> `spec/authoring.md` in the [notabene repo](https://github.com/z29k/notabene) and run
-> `npm run gen:protocol`; edits made here are overwritten.
 
 What actually renders in a notabene site, so you can write a **complete** doc with every
 tool available and nothing that silently degrades to plain text. Docs are plain files in
@@ -20,6 +18,8 @@ the repo (Markdown/MDX), rendered by the notabene renderer (Astro + GFM + Shiki 
 
 Applying review comments is also *writing docs*: use this palette for those edits — the
 loop itself is the [review protocol](https://z29k.github.io/notabene/reference/agent-protocol/).
+
+<!-- nb:body -->
 
 ## First: know the format
 

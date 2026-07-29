@@ -109,7 +109,7 @@ function gitUserEmail(cwd) {
 }
 
 const TEMPLATE_CONFIG = path.join(APP_DIR, "templates", "notabene.config.mjs");
-// The agent protocol, generated from spec/protocol.md and SHIPPED in the package
+// The agent protocol, generated from docs/reference/agent-protocol.md and SHIPPED in the package
 // (package.json `files`) — so `init` can drop a copy in the consumer's store and any
 // agent reads the spec from the repo itself: no npx, no network, no GitHub visit.
 const PROTOCOL_FILE = path.join(APP_DIR, "protocol.md");
