@@ -101,7 +101,7 @@ c'est utile :
 ## Organisation du repo
 
 - **`packages/renderer`** - le package npm `@z29k/notabene` (renderer Astro + CLI).
-- **`packages/plugin`** - le plugin Claude Code (setup + la skill/protocole de revue).
+- **`packages/claude-plugin`** - le plugin Claude Code (setup + la skill/protocole de revue).
 - **`docs/`** - cette documentation, revue et publiée par notabene lui-même.
 
 ## Licence

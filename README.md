@@ -100,7 +100,7 @@ only where you're curious:
 ## Repo layout
 
 - **`packages/renderer`** - the `@z29k/notabene` npm package (Astro renderer + CLI).
-- **`packages/plugin`** - the Claude Code plugin (setup + the review skill/protocol).
+- **`packages/claude-plugin`** - the Claude Code plugin (setup + the review skill/protocol).
 - **`docs/`** - this documentation, reviewed and published by notabene itself.
 
 ## License

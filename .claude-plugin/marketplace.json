@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "notabene",
-      "source": "./packages/plugin",
+      "source": "./packages/claude-plugin",
       "description": "Turnkey docs review: set up notabene on any repo (write the config, create the .notabene store, start the review server via npx — no toolchain), then run the human↔agent loop — process browser comments, apply the feedback, mark resolved, journal, and verify. Companion to the `@z29k/notabene` npm renderer."
     }
   ]

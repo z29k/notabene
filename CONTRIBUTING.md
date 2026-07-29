@@ -10,7 +10,7 @@ a human↔agent review protocol. Contributions are welcome.
   `doctor` / `status` / `stop` / `migrate` / `protocol` / `journal` and
   `comments ls|done|reopen|verify`). Runs *from the package* against a consumer repo
   (`NOTABENE_ROOT` / `NOTABENE_CONFIG`).
-- **`packages/plugin`** — the Claude Code plugin (3 skills + `overlays/`, the
+- **`packages/claude-plugin`** — the Claude Code plugin (3 skills + `overlays/`, the
   plugin-specific front-doors prepended to the generated skills).
 - **The protocol is `docs/reference/agent-protocol.md`** (and the authoring palette
   `docs/guide/authoring.md`): canonical, hand-written, published. **Both plugin skills and
@@ -159,7 +159,7 @@ GitHub Environment. The channel is chosen by what you push:
   tag, push — CI verifies tag == version, publishes stable, and cuts a GitHub Release:
 
   ```bash
-  # bump: packages/renderer/package.json · packages/plugin/.claude-plugin/plugin.json
+  # bump: packages/renderer/package.json · packages/claude-plugin/.claude-plugin/plugin.json
   #       .claude-plugin/marketplace.json (metadata.version)
   npm install
   git commit -am "chore: release vX.Y.Z"

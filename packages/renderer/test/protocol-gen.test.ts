@@ -134,12 +134,14 @@ describe("the committed outputs", () => {
   // The canonical pages (the SOURCE, hand-written) and everything generated from them.
   const outputs = {
     "docs/reference/agent-protocol.md": read("docs/reference/agent-protocol.md"),
-    "packages/plugin/skills/notabene/SKILL.md": read("packages/plugin/skills/notabene/SKILL.md"),
+    "packages/claude-plugin/skills/notabene/SKILL.md": read("packages/claude-plugin/skills/notabene/SKILL.md"),
     "packages/renderer/protocol.md": read("packages/renderer/protocol.md"),
   };
   const authoring = {
     "docs/guide/authoring.md": read("docs/guide/authoring.md"),
-    "packages/plugin/skills/notabene-authoring/SKILL.md": read("packages/plugin/skills/notabene-authoring/SKILL.md"),
+    "packages/claude-plugin/skills/notabene-authoring/SKILL.md": read(
+      "packages/claude-plugin/skills/notabene-authoring/SKILL.md",
+    ),
   };
 
   // The "edit me here" note lives in the page's YAML frontmatter: invisible to readers,

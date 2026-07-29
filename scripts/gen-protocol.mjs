@@ -12,7 +12,7 @@
 //
 // An overlay holds ONLY what is specific to the Claude Code plugin (skill frontmatter +
 // the setup hand-off, the nb.mjs forwarder and the sibling skill) — hence its home in
-// packages/plugin. The transforms are pure + unit-tested (src/lib/protocol-gen.mjs).
+// packages/claude-plugin. The transforms are pure + unit-tested (src/lib/protocol-gen.mjs).
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,20 +29,20 @@ const authoringSpec = read(AUTHORING_PAGE);
 
 const outputs = [
   [
-    "packages/plugin/skills/notabene/SKILL.md",
+    "packages/claude-plugin/skills/notabene/SKILL.md",
     renderSkill({
-      overlay: read("packages/plugin/overlays/notabene.md"),
+      overlay: read("packages/claude-plugin/overlays/notabene.md"),
       spec: protocolSpec,
-      sources: [PROTOCOL_PAGE, "packages/plugin/overlays/notabene.md"],
+      sources: [PROTOCOL_PAGE, "packages/claude-plugin/overlays/notabene.md"],
     }),
   ],
   ["packages/renderer/protocol.md", renderProtocol({ spec: protocolSpec })],
   [
-    "packages/plugin/skills/notabene-authoring/SKILL.md",
+    "packages/claude-plugin/skills/notabene-authoring/SKILL.md",
     renderSkill({
-      overlay: read("packages/plugin/overlays/notabene-authoring.md"),
+      overlay: read("packages/claude-plugin/overlays/notabene-authoring.md"),
       spec: authoringSpec,
-      sources: [AUTHORING_PAGE, "packages/plugin/overlays/notabene-authoring.md"],
+      sources: [AUTHORING_PAGE, "packages/claude-plugin/overlays/notabene-authoring.md"],
     }),
   ],
 ];

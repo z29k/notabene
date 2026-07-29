@@ -11,7 +11,7 @@ description: >-
   comments (that's `notabene`) — it's the authoring reference for the content itself.
 ---
 
-<!-- Generated from docs/guide/authoring.md + packages/plugin/overlays/notabene-authoring.md by scripts/gen-protocol.mjs — do not edit. -->
+<!-- Generated from docs/guide/authoring.md + packages/claude-plugin/overlays/notabene-authoring.md by scripts/gen-protocol.mjs — do not edit. -->
 
 # Authoring notabene docs — the rendering palette
 

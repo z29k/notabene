@@ -13,7 +13,7 @@ Two installable pieces, one npm workspace:
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro renderer
   + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf` / `lint`, plus
   `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Published to npm.
-- **`packages/plugin`** — the Claude Code plugin (3 skills + a forwarder).
+- **`packages/claude-plugin`** — the Claude Code plugin (3 skills + a forwarder).
 The **canonical protocol lives in `docs/`** (it is documentation, not a hidden artifact);
 the plugin skills and the npm-shipped copy are generated from it — see *Architecture: the
 protocol is generated* below.
@@ -138,8 +138,8 @@ in `src/lib/protocol-gen.mjs`) and **committed** — CI regenerates and fails on
 Nothing generated ever lands in `docs/`, so a review comment on the protocol is an
 ordinary comment:
 
-- `packages/plugin/skills/notabene/SKILL.md` + `skills/notabene-authoring/SKILL.md` —
-  page body + a **Claude overlay** (`packages/plugin/overlays/*.md`: skill frontmatter +
+- `packages/claude-plugin/skills/notabene/SKILL.md` + `skills/notabene-authoring/SKILL.md` —
+  page body + a **Claude overlay** (`packages/claude-plugin/overlays/*.md`: skill frontmatter +
   the 3 rules that are genuinely plugin-specific — setup hand-off, `nb.mjs` forwarder,
   sibling skill; they live in the plugin package because that is who they serve).
   **Never edit a SKILL.md by hand.**
@@ -162,7 +162,7 @@ ordinary comment:
 
 ## Architecture: the review loop (the product)
 
-The generated `packages/plugin/skills/notabene/SKILL.md` is the protocol. It is **file-I/O-first**: it
+The generated `packages/claude-plugin/skills/notabene/SKILL.md` is the protocol. It is **file-I/O-first**: it
 reads/writes `<store>/` files directly and requires **neither a running server nor a
 port**. Everything (store path, doc spaces, post-edit checks) is discovered from
 `notabene.config.mjs` — nothing is hardcoded. The loop: read open non-held comments →
