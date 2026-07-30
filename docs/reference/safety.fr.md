@@ -3,7 +3,7 @@ title: Modèle de sécurité
 description: Pourquoi l'API d'écriture ne peut pas vous nuire — dev uniquement, liée au loopback, écritures gardées, identité par personne.
 sidebar:
   label: Modèle de sécurité
-  order: 5
+  order: 6
 ---
 
 # Modèle de sécurité
@@ -27,7 +27,12 @@ construction :
   soient attribués à de vraies personnes plutôt qu'au défaut git du propriétaire du
   repo.
 - **L'agent ne committe jamais sans demander** et ne supprime jamais le store en
-  masse — cela fait partie du [protocole](./store-contract.md).
+  masse — cela fait partie du [protocole](./agent-protocol.md).
+- **La CLI est une surface distincte.** Les règles ci-dessus encadrent l'API d'écriture
+  **HTTP**. Les commandes qui écrivent dans le store (`comments done` / `reopen`,
+  `journal add`) sont des commandes locales que *vous* — ou un agent dans votre terminal —
+  lancez délibérément : ni serveur, ni port, ni réseau. Écriture atomique, un commentaire
+  à la fois, et [`comments verify`](./cli.md) audite le résultat.
 
 L'artefact public est l'image miroir : pas d'API d'écriture, pas de données du store,
 pas d'identité —

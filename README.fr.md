@@ -46,7 +46,7 @@ pourquoi*.
 
 ```bash
 npm install -D @z29k/notabene   # ou pnpm / bun
-npx notabene init               # écrit notabene.config.mjs + crée le store .notabene
+npx notabene init               # écrit la config, le store .notabene + le protocole agent
 npx notabene dev                # → http://localhost:3009
 ```
 
@@ -101,7 +101,7 @@ c'est utile :
 ## Organisation du repo
 
 - **`packages/renderer`** - le package npm `@z29k/notabene` (renderer Astro + CLI).
-- **`packages/plugin`** - le plugin Claude Code (setup + la skill/protocole de revue).
+- **`packages/claude-plugin`** - le plugin Claude Code (setup + la skill/protocole de revue).
 - **`docs/`** - cette documentation, revue et publiée par notabene lui-même.
 
 ## Licence

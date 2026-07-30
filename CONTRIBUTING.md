@@ -7,10 +7,15 @@ a human↔agent review protocol. Contributions are welcome.
 
 - **`packages/renderer`** — the `@z29k/notabene` npm package: a generic Astro
   renderer + the `notabene` CLI (`init` / `dev` / `build` / `preview` / `pdf`, plus
-  `doctor` / `status` / `stop` / `migrate` / `comments` / `journal`). Runs
-  *from the package* against a consumer repo (`NOTABENE_ROOT` / `NOTABENE_CONFIG`).
-- **`packages/plugin`** — the Claude Code plugin (the review skill). The skill file
-  doubles as the agent-agnostic protocol spec.
+  `doctor` / `status` / `stop` / `migrate` / `protocol` / `journal` and
+  `comments ls|done|reopen|verify`). Runs *from the package* against a consumer repo
+  (`NOTABENE_ROOT` / `NOTABENE_CONFIG`).
+- **`packages/claude-plugin`** — the Claude Code plugin (3 skills + `overlays/`, the
+  plugin-specific front-doors prepended to the generated skills).
+- **The protocol is `docs/reference/agent-protocol.md`** (and the authoring palette
+  `docs/guide/authoring.md`): canonical, hand-written, published. **Both plugin skills and
+  `packages/renderer/protocol.md` are GENERATED from those pages** (`npm run
+  gen:protocol`) — edit the page, never the outputs; CI regenerates and fails on any diff.
 
 The single source of file-layout truth is `packages/renderer/src/config.mjs` — it
 loads `notabene.config.mjs` and resolves every path. No hardcoded paths elsewhere.
@@ -73,6 +78,11 @@ READMEs are short landings — user-facing detail belongs in `docs/`, in one pla
 - **The `.notabene` contract is public** — it's committed in consumer repos and read
   by agents. Any shape change bumps `schemaVersion` (`<store>/meta.json`) with a
   migrator; never mutate silently. Types: `src/lib/comment-types.ts`.
+- **The protocol is generated** — `docs/reference/agent-protocol.md` is the source of
+  truth; run `npm run gen:protocol` after touching it and commit the outputs. Bump
+  `PROTOCOL_VERSION` (`src/lib/protocol-gen.mjs`) when the spec changes materially — it
+  is deliberately independent of the package version (a version that moved on every
+  release would break the CI diff gate on every release commit).
 - **Dev-local & safe** — the write API binds loopback by default and only runs under
   `notabene dev`. Keep it that way.
 
@@ -149,7 +159,7 @@ GitHub Environment. The channel is chosen by what you push:
   tag, push — CI verifies tag == version, publishes stable, and cuts a GitHub Release:
 
   ```bash
-  # bump: packages/renderer/package.json · packages/plugin/.claude-plugin/plugin.json
+  # bump: packages/renderer/package.json · packages/claude-plugin/.claude-plugin/plugin.json
   #       .claude-plugin/marketplace.json (metadata.version)
   npm install
   git commit -am "chore: release vX.Y.Z"

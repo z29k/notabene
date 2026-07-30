@@ -18,6 +18,19 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm ci
 
+      # The protocol lives in docs/ (canonical, hand-written) and is generated into 3
+      # committed files: the two plugin skills and the packaged protocol.md. Regenerate
+      # and fail on any diff, so editing the page without regenerating — or hand-editing
+      # a generated copy — can never ship a protocol that disagrees with itself. Runs at
+      # the ROOT: it reads docs/ and writes into both packages, unlike the gates below.
+      - name: Generated protocol is up to date
+        run: |
+          npm run gen:protocol
+          git diff --exit-code -- packages || {
+            echo "::error::Generated protocol out of date — run \`npm run gen:protocol\` and commit."
+            exit 1
+          }
+
       - name: Lint + format (Biome)
         run: npm run lint
         working-directory: packages/renderer
@@ -34,7 +47,54 @@ jobs:
           set -e
           mkdir -p /tmp/consumer/docs
           printf '# Hello\n\nGFM hostile to MDX: Promise<T>, <a@b.com>, {x}, | a | b |\n' > /tmp/consumer/docs/index.md
+          # A pre-existing AGENTS.md: `init` must APPEND its block, never clobber the file.
+          printf '# House rules\n\nRun make test before pushing.\n' > /tmp/consumer/AGENTS.md
           node packages/renderer/bin/notabene.mjs init --root /tmp/consumer
+          # The agent entry point ships with the store, and `init` is idempotent (it is
+          # also the repair path the setup skill re-runs after a config change).
+          test -f /tmp/consumer/docs/.notabene/protocol.md
+          head -1 /tmp/consumer/docs/.notabene/protocol.md | grep -q "notabene agent protocol v"
+          grep -q "Run make test before pushing." /tmp/consumer/AGENTS.md
+          grep -q "notabene:begin" /tmp/consumer/AGENTS.md && grep -q "notabene:end" /tmp/consumer/AGENTS.md
+          grep -q "docs/.notabene/protocol.md" /tmp/consumer/AGENTS.md
+          cp /tmp/consumer/AGENTS.md /tmp/agents-before
+          node packages/renderer/bin/notabene.mjs init --root /tmp/consumer
+          diff -q /tmp/agents-before /tmp/consumer/AGENTS.md
+          node packages/renderer/bin/notabene.mjs protocol --root /tmp/consumer | head -1 | grep -q "notabene agent protocol v"
+          node packages/renderer/bin/notabene.mjs doctor --root /tmp/consumer --json > /tmp/doctor.json
+          node -e "const d=require('/tmp/doctor.json'); if(!d.protocol.present||d.protocol.current!==true||!d.agents.block) { console.error(d); process.exit(1) }"
+
+      # The AGENT WRITE PATH end to end: journal → comments done (status chosen by the
+      # config, not by the caller) → verify. Then a deliberately broken link proves the
+      # audit actually fails instead of rubber-stamping.
+      - name: Store write primitives + verify
+        run: |
+          set -e
+          mkdir -p /tmp/consumer/docs/.notabene/docs/index
+          printf '{ "id": "c-cli", "space": "docs", "page": "docs/index", "scope": "page", "anchor": null, "thread": [{ "author": "CI", "body": "tighten this", "ts": "2026-01-01T00:00:00Z" }], "status": "open", "hold": false, "resolution": null, "createdAt": "2026-01-01T00:00:00Z", "updatedAt": "2026-01-01T00:00:00Z" }\n' > /tmp/consumer/docs/.notabene/docs/index/c-cli.json
+          node packages/renderer/bin/notabene.mjs comments verify --root /tmp/consumer
+          printf '{ "id": "j-ci", "date": "2026-01-02", "title": "CI pass", "summary": "s", "changes": [{ "page": "docs/index", "commentIds": ["c-cli"], "what": "w", "why": "y" }] }\n' \
+            | node packages/renderer/bin/notabene.mjs journal add --root /tmp/consumer --json
+          node packages/renderer/bin/notabene.mjs comments done c-cli --root /tmp/consumer --note "done" --journal j-ci
+          node -e "
+            const c = require('/tmp/consumer/docs/.notabene/docs/index/c-cli.json');
+            if (c.status !== 'resolved' || c.resolution.journalEntryId !== 'j-ci' || c.thread.length !== 1) {
+              console.error(c); process.exit(1);
+            }"
+          node packages/renderer/bin/notabene.mjs comments verify --root /tmp/consumer
+          # An unknown journal link must FAIL the audit (exit 1), not pass quietly.
+          node packages/renderer/bin/notabene.mjs comments done c-cli --root /tmp/consumer --journal ghost --status resolved
+          if node packages/renderer/bin/notabene.mjs comments verify --root /tmp/consumer --json > /tmp/verify.json; then
+            echo "verify should have failed on a dangling journal link"; exit 1;
+          fi
+          node -e "
+            const r = require('/tmp/verify.json');
+            if (!r.findings.some((f) => f.code === 'comment-unknown-journal-entry')) { console.error(r); process.exit(1); }"
+          node packages/renderer/bin/notabene.mjs comments reopen c-cli --root /tmp/consumer --reply "not yet" --author "CI <ci@example.com>"
+          node -e "
+            const c = require('/tmp/consumer/docs/.notabene/docs/index/c-cli.json');
+            if (c.status !== 'open' || c.resolution !== null || c.thread.length !== 2) { console.error(c); process.exit(1); }"
+          rm -rf /tmp/consumer/docs/.notabene/docs/index/c-cli.json /tmp/consumer/docs/.notabene/journal.json
 
       - name: Type-check (astro check)
         run: npm run check

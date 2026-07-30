@@ -24,6 +24,7 @@
     "bin",
     "src",
     "templates",
+    "protocol.md",
     "astro.config.mjs",
     "tsconfig.json"
   ],

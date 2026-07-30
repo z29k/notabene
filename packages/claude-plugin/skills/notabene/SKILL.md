@@ -1,0 +1,190 @@
+---
+name: notabene
+description: >-
+  notabene docs review loop: process review comments left on the docs and verify
+  the docs. Use when the user says "address the comments", "process the doc
+  comments", "apply the review feedback", "review/check the docs", or references
+  the global /comments page. Reads the notabene store, edits the docs per the
+  feedback, marks them resolved + writes the journal, then verifies (renderer
+  build, links, project checks). Ignores comments on "hold". This skill does NOT
+  install, configure, or launch the review server — that's `notabene-setup`. Never
+  commits without an explicit request.
+---
+
+<!-- Generated from docs/reference/agent-protocol.md + packages/claude-plugin/overlays/notabene.md by scripts/gen-protocol.mjs — do not edit. -->
+
+# Docs review loop (comments + verification)
+
+**notabene**: a navigable renderer over a repo's docs + a human↔agent review loop.
+**Stateless** — the data lives in the consumer repo's git, not in the tool. What follows
+is the generic, agent-agnostic protocol; **three rules override it inside this plugin**:
+
+1. **Not set up here?** No `notabene.config.mjs` or no `.notabene/` store → **hand off to
+   the `notabene-setup` skill** (or `/notabene:setup`) to install/configure and launch,
+   then resume. Don't fail; delegate — ignore the generic `npx … init` fallback below.
+2. **Every CLI call goes through the plugin forwarder** — `node
+   "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" <cmd> --root <repo-root>` — never `npx notabene`
+   (unscoped: not our package) and never a hardcoded version. This replaces **every**
+   `npx -y @z29k/notabene@latest …` shown below (`comments ls`, `build`, `lint`,
+   `journal add`). The loop still never depends on the CLI: file tools are enough.
+3. **Authoring palette** — for what you can put in a page (Mermaid diagrams, GFM tables,
+   code blocks, inter-doc links) and the MDX-safety rules, use the **`notabene-authoring`**
+   skill rather than the web page linked in Step 4.
+
+## Discovery — EVERYTHING comes from the config (nothing hardcoded)
+
+Read **`notabene.config.mjs`** at the repo root to learn:
+
+- **`store`** — comments + journal folder (e.g. `docs/.notabene`). **One file per
+  comment**: `<store>/<page>/<id>.json` (so branches don't conflict on merge).
+  Journal: `<store>/journal.json`. Schema version: `<store>/meta.json`
+  (`{ "schemaVersion": <n> }`, currently **3**). Older stores keep one array per page
+  (`<store>/<page>.json`) — both are read; `notabene migrate` upgrades a store to the current
+  schema (v3, one file per comment).
+- **`roots[]`** — the doc spaces: `{ key, label, path, exclude }`. A comment's `page`
+  field is prefixed by a root's `path` (e.g. root `docs/plans` → `page:
+  "docs/plans/services/x"`).
+- **`i18n`** (optional, `{ locales, defaultLocale, strategy }`) — the doc is multi-language
+  and a comment's `page` key is **locale-encoded**, mapping straight to that language's file:
+  `strategy: "directory"` → `page: "docs/fr/guide/x"` = file `docs/fr/guide/x.md`;
+  `strategy: "suffix"` → `page: "docs/guide/x.fr"` = file `docs/guide/x.fr.md` (the default
+  locale is unsuffixed: `page: "docs/guide/x"` = `docs/guide/x.md`). Edit **that** file — a
+  comment belongs to one language; don't touch the other language's file or auto-translate
+  unless asked.
+- **`verify[]`** — project-specific checks to run after editing.
+- **`review`** — `"auto"` (default) or `"approve"`. In **approve** mode you don't resolve
+  comments yourself: you edit, mark them **`addressed`**, and a human validates them (with
+  a diff) at `/review`. See Step 5.
+
+Assume **no** path, port or label. Do not require a live server or a port.
+
+## Strict rules (no exceptions)
+
+- **NEVER commit or run git operations without an explicit request** ("continue"/
+  "go on" ≠ commit). Offer the commit at the end.
+- **NEVER bulk-delete the store** (`rm -rf <store>`): those are the user's **real
+  comments** (precious, committed). To clean a test, delete a single comment by `id`
+  (edit its page file), never the folder.
+- **Ignore `hold: true`** ("⏸ on hold") and `status` ≠ `open` (`addressed`/`resolved`
+  already handled): only process `open` **and not on hold**.
+- **MDX-safety** (format `"mdx"` only): when editing a **`.mdx`** file, don't introduce
+  stray `{` or `<` outside code fences (MDX parses them as expression/JSX). **`.md`**
+  files (CommonMark/GFM) are lenient — no such constraint. Validated by the renderer build.
+- **File-I/O first**: read/write the `<store>/` files **directly** with your file
+  tools. The `astro dev` server need NOT be running — the HTTP `/api/comments` is only
+  a convenience when the site is already open. Depend on **neither a port nor a process**.
+
+## Step 1 — Read the comments to process
+
+List the actionable set with the CLI (any agent can shell out — no store-parsing to
+reimplement, no `python3`):
+
+```bash
+npx -y @z29k/notabene@latest comments ls --open --json   # open AND not-on-hold, machine-readable
+npx -y @z29k/notabene@latest comments ls --open          # …or human-readable
+```
+
+If the CLI isn't available (offline, no Node, a policy against `npx`), read the store with
+your file tools directly: each `<store>/**/*.json` (except `journal.json`/`meta.json`) is
+**one comment**, or — in older v1 stores — a **legacy array** of comments; keep those with
+`status == "open"` **and** `hold != true`. The loop never depends on the CLI being present.
+
+A comment reopened after a **rejection** (approve mode) carries the human's reason as
+later `thread` replies — **read them** and adjust accordingly before editing. (A human
+rejects from `/review`, or with `comments reopen <id> --reply "<why>"`.)
+
+A `thread[].author` is a plain string that may be git-style **`Name <email>`** (the browser
+embeds the reviewer's email for a unique identity) — treat the whole string as the author;
+split on the trailing `<…>` only if you need the bare display name.
+
+## Step 2 — Locate the source page
+
+`page` (= `data-page`) → source file, via `roots[]`: a `page` starting with
+`<root.path>/…` maps to a file **under `<root.path>`** at the same relative path.
+- `<root.path>/<x>` → `<root.path>/<x>.md` or `.mdx`
+- **Index page**: if `<x>.{md,mdx}` doesn't exist, it's **`<x>/index.{md,mdx}`** (the
+  loader strips `index` from the id → some `data-page` values omit `/index`). Test both.
+
+## Step 3 — Resolve the anchor
+
+`anchor.quote` is the **rendered text** (markdown stripped: no `**`, links as plain
+text…). To find it in the source, search tolerantly, using `anchor.prefix`/`suffix`
+(disambiguating context) and `anchor.section` (nearest heading). `scope: "page"` = a
+page-wide comment, no anchor.
+
+**Block comments** (`scope: "block"`, store v3) target a **diagram or image**, not text —
+the anchor is `{ kind, key, label, section, index }` (no quote; `index` disambiguates
+repeated blocks with the same key). `kind: "image"` → find the
+`![…](…)` whose src matches `key`/`label` and act on it; `kind: "mermaid"` → find the
+` ```mermaid ` fence for that diagram (its source hashes to `key`; `label` = the diagram
+type + first line) and edit the **diagram source**. `anchor.section` narrows the search.
+
+## Step 4 — Edit the docs (faithfully)
+
+Apply each piece of feedback **faithfully** at the right spot. A comment is a user
+decision. If the change touches public behavior documented elsewhere, update it (see
+project hooks below). For **what you can put in a page** — Mermaid diagrams (```mermaid),
+GFM tables, code blocks, inter-doc links — and the MDX-safety rules, see the authoring
+reference: <https://z29k.github.io/notabene/guide/authoring/>.
+
+## Step 5 — Mark the comment + write the journal
+
+Set the status by `review` mode (from the config):
+- **`auto`** (default): `status = "resolved"`.
+- **`approve`**: `status = "addressed"` — you propose; the human validates at `/review`.
+  Do **not** resolve it yourself.
+
+In both cases set `resolution = { note, journalEntryId }` and **append** a
+`<store>/journal.json` entry: `{ id, date (YYYY-MM-DD), title, summary, changes[] { page,
+commentIds[], what, why } }`. Each resolution's `journalEntryId` = the journal entry's
+`id`.
+
+**Prefer the CLI for this step** — it picks the status from `review` for you, preserves
+every other field, and writes atomically:
+
+```bash
+# 1. journal first: --json echoes { id } so you can chain it
+echo '{ "id": "j-2026-07-28", "date": "2026-07-28", "title": "…", "summary": "…",
+  "changes": [{ "page": "docs/guide/x", "commentIds": ["c1"], "what": "…", "why": "…" }] }' \
+  | npx -y @z29k/notabene@latest journal add --json
+# 2. then the comments it covers (status = resolved | addressed, per the config)
+npx -y @z29k/notabene@latest comments done c1 c2 --note "…" --journal j-2026-07-28
+```
+
+Editing the JSON by hand is still valid (`journal.json`: 2-space indent + trailing
+newline) — just never lose a field, and never write `resolved` in **approve** mode.
+
+**Cascade (load-bearing for the review UI):** if fixing a comment touched **several
+pages** (a cross-ref, behavior documented elsewhere), emit **one `changes[]` entry per
+page actually touched**, each listing that `commentId`. The reviewer's diff is built by
+inverting the journal — a page you don't record there won't be shown.
+
+## Step 6 — Verify
+
+1. **ALWAYS: build the renderer** — a broken doc file breaks the tool itself
+   (`npx -y @z29k/notabene@latest build`, or the project's renderer build). Confirm
+   **0 remaining `open` non-held comments**.
+2. **Lint the inter-doc links** — `npx -y @z29k/notabene@latest lint`. It validates every
+   relative `.md` link against the routes the build just emitted (with did-you-mean
+   suggestions; `--json` for machine reading). A broken link is a **failed verification** —
+   fix it before reporting. If it exits 2, the build of step 1 didn't run — never skip it.
+3. **Audit the store you just wrote** — `npx -y @z29k/notabene@latest comments verify`.
+   It checks statuses, the comment↔journal links **in both directions**, the file layout
+   and dangling pages. The one to care about: a comment whose journal entry doesn't list
+   it back in `changes[]` makes `/review` show the human an **empty diff**. Exit 1 = fix
+   it before reporting.
+4. **`config.verify[]`** — the project's own checks (build/lint/memory update).
+5. **Project memory** — if the project keeps a memory doc (`CLAUDE.md`/`AGENTS.md`),
+   update it for any public-behavior change.
+
+> Steps 4–5 are the **project extension point**. The core loop is generic; a consumer
+> declares its post-edit steps via `verify[]` and its memory conventions. The core
+> does not know any specific project.
+
+## Step 7 — Report (without committing)
+
+Summarize as a **table**: per comment → the change made (section) + the why. Point to
+`/journal` (and, in **approve** mode, to **`/review`** — the human validates each edit
+against its diff there, then approves → resolved or rejects → reopened). Then **ask**
+whether to commit, and **what** (doc edits only / + resolved store + journal / + project
+artifacts). Wait for an explicit go-ahead.

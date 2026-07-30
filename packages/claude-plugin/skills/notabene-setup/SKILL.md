@@ -70,6 +70,9 @@ node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" doctor --root <repo-root> --json
 - **First run is slow (~30 s, ~100 MB)**: the first `npx` fetches the renderer + Astro.
   **Say so** before/while it runs, so the wait isn't mistaken for a hang.
 - Then check `git.isRepo`. If false, offer `git init` (the store is meant to be committed).
+- On a configured repo the report also carries **`protocol`** (`{ present, version, current }`
+  — the `<store>/protocol.md` copy) and **`agents`** (`{ present, block }` — the `AGENTS.md`
+  entry point). Anything missing or `current: false` → re-run `init`, it repairs both.
 - **Route on the config state**:
   - `config.exists: false` → **Branch A** (fresh install).
   - `config.exists: true, config.valid: true` → **Branch B** (reconfigure).
@@ -122,7 +125,13 @@ has **`docs.detected`** instead.
 
 4. **Create the store**: `node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" init --root <repo-root>`
    (idempotent; reads `store` from the config you just wrote, makes the dir + `meta.json`).
-   Remind the user to **commit `.notabene/`** — but don't commit it.
+   It also writes the **agent entry point**: `<store>/protocol.md` (the full review
+   protocol, so any agent — not just Claude Code — can run the loop offline) and a bounded
+   `<!-- notabene:begin -->…<!-- notabene:end -->` block in the repo's **`AGENTS.md`**
+   (created if absent, appended otherwise; nothing outside the markers is touched).
+   **Say what it wrote** and offer `--no-protocol` / `--no-agents-md` if the user would
+   rather not have them. Remind the user to **commit `.notabene/` + `AGENTS.md`** — but
+   don't commit them.
 5. **Check it's not ignored**: `git check-ignore <store>`. A repo that ignores dotfolders
    could silently exclude `.notabene/` (the contract is that it's committed). Warn if so.
 6. Go to **Launch & handoff**.
@@ -156,7 +165,11 @@ regenerate from the template.
      against it.
    - **`format` mdx ↔ commonmark** → different globbing + MDX strictness. Flag the
      MDX-safety implications.
-4. Most changes (port, roots, format, host…) take effect **only after a restart**. Go to
+4. **Re-run `init`** after any config edit — it's idempotent and it **refreshes the agent
+   entry point** (`<store>/protocol.md` + the `AGENTS.md` block), which otherwise still
+   points at the old store path or space keys. `doctor` reports the drift
+   (`protocol.current: false`, `agents.block: false`).
+5. Most changes (port, roots, format, host…) take effect **only after a restart**. Go to
    **Launch & handoff** and restart the server (see there).
 
 ## Branch C — repair (`config.exists: true, config.valid: false`)

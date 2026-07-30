@@ -3,7 +3,7 @@ title: Publish a public site
 description: A read-only, agent-readable static site from your docs — no review UI, no store data, deployable anywhere.
 sidebar:
   label: Publish a public site
-  order: 8
+  order: 9
 ---
 
 # Publish a public site

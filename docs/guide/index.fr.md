@@ -59,6 +59,7 @@ sont lisibles par n'importe quel agent : le protocole de revue est **file-I/O-fi
 - [Configuration](./configuration.md) — le fichier de config unique, par l'exemple.
 - [Personnaliser le rendu](./customize.md) — branding, tokens, feuille de style.
 - [La boucle de revue](./review-loop.md) — auto ou approve (diffs avec humain dans la boucle).
+- [Rédiger la doc](./authoring.md) — la palette de rendu : GFM, Mermaid, code, liens.
 - [Doc multilingue](./multilingual.md) — EN/FR/… avec URL propres et sélecteur.
 - [Export PDF](./pdf-export.md) — vues imprimables et PDF avec signets.
 - [Publier un site public](./publish/index.md) — un site statique en lecture seule,

@@ -19,8 +19,13 @@ by agents. Its shape never changes silently: `<store>/meta.json` carries
 <store>/
   meta.json                # { "schemaVersion": 3 }
   journal.json             # one array of journal entries
+  protocol.md              # the agent protocol (written by `init`; not data)
   <page>/<comment-id>.json # ONE FILE PER COMMENT → conflict-free git merges
 ```
+
+`meta.json`, `journal.json` and `protocol.md` are **reserved names** at the top level;
+everything else under `<store>/` is comment data. Readers only ever parse `.json`, so
+`protocol.md` is inert — it rides along so the spec is always next to the comments.
 
 `<page>` is the logical page path (`docs/guide/setup` — with i18n it's the raw,
 locale-encoded id, so comments are per-language). Older v1 stores (one array per page)
@@ -58,9 +63,11 @@ Each resolved comment's `resolution.journalEntryId` points back at its entry.
 
 ## Rules agents must honor
 
-- Writes are **atomic** (temp file + rename) — never hand-write partial JSON.
+- Writes are **atomic** (temp file + rename) — never hand-write partial JSON. The CLI
+  (`comments done` / `reopen`, `journal add`) does this for you; `comments verify` audits
+  the result.
 - **Never bulk-delete the store**; delete a single comment by id if asked.
 - Only process `status: "open"` **and** `hold: false`.
-- The full protocol lives in
-  [`packages/plugin/skills/notabene/SKILL.md`](https://github.com/z29k/notabene/blob/main/packages/plugin/skills/notabene/SKILL.md) —
-  point any agent at it.
+- The full protocol lives in **[`<store>/protocol.md`](./agent-protocol.md)** — written by
+  `notabene init`, committed with the store, refreshed by re-running `init`. Point any
+  agent at it.

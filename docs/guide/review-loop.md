@@ -30,6 +30,12 @@ port required:
 
 Comments a reviewer puts **on hold** (⏸) are skipped — they're your work-in-progress.
 
+Steps 4 and 5 have CLI primitives so an agent never hand-edits the store JSON:
+`notabene comments done <id…> --note … --journal <entryId>` picks the right status from
+your `review` mode, and **`notabene comments verify`** audits what it wrote — statuses,
+comment↔journal links in both directions, layout. It exits non-zero on a real problem, so
+it doubles as a CI gate on the store your agents commit.
+
 ## Approve mode: humans validate every edit
 
 By default (`review: "auto"`) the agent resolves comments directly. Set
@@ -50,8 +56,22 @@ By default (`review: "auto"`) the agent resolves comments directly. Set
 
 ## Using it from any agent
 
-The Claude Code plugin triggers on "address the doc comments". For any other agent,
-point it at `packages/plugin/skills/notabene/SKILL.md` in the repo — that file **is**
-the protocol spec: store layout, anchor resolution, journaling rules, verification
-steps. The store shape itself is a versioned public contract — see the
-[store reference](../reference/store-contract.md).
+The protocol is a plain-text spec, and `notabene init` **installs it in your repo** so no
+agent has to go looking for it:
+
+- **`<store>/protocol.md`** — the full spec, committed next to the comments it describes.
+  Offline, no npm, no network. This is what you point any agent at.
+- **`AGENTS.md`** — a bounded `<!-- notabene:begin -->…<!-- notabene:end -->` block that
+  tells the agents which read it at startup (Codex CLI, Cursor, Gemini CLI, Zed, Amp…)
+  where the comments and the protocol live. Nothing outside the markers is ever touched;
+  opt out with `init --no-agents-md`.
+
+Both are refreshed by re-running `notabene init` (idempotent) — do that after moving the
+store or renaming a space, and `notabene doctor` will tell you when they drift. The text
+itself is this site's [agent protocol](../reference/agent-protocol.md) page — the
+canonical one, with a Markdown twin in public builds for agents that browse;
+`npx -y @z29k/notabene@latest protocol` prints the same thing offline.
+
+In Claude Code the plugin skill *is* that protocol — it triggers on "address the doc
+comments" and needs no AGENTS.md. The store shape itself is a versioned public contract —
+see the [store reference](../reference/store-contract.md).

@@ -29,10 +29,11 @@ télécharge, ~30 s) ; rien n'est scaffoldé dans votre repo, qui n'a même pas 
 Puis dites simplement **« configure notabene »** (repo vierge) ou **« traite les
 commentaires de la doc »** (déjà configuré) — la bonne skill se déclenche d'elle-même.
 
-Vous préférez une installation manuelle ? Copiez `packages/plugin/skills/notabene/` dans
-le `.claude/skills/` de votre projet. Vous utilisez un tout autre agent ? Le fichier de
-skill **est** la spec du protocole — pointez votre agent dessus (voir
-[la boucle de revue](./review-loop.md)).
+Vous préférez une installation manuelle ? Copiez `packages/claude-plugin/skills/notabene/` dans
+le `.claude/skills/` de votre projet. Vous utilisez un tout autre agent ? Le plugin ne vous
+sert à rien : `notabene init` écrit le même protocole dans `<store>/protocol.md` et le
+référence depuis `AGENTS.md` (voir
+[l'utiliser depuis n'importe quel agent](./review-loop.md#lutiliser-depuis-nimporte-quel-agent)).
 
 ## Le renderer — paquet npm (sans Claude)
 

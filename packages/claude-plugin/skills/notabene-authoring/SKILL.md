@@ -11,15 +11,22 @@ description: >-
   comments (that's `notabene`) — it's the authoring reference for the content itself.
 ---
 
+<!-- Generated from docs/guide/authoring.md + packages/claude-plugin/overlays/notabene-authoring.md by scripts/gen-protocol.mjs — do not edit. -->
+
 # Authoring notabene docs — the rendering palette
 
 What actually renders in a notabene site, so you can write a **complete** doc with every
 tool available and nothing that silently degrades to plain text. Docs are plain files in
 the repo (Markdown/MDX), rendered by the notabene renderer (Astro + GFM + Shiki + Mermaid).
 
+Run every CLI command shown below through the plugin forwarder —
+`node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" <cmd> --root <repo-root>` — never `npx notabene`
+(unscoped: not our package).
+
 ## First: know the format
 
-Read `format` in `notabene.config.mjs` (or run `notabene doctor --json`). It decides the pipeline:
+Read `format` in `notabene.config.mjs` (or run `npx -y @z29k/notabene@latest doctor --json`).
+It decides the pipeline:
 
 - **`commonmark`** (the `init` default) — globs `.md` + `.markdown`, **lenient** CommonMark/GFM,
   **no MDX**. `<`, `{`, `Promise<T>`, raw HTML, GFM tables all render without a crash. Simplest.
@@ -42,7 +49,7 @@ called out at the end.
   export const x: number = 1;
   ```
   ````
-- **Mermaid diagrams** — see the next section (the reason this skill exists).
+- **Mermaid diagrams** — see the next section (the reason this palette exists).
 - **Inter-doc links**: link between docs with **relative `.md`/`.mdx` paths**
   (`[see setup](../guide/setup.md)`) — they're auto-rewritten to site routes. External/absolute/
   anchor links are left as-is.

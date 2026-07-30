@@ -54,6 +54,7 @@ review protocol is **file-I/O-first** (no server, no port, no MCP required).
 - [Configuration](./configuration.md) — the one config file, by example.
 - [Customize the look](./customize.md) — branding, design tokens, your own stylesheet.
 - [The review loop](./review-loop.md) — auto vs. approve (human-in-the-loop diffs).
+- [Authoring docs](./authoring.md) — the rendering palette: GFM, Mermaid, code, links.
 - [Multi-language docs](./multilingual.md) — EN/FR/… with clean URLs and a switcher.
 - [PDF export](./pdf-export.md) — print-ready views and bookmarked PDFs.
 - [Publish a public site](./publish/index.md) — a read-only, agent-readable static site.

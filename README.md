@@ -45,7 +45,7 @@ quote. Your agent reads it, edits the source, and journals *what changed & why*.
 
 ```bash
 npm install -D @z29k/notabene   # or pnpm / bun
-npx notabene init               # writes notabene.config.mjs + creates the .notabene store
+npx notabene init               # writes the config, the .notabene store + the agent protocol
 npx notabene dev                # → http://localhost:3009
 ```
 
@@ -100,7 +100,7 @@ only where you're curious:
 ## Repo layout
 
 - **`packages/renderer`** - the `@z29k/notabene` npm package (Astro renderer + CLI).
-- **`packages/plugin`** - the Claude Code plugin (setup + the review skill/protocol).
+- **`packages/claude-plugin`** - the Claude Code plugin (setup + the review skill/protocol).
 - **`docs/`** - this documentation, reviewed and published by notabene itself.
 
 ## License

@@ -16,4 +16,6 @@ surface :
 - [Frontmatter](./frontmatter.md) — chaque clé qu'une page peut porter.
 - [Le contrat du store `.notabene`](./store-contract.md) — le schéma JSON versionné que
   les agents lisent et écrivent.
+- [Le protocole agent](./agent-protocol.md) — la boucle file-I/O-first que suit n'importe
+  quel agent pour transformer les commentaires en éditions.
 - [Modèle de sécurité](./safety.md) — pourquoi l'API d'écriture ne peut pas vous nuire.

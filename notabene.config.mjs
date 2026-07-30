@@ -53,5 +53,9 @@ export default {
   // Dogfood the flagship feature: agent proposes, humans validate at /review.
   review: "approve",
 
+  // Post-edit check of the review loop. The protocol page is CANONICAL: editing it must
+  // regenerate the plugin skills + the npm-shipped copy, or the CI diff gate goes red.
+  verify: ["npm run gen:protocol"],
+
   publish: { site: "https://z29k.github.io", base: "/notabene" },
 };

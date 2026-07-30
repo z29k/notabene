@@ -75,9 +75,16 @@ const extGlob = extensions.length === 1 ? extensions[0] : `{${extensions.join(",
 // stable string for locale-agnostic consumers (CLI doctor, the `key` fallback). Locale-aware
 // surfaces (sidebar, space index, breadcrumbs, print, and the client re-localizers) resolve the
 // raw `labelI18n`/`descriptionI18n` against the rendered locale instead.
-function normalizeRoot(root, defaultLocale) {
+function normalizeRoot(root, defaultLocale, storePath) {
   const rel = String(root.path).replace(/\\/g, "/").replace(/\/+$/, "");
   const abs = path.resolve(REPO_ROOT, rel);
+  const declaredExclude = Array.isArray(root.exclude) ? root.exclude : [];
+  // The store is DATA, never content. `roots[].exclude: [".notabene/**"]` says so in the
+  // generated configs, but a hand-written config needn't — and since `init` now drops a
+  // `<store>/protocol.md`, a store path that isn't dot-hidden would otherwise render as
+  // a doc page (and ship in public builds). Exclude it from the glob unconditionally.
+  const storeInside = storePath.startsWith(`${rel}/`) ? storePath.slice(rel.length + 1) : null;
+  const excludeGlobs = storeInside ? [...declaredExclude, `${storeInside}/**`] : declaredExclude;
   const rawLabel = root.label ?? rel;
   const rawDescription = root.description ?? "";
   return {
@@ -92,7 +99,7 @@ function normalizeRoot(root, defaultLocale) {
     path: rel,
     // Sidebar sub-title (e.g. "docs/").
     subLabel: `${rel}/`,
-    exclude: Array.isArray(root.exclude) ? root.exclude : [],
+    exclude: declaredExclude,
     // Public-build scoping: `publish: false` keeps this WHOLE space out of a
     // `build --public` artifact (routes, nav, search, llms, twins, sitemap).
     // Dev/normal builds always include everything.
@@ -100,7 +107,7 @@ function normalizeRoot(root, defaultLocale) {
     abs,
     baseUrl: pathToFileURL(abs),
     // Content-loader glob: format extensions minus the exclusions.
-    pattern: [`**/*.${extGlob}`, ...(root.exclude ?? []).map((e) => `!${e}`)],
+    pattern: [`**/*.${extGlob}`, ...excludeGlobs.map((e) => `!${e}`)],
   };
 }
 
@@ -253,10 +260,15 @@ export const i18n = {
  * @property {string[]} pattern
  */
 
+// Store (comments + journal), resolved to absolute. Default: docs/.notabene. Declared
+// BEFORE roots: normalizeRoot keeps the store out of a space's content glob.
+export const storeRel = (userConfig.store ?? "docs/.notabene").replace(/\\/g, "/").replace(/\/+$/, "");
+export const storeAbs = path.resolve(REPO_ROOT, storeRel);
+
 /** @type {Root[]} — `userConfig` is untyped (loaded dynamically), so annotate the
  *  resolved shape here; importers (nav, pages, remark) rely on this being typed. */
 export const roots = (userConfig.roots ?? [{ label: "Docs", path: "docs" }]).map((r) =>
-  normalizeRoot(r, i18n.defaultLocale),
+  normalizeRoot(r, i18n.defaultLocale, storeRel),
 );
 
 // A locale key must never collide with a space key (both occupy the URL's first segment).
@@ -272,10 +284,6 @@ export const clientI18n = {
   strategy: i18n.strategy,
   enabled: i18n.enabled,
 };
-
-// Store (comments + journal), resolved to absolute. Default: docs/.notabene.
-export const storeRel = (userConfig.store ?? "docs/.notabene").replace(/\\/g, "/").replace(/\/+$/, "");
-export const storeAbs = path.resolve(REPO_ROOT, storeRel);
 
 // Serializable roots for client scripts (no absolute paths / node:* leak). The raw per-locale
 // label/description maps ride along ONLY when i18n is enabled, so a mono-language site's
