@@ -6,17 +6,24 @@ import node from "@astrojs/node";
 import sitemap from "@astrojs/sitemap";
 import { notabeneAppRoutes } from "./src/integrations/app-routes.mjs";
 import { notabeneAssetRoutes } from "./src/integrations/asset-routes.mjs";
+import { notabeneDevAssets } from "./src/integrations/dev-assets.mjs";
 import { notabeneDevSearch } from "./src/integrations/dev-search.mjs";
 import { notabeneRouteTruth } from "./src/integrations/route-truth.mjs";
 import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
-import { REPO_ROOT, host, i18n, mdxEnabled, port, publicMode, publish, roots } from "./src/config.mjs";
+import { REPO_ROOT, host, i18n, mdxEnabled, port, publicMode, publish, roots, theme } from "./src/config.mjs";
 
 // This package directory (the Astro root). Run-from-package puts the renderer OUTSIDE the
 // consumer tree, so the consumer root alone (REPO_ROOT) does not cover the app's own source
 // (e.g. src/styles/global.css, client scripts) — Vite's fs.allow must include it too.
 const PKG_ROOT = fileURLToPath(new URL(".", import.meta.url));
+
+// Shiki types the bundled theme names as a literal union; ours are plain strings
+// validated at config load against the same list (lib/shiki-themes.mjs), so the check
+// has already happened — widen the type rather than duplicate the union here.
+/** @type {any} */
+const codeThemes = theme.code;
 
 // A site-less public build is a supported, deliberate mode (domain managed server-side) —
 // say so once, with what it changes, so nobody hunts for a missing sitemap.
@@ -66,14 +73,20 @@ export default defineConfig({
     ...(mdxEnabled ? [mdx()] : []),
     notabeneAssetRoutes(),
     notabeneRouteTruth(),
-    ...(publicMode ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()] : [notabeneAppRoutes(), notabeneDevSearch()]),
+    ...(publicMode
+      ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()]
+      : [notabeneAppRoutes(), notabeneDevSearch(), notabeneDevAssets()]),
   ],
   markdown: {
     // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs
     // leaves that fence as a plain <pre><code class="language-mermaid">, which the rehype
     // plugin below normalizes to <pre class="mermaid"> for client-side rendering.
     syntaxHighlight: { type: "shiki", excludeLangs: ["mermaid"] },
-    shikiConfig: { theme: "github-dark", wrap: true },
+    // Config `theme.code` switches Shiki to DUAL themes with `defaultColor: false`: no
+    // baked color, just --shiki-light/--shiki-dark variables per token, which
+    // theme.codeCss feeds to light-dark() → the scheme toggle recolors code instantly.
+    // Unset → the single built-in theme, i.e. the exact output of every prior version.
+    shikiConfig: codeThemes ? { themes: codeThemes, defaultColor: false, wrap: true } : { theme: "github-dark", wrap: true },
     // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
     // [attacher, options]: unified calls remarkRewriteLinks(roots). The base is
     // passed explicitly (remark runs outside Vite → no BASE_URL there).

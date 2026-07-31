@@ -152,6 +152,28 @@ a:hover {
   color: var(--accent);
   text-decoration: none;
 }
+
+/* ── Outbound nav links (config `nav`) ────────────────────────────────────
+   `.nb-nav-link` (any mount point), `.nb-sidebar-links` (the sidebar block) and
+   `.site-footer` are PUBLIC theming hooks — documented in the customize guide,
+   stable across versions. Icons are monochrome `currentColor`, so they follow the
+   link color and therefore the theme. */
+.nb-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.nb-nav-link svg {
+  flex: none;
+}
+/* Topbar `iconOnly`: the icon IS the target — give it a hit area. */
+.nb-nav-link--icon {
+  padding: 4px;
+  border-radius: 6px;
+}
+.nb-nav-link--icon:hover {
+  background: var(--accent-soft);
+}
 .topbar-me {
   display: inline-flex;
   align-items: center;
@@ -273,6 +295,17 @@ a:hover {
   color: var(--text);
   background: var(--bg-soft);
 }
+/* The two topbar dropdowns are <details>, and their <summary> is inline-flex — an
+   INLINE-level box, so it sits on a line box whose strut adds descender space BELOW it.
+   The <details> then measures taller than its summary and, centered as a flex item of
+   .topbar, rides its icon 1-2px above every other util (which are plain flex items).
+   Making the <details> itself a flex container removes the line box entirely. */
+.lang-menu,
+.export-menu {
+  display: inline-flex;
+  align-items: center;
+}
+
 /* Topbar: a dropdown next to Export (globe + current locale → pick a language). */
 .lang-menu {
   position: relative;
@@ -563,6 +596,40 @@ button.topbar-me:hover {
   margin-inline: auto;
 }
 
+/* ── Site footer (config `nav.footer`) ────────────────────────────────────
+   Emitted only when configured — nothing set → no element at all, so the output of
+   every pre-footer site is unchanged. Outside `.shell` (full width, below the
+   sticky columns) and outside `data-pagefind-body` (search never sees it). */
+.site-footer {
+  padding: 1.1rem clamp(1rem, 4vw, 3rem);
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.site-footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1.4rem;
+}
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+}
+.nb-footer-link {
+  color: var(--text-soft);
+}
+.nb-footer-link:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.site-footer-powered {
+  margin-left: auto;
+  color: var(--text-faint);
+}
+
 /* ── Sidebar nav ──────────────────────────────────────────────────────── */
 .nav-filter {
   padding: 0.25rem 0.4rem 0.6rem;
@@ -618,6 +685,37 @@ button.topbar-me:hover {
   margin: 0 0 0.25rem;
   padding-left: 0.75rem;
   font-size: 12px;
+}
+
+/* Resources block under the space tree (config `nav.sidebar`). The mobile drawer
+   reuses this DOM as-is — no duplicate markup, unlike the topbar utils. */
+.nb-sidebar-links {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 1rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.nb-sidebar-links-title {
+  margin: 0 0 0.25rem;
+  padding: 0 0.5rem;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+.nb-sidebar-link {
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.nb-sidebar-link:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  text-decoration: none;
 }
 
 .nav-list {

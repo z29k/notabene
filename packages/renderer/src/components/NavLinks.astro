@@ -1,0 +1,86 @@
+---
+// Outbound nav links (config `nav`) — ONE component, four renderings: the topbar, its
+// mandatory mobile-drawer mirror, the sidebar block and the site footer. Only the
+// wrapper classes and the icon size change; the item shape, the localization and the
+// external-link handling are identical everywhere (lib/nav-links.mjs).
+// `.nb-nav-link` is a documented theming hook — themes style it, never declare items.
+import { i18n } from "../config.mjs";
+import { withBase } from "../lib/base";
+import { localizeField } from "../lib/i18n-content.mjs";
+import { NAV_ICONS } from "../lib/nav-icons.mjs";
+import { navLabelId } from "../lib/nav-links.mjs";
+
+interface NavItem {
+  label: string | Record<string, string>;
+  href: string;
+  internal: boolean;
+  blank: boolean;
+  icon: string | null;
+  iconOnly: boolean;
+}
+
+interface Props {
+  items: NavItem[];
+  /** Config section — half of the label id shared with the client re-localizer. */
+  section: "header" | "sidebar" | "footer";
+  variant: "topbar" | "drawer" | "sidebar" | "footer";
+  locale: string;
+  /** Aggregate pages only: tag per-locale labels so the client can re-localize them.
+   *  Doc pages render their own locale server-side and need no hook. */
+  relocalize?: boolean;
+}
+
+const { items, section, variant, locale, relocalize = false } = Astro.props;
+
+// The topbar's utils are hidden under 1024px and re-emitted in the drawer — every
+// existing util does this, so the header links follow the same pattern.
+const CLASSES: Record<Props["variant"], string> = {
+  topbar: "topbar-link topbar-util nb-nav-link",
+  drawer: "drawer-link nb-nav-link",
+  sidebar: "nb-nav-link nb-sidebar-link",
+  footer: "nb-nav-link nb-footer-link",
+};
+const SIZES: Record<Props["variant"], number> = { topbar: 18, drawer: 16, sidebar: 15, footer: 15 };
+const size = SIZES[variant];
+// `iconOnly` is a topbar affordance (space is scarce there); everywhere else the label
+// is shown and the icon merely decorates it.
+const iconOnlyHere = variant === "topbar";
+---
+
+{
+  items.map((item, i) => {
+    const label = localizeField(item.label, locale, i18n.defaultLocale) ?? "";
+    // A per-locale map needs re-localizing on the cross-locale aggregate pages; a plain
+    // string is the same in every language and carries no hook (nothing to update).
+    const id = relocalize && typeof item.label !== "string" ? navLabelId(section, i) : null;
+    const bare = iconOnlyHere && item.iconOnly;
+    const icon = item.icon ? NAV_ICONS[item.icon] : null;
+    return (
+      <a
+        href={item.internal ? withBase(item.href) : item.href}
+        class:list={[CLASSES[variant], { "nb-nav-link--icon": bare }]}
+        target={item.blank ? "_blank" : undefined}
+        rel={item.blank ? "noopener" : undefined}
+        aria-label={bare ? label : undefined}
+        title={bare ? label : undefined}
+        data-nb-nav-aria={bare ? id : undefined}
+      >
+        {icon && (
+          <svg
+            viewBox="0 0 24 24"
+            width={size}
+            height={size}
+            fill={icon.kind === "brand" ? "currentColor" : "none"}
+            stroke={icon.kind === "brand" ? "none" : "currentColor"}
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            set:html={icon.body}
+          />
+        )}
+        {!bare && <span data-nb-nav-label={id}>{label}</span>}
+      </a>
+    );
+  })
+}

@@ -43,6 +43,9 @@ npm run demo    # generate ./.demo (gitignored, git-backed, approve mode) + star
 node scripts/gen-fixture.mjs --format mdx --locale fr --review approve \
   --spaces 3 --pages 6 --seed 7 --git
 # bilingual demo (adds the other of en/fr): --i18n directory|suffix
+# site-chrome seeds — branding assets, the theme contract (tokens + stylesheet + asset
+# folder + dual code theme) and nav links (topbar icon, sidebar block, footer):
+node scripts/gen-fixture.mjs --chrome
 # public-scoping seeds (a private space, a publish.exclude'd wip/ sub-tree, a
 # frontmatter publish:false page, `description` frontmatter, a `publish` block):
 node scripts/gen-fixture.mjs --publish --i18n directory
@@ -50,19 +53,76 @@ node packages/renderer/bin/notabene.mjs build --root .demo --public --out /tmp/d
 grep -r "PRIVATE marker" /tmp/demo-public   # must find nothing
 ```
 
+`--chrome` and `--publish` compose: with **both**, the chrome seeds add a `publish: false`
+nav link (`NAV-PRIVATE`) on top of the non-asset file already sitting in the assets folder
+(`ASSET-PRIVATE`), so the same grep covers the nav/theme surfaces. `--chrome` alone stays
+demo-clean — it also feeds the customization GIFs (below).
+
 The demo lands in a gitignored `.demo/` at the repo root (a nested git repo when `--git`),
 so it's easy to browse and never gets committed.
+
+### Demo GIFs
+
+The GIFs in the READMEs and the docs are **recorded, never hand-made** — each is a script
+that regenerates the fixture, starts a dev server on its own port, drives headless Chrome
+and encodes with ffmpeg, so any of them can be re-shot after a UI change:
+
+```bash
+npm run gen:hero-gif      # the review loop (README hero)
+npm run gen:mobile-gif    # the mobile drawer + comment sheet
+npm run gen:diagrams-gif  # diagram lightbox + block comment
+npm run gen:pdf-gif       # the Export PDF menu
+npm run gen:i18n-gif      # the language switcher
+npm run gen:nav-gif       # nav links: topbar · sidebar block · site footer
+npm run gen:theme-gif     # theming: the scheme toggle recolours chrome, code and diagrams
+```
+
+Requires Google Chrome, ffmpeg on PATH, and `playwright-core` (a dev dep). Two traps
+worth knowing before you write another one:
+
+- **Never `locator.click()`/`hover()` on the topbar.** Playwright scrolls the target into
+  view first, and for an element in a `position: sticky` header that means scrolling back
+  to the header's static position — the page jumps to the top mid-take. Move/click the
+  real mouse at the element's viewport coordinates instead (see `record-theme-demo.mjs`).
+- **Seed the state you want to demo.** The scheme toggle cycles auto → light → dark, so
+  the theme recorder writes `nb-scheme = "light"` before the first paint; otherwise the
+  first click is an invisible auto→light no-op.
+
+GIFs are encoded at **820px** — the width the docs embed them at, so nothing is resampled
+in the browser. Keep them under ~3 MB: they're committed and served on every page view.
 
 ## The documentation site (dogfood)
 
 `docs/` is the user documentation, and this repo is its own notabene consumer (root
-`notabene.config.mjs`, store at `docs/.notabene`). Edit the pages in `docs/`, preview and
-review them with the loop itself:
+`notabene.config.mjs`, store at `docs/.notabene`). **Review the docs with the tool they
+document** — that is the fastest way to see a rendering change in a real corpus:
 
 ```bash
-node packages/renderer/bin/notabene.mjs dev --root .      # comment the docs locally
-node packages/renderer/bin/notabene.mjs build --root . --public --out /tmp/site  # what Pages will serve
+# The review server over THIS repo's docs → http://127.0.0.1:3009
+node packages/renderer/bin/notabene.mjs dev --root .
+node packages/renderer/bin/notabene.mjs dev --root . --detach   # background; survives the shell
+node packages/renderer/bin/notabene.mjs status --root .         # running? which port?
+node packages/renderer/bin/notabene.mjs stop   --root .         # stop the detached one
 ```
+
+Run **one dev server at a time**: they share the renderer's `.astro` cache, and two
+servers on different consumers produce spurious errors. `--detach` is idempotent (it
+reuses a live daemon) and logs to the per-repo work dir printed at startup.
+
+The site is in `review: "approve"`, so you can select text on any page, leave a comment,
+let the agent apply it, and validate the diff at `/review` — the loop reviewing its own
+documentation. What to look at beyond the pages themselves:
+
+```bash
+# The artifact GitHub Pages will serve (base sub-path included — catches link/base bugs)
+node packages/renderer/bin/notabene.mjs build --root . --public \
+  --site https://z29k.github.io --base /notabene --out /tmp/nb-site
+node packages/renderer/bin/notabene.mjs lint --root .    # internal links, against the last build
+```
+
+…plus `/print` (the paper view: no topbar, no footer) and the header's scheme toggle —
+a rendering change should be checked in **both** color schemes and at a compact width
+(the topbar utils collapse into the drawer under 1024px).
 
 `.github/workflows/docs.yml` deploys to z29k.github.io/notabene on push to `main`. The
 READMEs are short landings — user-facing detail belongs in `docs/`, in one place.
@@ -83,6 +143,12 @@ READMEs are short landings — user-facing detail belongs in `docs/`, in one pla
   `PROTOCOL_VERSION` (`src/lib/protocol-gen.mjs`) when the spec changes materially — it
   is deliberately independent of the package version (a version that moved on every
   release would break the CI diff gate on every release commit).
+- **The config module graph is `.mjs`-only** — anything `astro.config.mjs` can reach
+  (integrations, remark plugins, `config.mjs`, and their imports). A `.ts` in that graph
+  changes how Astro loads the config and breaks dynamic `import()` from integration
+  closures at runtime (*"Vite module runner has been closed"*), which is subtle and only
+  shows up in dev. Put shared helpers in `.mjs` with JSDoc types; `.ts` is for modules
+  reached from pages/components only.
 - **Dev-local & safe** — the write API binds loopback by default and only runs under
   `notabene dev`. Keep it that way.
 

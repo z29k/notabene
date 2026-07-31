@@ -34,6 +34,14 @@ publish: false   # this page never ships in a public build
 ---
 ```
 
+**A navigation link** — not content, but the same idea: a
+[`nav` entry](../configuration.md#navigation-links) marked `publish: false` stays in dev
+and never reaches the artifact (a dashboard, an internal wiki):
+
+```js
+nav: { header: [{ label: "Ops dashboard", href: "https://ops.internal", publish: false }] },
+```
+
 ## The guarantee
 
 Private content isn't hidden, it's **not built** — no route (the URL 404s), no sidebar

@@ -9,8 +9,10 @@
 
 /* ── Force a LIGHT palette for print output (PDF on white paper), whatever the
    viewer's system theme. Same specificity as global.css's dark block, loaded later
-   → overrides it in both light and dark. Code blocks stay dark on purpose: Shiki
-   bakes light-on-dark token colors inline, so a light code bg would hide them. ── */
+   → overrides it in both light and dark. Code blocks stay dark by default: Shiki
+   bakes light-on-dark token colors inline, so a light code bg would hide them. With
+   config `theme.code` nothing is baked (both palettes ride as CSS variables) and the
+   `color-scheme: light` below resolves them to the LIGHT code theme on paper. ── */
 :root {
   --bg: #ffffff;
   --bg-soft: #f6f7f9;

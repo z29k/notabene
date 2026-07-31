@@ -56,8 +56,10 @@ sont lisibles par n'importe quel agent : le protocole de revue est **file-I/O-fi
 
 - [Installation](./install.md) — le renderer npm, le plugin Claude Code, ou les deux.
 - [Votre première revue](./first-review.md) — du commentaire à l'édition journalisée.
-- [Configuration](./configuration.md) — le fichier de config unique, par l'exemple.
-- [Personnaliser le rendu](./customize.md) — branding, tokens, feuille de style.
+- [Configuration](./configuration.md) — le fichier de config unique, par l'exemple :
+  espaces, branding, liens de navigation et pied de page, page d'accueil.
+- [Personnaliser le rendu](./customize.md) — branding, tokens, polices, thème de code,
+  feuille de style.
 - [La boucle de revue](./review-loop.md) — auto ou approve (diffs avec humain dans la boucle).
 - [Rédiger la doc](./authoring.md) — la palette de rendu : GFM, Mermaid, code, liens.
 - [Doc multilingue](./multilingual.md) — EN/FR/… avec URL propres et sélecteur.

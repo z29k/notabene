@@ -14,7 +14,9 @@
     "gen:mobile-gif": "node scripts/record-mobile-demo.mjs",
     "gen:diagrams-gif": "node scripts/record-diagrams-demo.mjs",
     "gen:pdf-gif": "node scripts/record-pdf-demo.mjs",
-    "gen:i18n-gif": "node scripts/record-i18n-demo.mjs"
+    "gen:i18n-gif": "node scripts/record-i18n-demo.mjs",
+    "gen:nav-gif": "node scripts/record-nav-demo.mjs",
+    "gen:theme-gif": "node scripts/record-theme-demo.mjs"
   },
   "workspaces": [
     "packages/renderer"

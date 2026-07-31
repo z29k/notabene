@@ -44,15 +44,23 @@ export function notabeneDevSearch() {
       let pagefind;
       try {
         pagefind = await import("pagefind");
-      } catch {
+      } catch (err) {
+        // "Not installed" is the EXPECTED failure (optional peer dep) — but it must not
+        // become the explanation for every failure: an unrelated loader error here once
+        // masqueraded as a missing package for a long, wasted debugging session. Report
+        // anything else verbatim.
+        const missing =
+          err?.code === "ERR_MODULE_NOT_FOUND" || /cannot find (package|module)/i.test(err?.message ?? "");
         if (!hinted) {
           hinted = true;
           console.log(
-            "notabene: `pagefind` not installed — dev search keeps the built-in JSON index.\n" +
-              "    npm i -D pagefind    # full-text search (stemming, excerpts) in dev + public builds",
+            missing
+              ? "notabene: `pagefind` not installed — dev search keeps the built-in JSON index.\n" +
+                  "    npm i -D pagefind    # full-text search (stemming, excerpts) in dev + public builds"
+              : `notabene: dev search could not load \`pagefind\` — keeping the built-in JSON index.\n    ${err?.message ?? err}`,
           );
         }
-        throw new Error("pagefind not installed");
+        throw new Error(missing ? "pagefind not installed" : `pagefind failed to load: ${err?.message ?? err}`);
       }
       const { index, errors } = await pagefind.createIndex({ verbose: false });
       if (!index) throw new Error(`pagefind createIndex: ${(errors ?? []).join("; ") || "failed"}`);

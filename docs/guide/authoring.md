@@ -41,7 +41,8 @@ called out at the end.
 - **GFM**: tables, task lists (`- [ ] todo` / `- [x] done`), `~~strikethrough~~`, autolinks,
   footnotes (`text[^1]` … `[^1]: note`).
 - **Code blocks with syntax highlighting** — fenced with a language, highlighted by **Shiki**
-  (theme `github-dark`, soft-wrap on). Any Shiki-supported language:
+  (`github-dark` unless the site sets its own [code theme](./customize.md), soft-wrap on).
+  Any Shiki-supported language:
   ````
   ```ts
   export const x: number = 1;

@@ -79,8 +79,11 @@ only where you're curious:
   via `notabene pdf`.
 - **[Make it yours](https://z29k.github.io/notabene/guide/customize)** - a custom
   [home page](https://z29k.github.io/notabene/guide/configuration#custom-home-page),
-  logo + favicon + social card, and theming via stable `--nb-*` design tokens or your
-  own stylesheet (cascade-layer-safe: your CSS always wins).
+  logo + favicon + social card,
+  [navigation links](https://z29k.github.io/notabene/guide/configuration#navigation-links)
+  (topbar, sidebar block, site footer), and theming via stable `--nb-*` design tokens,
+  your own fonts, a code theme, or your own stylesheet (cascade-layer-safe: your CSS
+  always wins).
 - **[Publish a public site](https://z29k.github.io/notabene/guide/publish)** - a
   read-only static build with an **agent-readable surface** (`llms.txt`, per-page
   Markdown twins, sitemap, OpenGraph), private-content scoping, optional **full-text

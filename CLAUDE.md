@@ -332,6 +332,22 @@ variant swapped by CSS media query — `.brand-logo--light/--dark` in global.css
 public builds with `publish.site` — `og:image`/`twitter:image` (+ `summary_large_image`).
 Pure name/type helpers in `src/lib/asset-types.ts` (unit-tested).
 
+**Outbound nav (config `nav`).** Three mount points, ONE item shape (`{ label, href,
+icon?, iconOnly?, publish? }`) rendered by a single `NavLinks.astro` (variants
+topbar/drawer/sidebar/footer): `nav.header` (topbar, mirrored in the drawer like every
+`.topbar-util`), `nav.sidebar` (titled block under the space tree — the drawer reuses that
+DOM, no duplication), `nav.footer` (the renderer's FIRST footer: links + localizable text
++ opt-in `poweredBy`; nothing configured → no element). All validation is pure and
+unit-tested in `lib/nav-links.mjs` (`.mjs`: config.mjs imports it under raw Node) —
+unknown key/icon, duplicate href, non-`http(s)`/`mailto`/`/…` scheme all THROW at config
+load. Icons are inline SVG in `lib/nav-icons.mjs` (Simple Icons CC0 + Lucide ISC,
+`currentColor`). `publish: false` is filtered ONCE in config.mjs (`filterPublicNav`), so
+no component knows about scoping; labels take per-locale maps (`localizeField`) and the
+cross-locale aggregate pages re-localize them from `#notabene-nav` (`data-nb-nav-label` /
+`-aria`, emitted only there — `relocalize` prop). **First-level config key, never
+`theme.nav`**: links are repo data, so a theme styles `.nb-nav-link` /
+`.nb-sidebar-links` / `.site-footer` (documented hooks) but can never declare one.
+
 **Theming contract.** The `--nb-*` custom properties in `styles/global.css` are the
 PUBLIC theming surface (list mirrored in `lib/theme-tokens.mjs` — keep the two in sync);
 color tokens are **`light-dark()` pairs** under `color-scheme: light dark`, and the
@@ -348,6 +364,41 @@ CSS (config `theme: { css, tokens }` — css served at `/_nb/theme.css` via the 
 route, tokens validated by `validateTokens` and inlined as `:root{--nb-…}` at the end of
 `<head>`) always wins regardless of Astro's stylesheet injection order. Themes must only
 target `--nb-*` + the documented hooks (see `docs/guide/customize.md`).
+
+**Config-graph rule (hard):** everything reachable from `astro.config.mjs` — the
+integrations, the remark plugins, `config.mjs` and whatever THEY import — must be
+`.mjs`. Two reasons now: `config.mjs` is loaded under raw Node by the CLI (`doctor`),
+AND pulling a `.ts` file into the CONFIG module graph makes Astro load the config
+through a Vite module runner it then closes, after which any dynamic `import()` from an
+integration closure fails with *"Vite module runner has been closed"* — which is how one
+`asset-types.ts` import silently killed the dev Pagefind index (`import("pagefind")`
+inside `dev-search.mjs`), reported as a missing package by a too-broad `catch`.
+
+**Theme surfaces beyond the palette** (all optional, all no-ops when unset — a config
+without them is byte-identical to pre-feature output):
+
+- `theme.assets` — a repo FOLDER served at the FIXED `/_nb/assets/<path>` so a consumer
+  stylesheet can ship fonts/images and stay CDN-free (`url("./assets/…")` relative is the
+  ONLY correct form: it resolves against the served sheet and absorbs `base`). The guard,
+  not the route, is load-bearing: `lib/asset-dir.mjs` (pure, unit-tested) = extension
+  allow-list + no dot-segments + containment; the route and the dev middleware add
+  `realpath` containment. Builds enumerate in `getStaticPaths`;
+  `integrations/dev-assets.mjs` serves them ON DEMAND in dev (a font added while the
+  server runs would otherwise 404 until restart).
+- `theme.code` — Shiki theme (`"github-light"` or `{ light, dark }`), validated against
+  the static `lib/shiki-themes.mjs` list (a unit test keeps it in sync with the installed
+  `shiki`). Set → Astro runs Shiki in DUAL mode with `defaultColor: false` (no baked
+  color, `--shiki-light`/`--shiki-dark` per token) and `codeThemeCss` wires them to
+  `light-dark()` → the scheme toggle recolors code with no rebuild, and print (forced
+  light) gets the light theme. The block background then comes from the code theme, via
+  the internal `--code-bg` on the `pre` — an un-layered `!important` of ours would LOSE
+  to global.css's layered one (importance reverses layer order).
+- `theme.mermaid: false` — opt out of palette-driven diagrams (`data-nb-diagram-theme="plain"`
+  on `<html>`). Otherwise `mermaid.ts` renders with `theme: "base"` + `themeVariables`
+  read from the live CSS through a hidden PROBE: `getComputedStyle` returns a custom
+  property's RAW text (`light-dark(…)`), so only a real property (`color: var(--accent)`)
+  resolves. It probes the INTERNAL aliases on purpose — they are what the page renders
+  with, print.css included. Pure mapping in `lib/client/mermaid-theme.ts`.
 
 **Custom site home.** Config `home: "<repo-relative .md>"` (or a per-locale map, resolved
 via `localizeField`) renders that file as the landing content above the space cards —

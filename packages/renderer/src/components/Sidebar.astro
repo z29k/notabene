@@ -1,9 +1,11 @@
 ---
 import { withBase } from "../lib/base";
 import { buildNav, type Space } from "../lib/nav";
+import NavLinks from "./NavLinks.astro";
 import NavTree from "./NavTree.astro";
-import { clientI18n, i18n, roots } from "../config.mjs";
+import { clientI18n, i18n, nav, roots } from "../config.mjs";
 import { localizeField, routeFor } from "../lib/i18n-content.mjs";
+import { navLabelId } from "../lib/nav-links.mjs";
 import { visibleRoots } from "../lib/public-filter";
 import { t } from "../i18n.mjs";
 
@@ -12,10 +14,15 @@ interface Props {
   activeSpace?: Space;
   /** Content locale of the current page — the nav shows this locale only. */
   locale?: string;
+  /** Aggregate pages: tag the per-locale `nav.sidebar` strings for the client applier. */
+  relocalizeNav?: boolean;
 }
 
-const { current = "", activeSpace, locale = clientI18n.defaultLocale } = Astro.props;
+const { current = "", activeSpace, locale = clientI18n.defaultLocale, relocalizeNav = false } = Astro.props;
 const m = t(locale);
+// Outbound links block (config `nav.sidebar`), under the space tree. The mobile drawer
+// reuses this very DOM, so it costs no duplication there — unlike the topbar utils.
+const sidebarTitle = localizeField(nav.sidebar.title, locale, i18n.defaultLocale) ?? null;
 // One nav tree per space, filtered to the current locale (i18n) with clean prefixed hrefs.
 const spaces = await Promise.all(
   visibleRoots(roots).map(async (root) => ({
@@ -46,6 +53,22 @@ const spaces = await Promise.all(
     ))
   }
 </nav>
+
+{
+  nav.sidebar.links.length > 0 && (
+    <nav class="nb-sidebar-links" aria-label={sidebarTitle ?? m.navLinks}>
+      {sidebarTitle && (
+        <p
+          class="nb-sidebar-links-title"
+          data-nb-nav-label={relocalizeNav && typeof nav.sidebar.title !== "string" ? navLabelId("sidebar", "title") : undefined}
+        >
+          {sidebarTitle}
+        </p>
+      )}
+      <NavLinks items={nav.sidebar.links} section="sidebar" variant="sidebar" locale={locale} relocalize={relocalizeNav} />
+    </nav>
+  )
+}
 
 <script>
   // Client-side filter: hide leaves whose title doesn't match, and expand all

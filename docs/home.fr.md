@@ -34,7 +34,9 @@ SaaS, sans base de données — tout vit en JSON dans votre git.
 - **[La boucle de revue](./guide/review-loop.md)** — le protocole file-I/O-first que
   n'importe quel agent peut suivre, et le mode approve avec humain dans la boucle.
 - **[Personnaliser le rendu](./guide/customize.md)** — branding, tokens `--nb-*`,
-  votre propre feuille de style.
+  votre propre feuille de style, polices, thèmes de code et de diagrammes.
+- **[Liens de navigation](./guide/configuration.md#liens-de-navigation)** — ramenez le
+  lecteur au repo, aux releases, au produit : topbar, bloc de sidebar, pied de page.
 - **[Doc multilingue](./guide/multilingual.md)** — URL propres préfixées, sélecteur de
   langue, commentaires par langue.
 - **[Export PDF](./guide/pdf-export.md)** — vues prêtes à imprimer, PDF avec signets.

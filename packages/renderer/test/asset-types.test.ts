@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assetExt, assetPath, contentTypeFor } from "../src/lib/asset-types";
+import { assetExt, assetPath, contentTypeFor } from "../src/lib/asset-types.mjs";
 
 describe("assetExt", () => {
   it("extracts the lowercased extension", () => {
@@ -18,6 +18,18 @@ describe("contentTypeFor", () => {
     expect(contentTypeFor("png")).toBe("image/png");
     expect(contentTypeFor("jpg")).toBe("image/jpeg");
     expect(contentTypeFor("webp")).toBe("image/webp");
+  });
+  it("maps the font types a theme.assets folder serves", () => {
+    expect(contentTypeFor("woff2")).toBe("font/woff2");
+    expect(contentTypeFor("woff")).toBe("font/woff");
+    expect(contentTypeFor("ttf")).toBe("font/ttf");
+    expect(contentTypeFor("otf")).toBe("font/otf");
+  });
+  it("types every extension the asset folder allows", async () => {
+    const { ASSET_EXTENSIONS } = await import("../src/lib/asset-dir.mjs");
+    for (const ext of ASSET_EXTENSIONS) {
+      expect(contentTypeFor(ext), ext).not.toBe("application/octet-stream");
+    }
   });
   it("falls back to octet-stream", () => {
     expect(contentTypeFor("weird")).toBe("application/octet-stream");
