@@ -93,6 +93,10 @@ jobs:
           printf '# Welcome\n\nHOMECANARY custom landing content.\n' > /tmp/consumer/home.md
           printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8" fill="navy"/></svg>' > /tmp/consumer/brand.svg
           printf ':root{--nb-accent:#ff00aa}' > /tmp/consumer/theme.css
+          # Consumer asset FOLDER (theme.assets): a font is served, a dotfile never is.
+          mkdir -p /tmp/consumer/theme-assets/fonts
+          printf 'FONTBYTES' > /tmp/consumer/theme-assets/fonts/x.woff2
+          printf 'ASSETCANARY=secret' > /tmp/consumer/theme-assets/secrets.env
           cat > /tmp/consumer/notabene.config.mjs << 'CFG'
           export default {
             siteName: "CI",
@@ -105,7 +109,18 @@ jobs:
             editPattern: "https://github.com/ci/repo/edit/main/{path}",
             home: "home.md",
             branding: { logo: "brand.svg", favicon: "brand.svg", socialImage: "brand.svg" },
-            theme: { css: "theme.css", tokens: { accent: "#00ff99" } },
+            theme: { css: "theme.css", tokens: { accent: "#00ff99" }, assets: "theme-assets" },
+            nav: {
+              header: [
+                { label: "GitHub", href: "https://github.com/ci/repo", icon: "github", iconOnly: true },
+                { label: "Internal", href: "https://navcanary.example", publish: false },
+              ],
+              sidebar: {
+                title: { en: "Resources", fr: "Ressources" },
+                links: [{ label: "Releases", href: "https://github.com/ci/repo/releases", icon: "star" }],
+              },
+              footer: { links: [{ label: "Home", href: "/docs/index" }], text: "FOOTERCANARY", poweredBy: true },
+            },
             i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "suffix" },
             publish: { exclude: ["docs/wip/**"] },
           };
@@ -141,7 +156,20 @@ jobs:
           grep -q -- '--nb-accent:#ff00aa' /tmp/public-site/_nb/theme.css || { echo "MISSING: theme.css"; exit 1; }
           grep -q 'stylesheet" href="/repo/_nb/theme.css"' /tmp/public-site/index.html || { echo "MISSING: theme link"; exit 1; }
           grep -q -- ':root{--nb-accent:#00ff99}' /tmp/public-site/index.html || { echo "MISSING: inline tokens"; exit 1; }
+          # theme.assets: served under the FIXED mount point; refused files never emitted.
+          test -f /tmp/public-site/_nb/assets/fonts/x.woff2 || { echo "MISSING: theme asset"; exit 1; }
+          test ! -e /tmp/public-site/_nb/assets/secrets.env || { echo "LEAK: dotfile served from theme.assets"; exit 1; }
+          ! grep -RIq "ASSETCANARY" /tmp/public-site || { echo "LEAK: theme.assets non-asset file"; exit 1; }
           grep -q 'https://github.com/ci/repo/edit/main/docs/index.md' /tmp/public-site/docs/index/index.html || { echo "MISSING: edit link"; exit 1; }
+          # Outbound nav (config `nav`): identity, so PRESENT in a public artifact — topbar
+          # icon, sidebar block (per-locale title) and footer, with `base` on site paths.
+          grep -q 'href="https://github.com/ci/repo" class="topbar-link topbar-util nb-nav-link' /tmp/public-site/index.html || { echo "MISSING: topbar nav link"; exit 1; }
+          grep -q 'class="nb-sidebar-links"' /tmp/public-site/docs/index/index.html || { echo "MISSING: sidebar nav block"; exit 1; }
+          grep -q 'Ressources' /tmp/public-site/fr/docs/index/index.html || { echo "MISSING: per-locale nav title"; exit 1; }
+          grep -q 'FOOTERCANARY' /tmp/public-site/index.html || { echo "MISSING: site footer"; exit 1; }
+          grep -q 'class="nb-nav-link nb-footer-link" *href="/repo/docs/index"\|href="/repo/docs/index" class="nb-nav-link nb-footer-link"' /tmp/public-site/index.html || { echo "MISSING: based footer link"; exit 1; }
+          # …except a `publish: false` link, which must never reach the artifact.
+          ! grep -RIq "navcanary.example" /tmp/public-site || { echo "LEAK: publish:false nav link in public artifact"; exit 1; }
           grep -q "@layer nb-base" /tmp/public-site/_astro/*.css || { echo "MISSING: layered renderer styles"; exit 1; }
           # Scheme toggle: pre-paint forcing script, toggle button, light-dark() tokens.
           grep -q "nb-scheme" /tmp/public-site/index.html || { echo "MISSING: scheme init script"; exit 1; }
