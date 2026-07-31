@@ -3,7 +3,7 @@ import path from "node:path";
 import type { APIRoute } from "astro";
 import { REPO_ROOT, branding, theme } from "../config.mjs";
 import { assetRoute, contains, isAllowedAsset, resolveAsset } from "../lib/asset-dir.mjs";
-import { assetExt, assetPath, contentTypeFor } from "../lib/asset-types";
+import { assetExt, assetPath, contentTypeFor } from "../lib/asset-types.mjs";
 
 // Consumer assets served at stable /_nb/… paths. The files live in the CONSUMER repo
 // (outside the Astro root), so — like search-index.json — a prerendered endpoint reads

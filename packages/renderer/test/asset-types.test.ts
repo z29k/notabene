@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assetExt, assetPath, contentTypeFor } from "../src/lib/asset-types";
+import { assetExt, assetPath, contentTypeFor } from "../src/lib/asset-types.mjs";
 
 describe("assetExt", () => {
   it("extracts the lowercased extension", () => {

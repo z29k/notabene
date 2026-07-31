@@ -365,6 +365,15 @@ route, tokens validated by `validateTokens` and inlined as `:root{--nb-…}` at 
 `<head>`) always wins regardless of Astro's stylesheet injection order. Themes must only
 target `--nb-*` + the documented hooks (see `docs/guide/customize.md`).
 
+**Config-graph rule (hard):** everything reachable from `astro.config.mjs` — the
+integrations, the remark plugins, `config.mjs` and whatever THEY import — must be
+`.mjs`. Two reasons now: `config.mjs` is loaded under raw Node by the CLI (`doctor`),
+AND pulling a `.ts` file into the CONFIG module graph makes Astro load the config
+through a Vite module runner it then closes, after which any dynamic `import()` from an
+integration closure fails with *"Vite module runner has been closed"* — which is how one
+`asset-types.ts` import silently killed the dev Pagefind index (`import("pagefind")`
+inside `dev-search.mjs`), reported as a missing package by a too-broad `catch`.
+
 **Theme surfaces beyond the palette** (all optional, all no-ops when unset — a config
 without them is byte-identical to pre-feature output):
 

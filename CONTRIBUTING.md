@@ -143,6 +143,12 @@ READMEs are short landings — user-facing detail belongs in `docs/`, in one pla
   `PROTOCOL_VERSION` (`src/lib/protocol-gen.mjs`) when the spec changes materially — it
   is deliberately independent of the package version (a version that moved on every
   release would break the CI diff gate on every release commit).
+- **The config module graph is `.mjs`-only** — anything `astro.config.mjs` can reach
+  (integrations, remark plugins, `config.mjs`, and their imports). A `.ts` in that graph
+  changes how Astro loads the config and breaks dynamic `import()` from integration
+  closures at runtime (*"Vite module runner has been closed"*), which is subtle and only
+  shows up in dev. Put shared helpers in `.mjs` with JSDoc types; `.ts` is for modules
+  reached from pages/components only.
 - **Dev-local & safe** — the write API binds loopback by default and only runs under
   `notabene dev`. Keep it that way.
 

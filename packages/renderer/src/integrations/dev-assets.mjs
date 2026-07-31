@@ -12,7 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { REPO_ROOT, theme } from "../config.mjs";
 import { contains, isAllowedAsset, resolveAsset } from "../lib/asset-dir.mjs";
-import { assetExt, contentTypeFor } from "../lib/asset-types.js";
+import { assetExt, contentTypeFor } from "../lib/asset-types.mjs";
 
 const PREFIX = "/_nb/assets/";
 
