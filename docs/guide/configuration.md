@@ -71,6 +71,56 @@ branding: {
 `socialImage` needs [`publish.site`](./publish/configuration.md) — crawlers require an
 absolute URL. The favicon also covers the [print/PDF views](./pdf-export.md).
 
+## Navigation links
+
+Once a reader is *inside* a page, nothing leads back to your repo, your product or your
+releases. `nav` adds those outbound links in three places — one item shape everywhere:
+
+```js
+nav: {
+  // Topbar, right-hand group. Mirrored automatically in the mobile drawer.
+  header: [
+    { label: "GitHub", href: "https://github.com/you/repo", icon: "github", iconOnly: true },
+    { label: { en: "Product", fr: "Produit" }, href: "https://example.com" },
+  ],
+  // A titled block under the space tree (the mobile drawer shows it too).
+  sidebar: {
+    title: { en: "Resources", fr: "Ressources" },
+    links: [
+      { label: "Releases", href: "https://github.com/you/repo/releases", icon: "star" },
+      { label: "npm", href: "https://www.npmjs.com/package/your-pkg", icon: "npm" },
+    ],
+  },
+  // The site footer. Nothing configured → no footer element at all.
+  footer: {
+    links: [{ label: "Licence", href: "/reference/licence" }],
+    text: { en: "© 2026 you — MIT", fr: "© 2026 vous — MIT" },
+    poweredBy: false,
+  },
+},
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-nav-demo.gif" alt="notabene navigation links: the repo icon in the topbar, a Resources block under the sidebar tree, a site footer, and a footer link back to the home page" width="820" />
+</p>
+
+| Field | Meaning |
+| --- | --- |
+| `label` | Required. A string, or a `{ <locale>: string }` map like `roots[].label`. Doubles as the accessible name when `iconOnly` |
+| `href` | Required. An `https://`/`http://`/`mailto:` URL (opened in a new tab, `rel="noopener"`), **or** a site path `/…` (your `publish.base` is applied for you) |
+| `icon` | One of `github`, `gitlab`, `npm`, `discord`, `slack`, `x`, `mastodon`, `rss`, `mail`, `book`, `home`, `star`, `download`, `external`. Monochrome — it follows the link color, so it follows your [theme](./customize.md) |
+| `iconOnly` | Topbar only: show the icon alone (the label becomes its `aria-label`/tooltip). Ignored elsewhere |
+| `publish` | `false` keeps the link **out** of [public builds](./publish/index.md) — same idea as `roots[].publish` |
+
+- Everything is **validated when the config loads**: an unknown key, an unknown icon, a
+  duplicate href or a `javascript:` URL throws immediately rather than shipping a broken
+  — or booby-trapped — link into a published site.
+- These links are *identity*, not review tooling: unlike Comments/Review/Journal they
+  show in **dev and in public builds**. They never appear in the
+  [print/PDF views](./pdf-export.md), and they are outside the search index.
+- Keep the topbar to three or four entries — `iconOnly` exists precisely because that
+  row is crowded. Long lists belong in the sidebar block or the footer.
+
 ## Custom home page
 
 By default the landing page (`/`) shows the site name and one card per space. Point

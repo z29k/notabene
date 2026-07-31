@@ -118,6 +118,7 @@ has **`docs.detected`** instead.
      // home: "docs/home.md",  // custom landing page above the space cards (optional)
      // branding: { logo: "assets/logo.svg", favicon: "assets/favicon.svg" },  // identity (optional)
      // theme: { tokens: { accent: "#7c3aed" }, css: "docs/theme.css" },  // --nb-* overrides (optional)
+     // nav: { header: [{ label: "GitHub", href: "https://github.com/OWNER/REPO", icon: "github", iconOnly: true }] },  // outbound links (optional)
      // editPattern: "https://github.com/OWNER/REPO/edit/main/{path}",  // "Edit this page" footer link (optional)
      // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name/.email)
    };
@@ -153,8 +154,13 @@ regenerate from the template.
    repo-relative
    Markdown file — or per-locale map — rendered as the landing page above the space
    cards); `branding` (`{ logo, logoDark, favicon, socialImage }` — repo-relative image
-   files); `theme` (`{ tokens, css }` — `--nb-*` design-token overrides, validated, and/or
-   a consumer stylesheet; only the `--nb-*` contract, never internal variables);
+   files); `theme` (`{ tokens, css, assets, code, mermaid }` — `--nb-*` design-token
+   overrides, validated, and/or a consumer stylesheet, a repo folder of fonts/images
+   served at `/_nb/assets/…`, and a Shiki code theme; only the `--nb-*` contract, never
+   internal variables); `nav` (`{ header, sidebar, footer }` — outbound links in the
+   topbar, a titled sidebar block and a site footer: one item shape
+   `{ label, href, icon, iconOnly, publish }`, labels may be per-locale maps, and
+   `publish: false` keeps a link out of public builds);
    `editPattern` (a URL template with a literal `{path}` placeholder — renders the page
    footer's "Edit this page" link); `verify[]`; `host` (⚠ security — only on explicit
    request).

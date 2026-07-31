@@ -47,7 +47,10 @@ langue de contenu — `/comments`, `/journal`, `/review`, la page d'accueil et l
 - La recherche et l'[export PDF](./pdf-export.md) (`notabene pdf --locale fr`) sont
   limités à une langue ; un [site public](./publish/index.md) embarque des `llms.txt`
   et des doubles Markdown par locale.
-- Les `label`/`description` propres à un espace acceptent une map par locale :
-  `label: { en: "Docs", fr: "Documentation" }`.
+- Toute chaîne humaine de la config accepte une map par locale : les
+  `label`/`description` d'un espace (`label: { en: "Docs", fr: "Documentation" }`), la
+  [page d'accueil personnalisée](./configuration.md) (`home: { en: …, fr: … }`), et chaque
+  libellé de [lien de navigation](./configuration.md#liens-de-navigation), titre du bloc
+  sidebar et ligne de pied de page. Non défini pour une locale → repli sur celle par défaut.
 
 Omettez `i18n` pour une seule langue — le comportement est inchangé.

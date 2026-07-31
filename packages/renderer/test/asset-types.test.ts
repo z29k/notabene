@@ -19,6 +19,18 @@ describe("contentTypeFor", () => {
     expect(contentTypeFor("jpg")).toBe("image/jpeg");
     expect(contentTypeFor("webp")).toBe("image/webp");
   });
+  it("maps the font types a theme.assets folder serves", () => {
+    expect(contentTypeFor("woff2")).toBe("font/woff2");
+    expect(contentTypeFor("woff")).toBe("font/woff");
+    expect(contentTypeFor("ttf")).toBe("font/ttf");
+    expect(contentTypeFor("otf")).toBe("font/otf");
+  });
+  it("types every extension the asset folder allows", async () => {
+    const { ASSET_EXTENSIONS } = await import("../src/lib/asset-dir.mjs");
+    for (const ext of ASSET_EXTENSIONS) {
+      expect(contentTypeFor(ext), ext).not.toBe("application/octet-stream");
+    }
+  });
   it("falls back to octet-stream", () => {
     expect(contentTypeFor("weird")).toBe("application/octet-stream");
   });

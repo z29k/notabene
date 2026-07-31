@@ -28,13 +28,17 @@ const themeCssHref = theme.css ? withBase(assetPath("theme", theme.css)) : null;
 ---
 
 <!doctype html>
-<html lang={locale}>
+<html lang={locale} data-nb-diagram-theme={theme.mermaid ? undefined : "plain"}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title} · {siteName}</title>
     <link rel="icon" type={faviconType} href={faviconHref} />
     <style is:inline set:html={`@page { size: ${pdf.pageSize}; margin: ${pdf.margin}; }`}></style>
+    {/* Dual-theme Shiki (config `theme.code`): print.css forces `color-scheme: light`,
+        so light-dark() resolves to the LIGHT code theme on paper — a light theme finally
+        prints as a light block instead of the baked dark slab. */}
+    {theme.codeCss && <style is:inline set:html={theme.codeCss} />}
     {themeCssHref && <link rel="stylesheet" href={themeCssHref} />}
     {theme.tokensCss && <style is:inline set:html={theme.tokensCss} />}
   </head>

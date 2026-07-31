@@ -80,8 +80,11 @@ c'est utile :
   espace ou doc entière : page de garde + sommaire cliquable dans le navigateur, ou un
   **PDF avec signets** via `notabene pdf`.
 - **[À votre image](https://z29k.github.io/notabene/guide/customize)** - page d'accueil
-  personnalisée, logo + favicon + carte sociale, et théming via les tokens `--nb-*`
-  stables ou votre propre feuille de style (cascade layers : votre CSS gagne toujours).
+  personnalisée, logo + favicon + carte sociale,
+  [liens de navigation](https://z29k.github.io/notabene/guide/configuration#liens-de-navigation)
+  (topbar, bloc de sidebar, pied de page), et théming via les tokens `--nb-*` stables, vos
+  propres polices, un thème de code ou votre feuille de style (cascade layers : votre CSS
+  gagne toujours).
 - **[Publier un site public](https://z29k.github.io/notabene/guide/publish)** - un build
   statique en lecture seule avec **surface lisible par les agents** (`llms.txt`, doubles
   Markdown par page, sitemap, OpenGraph), scoping du contenu privé, **recherche plein

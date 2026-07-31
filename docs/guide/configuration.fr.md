@@ -74,6 +74,57 @@ branding: {
 `socialImage` requiert [`publish.site`](./publish/configuration.md) — les crawlers
 exigent une URL absolue. Le favicon couvre aussi les [vues print/PDF](./pdf-export.md).
 
+## Liens de navigation
+
+Une fois *dans* une page, plus rien ne ramène au repo, au produit ou aux releases. `nav`
+ajoute ces liens sortants à trois endroits — une seule forme d'entrée partout :
+
+```js
+nav: {
+  // Topbar, groupe de droite. Répliqué automatiquement dans le tiroir mobile.
+  header: [
+    { label: "GitHub", href: "https://github.com/vous/repo", icon: "github", iconOnly: true },
+    { label: { en: "Product", fr: "Produit" }, href: "https://example.com" },
+  ],
+  // Un bloc titré sous l'arbre des espaces (le tiroir mobile l'affiche aussi).
+  sidebar: {
+    title: { en: "Resources", fr: "Ressources" },
+    links: [
+      { label: "Releases", href: "https://github.com/vous/repo/releases", icon: "star" },
+      { label: "npm", href: "https://www.npmjs.com/package/votre-pkg", icon: "npm" },
+    ],
+  },
+  // Le pied de page du site. Rien de configuré → aucun élément de pied de page.
+  footer: {
+    links: [{ label: "Licence", href: "/reference/licence" }],
+    text: { en: "© 2026 vous — MIT", fr: "© 2026 vous — MIT" },
+    poweredBy: false,
+  },
+},
+```
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-nav-demo.gif" alt="liens de navigation notabene : l'icône du repo dans la topbar, un bloc Ressources sous l'arbre de la sidebar, un pied de page, et un lien de pied de page qui ramène à l'accueil" width="820" />
+</p>
+
+| Champ | Signification |
+| --- | --- |
+| `label` | Obligatoire. Une chaîne, ou une map `{ <locale>: string }` comme `roots[].label`. Sert aussi de nom accessible quand `iconOnly` |
+| `href` | Obligatoire. Une URL `https://`/`http://`/`mailto:` (ouverte dans un nouvel onglet, `rel="noopener"`), **ou** un chemin du site `/…` (votre `publish.base` est appliqué pour vous) |
+| `icon` | Au choix : `github`, `gitlab`, `npm`, `discord`, `slack`, `x`, `mastodon`, `rss`, `mail`, `book`, `home`, `star`, `download`, `external`. Monochrome — l'icône suit la couleur du lien, donc votre [thème](./customize.md) |
+| `iconOnly` | Topbar uniquement : n'affiche que l'icône (le label devient son `aria-label`/infobulle). Ignoré ailleurs |
+| `publish` | `false` garde le lien **hors** des [builds publics](./publish/index.md) — même idée que `roots[].publish` |
+
+- Tout est **validé au chargement de la config** : une clé inconnue, une icône inconnue,
+  un href en double ou une URL `javascript:` lèvent une erreur immédiatement plutôt que
+  d'expédier un lien cassé — ou piégé — dans un site publié.
+- Ces liens relèvent de l'*identité*, pas de l'outillage de revue : contrairement à
+  Commentaires/Revue/Journal, ils apparaissent **en dev et dans les builds publics**. Ils
+  n'apparaissent jamais dans les [vues print/PDF](./pdf-export.md) et restent hors de
+  l'index de recherche.
+- Gardez trois ou quatre entrées en topbar — `iconOnly` existe précisément parce que
+  cette rangée est chargée. Les listes longues vont dans le bloc sidebar ou le pied de page.
+
 ## Page d'accueil personnalisée
 
 Par défaut, la page d'atterrissage (`/`) affiche le nom du site et une carte par espace.

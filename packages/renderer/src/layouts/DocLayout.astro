@@ -1,19 +1,26 @@
 ---
 import "../styles/global.css";
+import NavLinks from "../components/NavLinks.astro";
 import Sidebar from "../components/Sidebar.astro";
 import Toc from "../components/Toc.astro";
 import PublicZoom from "../components/PublicZoom.astro";
 import { assetExt, assetPath, contentTypeFor } from "../lib/asset-types";
 import { withBase } from "../lib/base";
+import { localizeField } from "../lib/i18n-content.mjs";
 import { twinPath } from "../lib/llms";
 import type { Space } from "../lib/nav";
+import { navLabelId } from "../lib/nav-links.mjs";
 import {
   author,
   authorEmail,
   branding,
   theme,
   clientI18n,
+  clientNavLabels,
   clientRoots,
+  i18n,
+  nav,
+  navFooter,
   pdf,
   publicMode,
   publish,
@@ -208,10 +215,23 @@ const wholeDocHref = locale === clientI18n.defaultLocale ? "/print" : `/print/${
 // Doc pages (page set) carry the TOC + anchored-comment rail. App pages (review / comments /
 // journal) pass no page → no rail; drop the empty third column so they use the full width.
 const hasRail = page != null;
+// Site footer (config `nav.footer`) — the renderer's first: the conventional home of the
+// repo/licence links, absent from print (PrintLayout is a separate layout) and outside
+// `data-pagefind-body` (it sits on the article), so it never pollutes the search index.
+const footerText = localizeField(nav.footer.text, locale, i18n.defaultLocale) ?? null;
+// Aggregate pages need the per-locale nav strings client-side (same trick as clientRoots).
+const navLabels = clientChrome && Object.keys(clientNavLabels).length > 0 ? clientNavLabels : null;
+// Per-locale nav strings are tagged for the client applier ONLY on those pages (a doc
+// page is rendered in its own locale — nothing to re-localize, nothing to emit).
+const relocalizeNav = navLabels != null;
 ---
 
 <!doctype html>
-<html lang={locale} data-nb-public={publicMode ? "" : undefined}>
+<html
+  lang={locale}
+  data-nb-public={publicMode ? "" : undefined}
+  data-nb-diagram-theme={theme.mermaid ? undefined : "plain"}
+>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -230,6 +250,7 @@ const hasRail = page != null;
     )}
     <script type="application/json" id="notabene-i18n-config" is:inline set:html={JSON.stringify(clientI18n)} />
     {i18nAll && <script type="application/json" id="notabene-i18n-all" is:inline set:html={JSON.stringify(i18nAll)} />}
+    {navLabels && <script type="application/json" id="notabene-nav" is:inline set:html={JSON.stringify(navLabels)} />}
     {i18nAll && <script is:inline set:html={earlyLocaleScript} />}
     {altMap && <script type="application/json" id="notabene-i18n-alts" is:inline set:html={JSON.stringify(altMap)} />}
     {altMap && <script is:inline set:html={redirectScript} />}
@@ -258,6 +279,9 @@ const hasRail = page != null;
       </>
     )}
     {jsonLd && <script type="application/ld+json" is:inline set:html={jsonLd} />}
+    {/* Dual-theme Shiki (config `theme.code`) → light-dark(). Before the consumer's own
+        stylesheet + tokens, so those still win. */}
+    {theme.codeCss && <style is:inline set:html={theme.codeCss} />}
     {themeCssHref && <link rel="stylesheet" href={themeCssHref} />}
     {theme.tokensCss && <style is:inline set:html={theme.tokensCss} />}
   </head>
@@ -297,6 +321,10 @@ const hasRail = page != null;
           language + Export + name group to the far right (desktop only — utils collapse
           into the drawer on compact). */}
       <div class="topbar-spacer topbar-util" aria-hidden="true"></div>
+      {/* Outbound links (config `nav.header`) — repo, product, releases. Identity, not
+          review tooling: present in dev AND in public builds (a `publish: false` link is
+          filtered out of the artifact in config.mjs). */}
+      <NavLinks items={nav.header} section="header" variant="topbar" locale={locale} relocalize={relocalizeNav} />
       {
         showLang && (
           <details class="lang-menu topbar-util">
@@ -402,7 +430,7 @@ const hasRail = page != null;
 
     <div class:list={["shell", { "shell--full": !hasRail }]}>
       <aside class="sidebar" id="nb-sidebar" tabindex="-1">
-        <Sidebar current={current} activeSpace={space} locale={locale} />
+        <Sidebar current={current} activeSpace={space} locale={locale} relocalizeNav={relocalizeNav} />
         <nav class="drawer-util" aria-label={m.menu}>
           {!publicMode && (
             <a href={withBase("/comments")} class="drawer-link" data-i18n="navComments">{m.navComments}</a>
@@ -415,6 +443,9 @@ const hasRail = page != null;
           {!publicMode && (
             <a href={withBase("/journal")} class="drawer-link" data-i18n="navJournal">{m.navJournal}</a>
           )}
+          {/* Same links as the topbar: every `.topbar-util` is CSS-hidden under 1024px and
+              re-emitted here — the established pattern, not duplication by accident. */}
+          <NavLinks items={nav.header} section="header" variant="drawer" locale={locale} relocalize={relocalizeNav} />
           {
             showLang && (
               <nav class="lang-switch-drawer" aria-label={m.language}>
@@ -532,6 +563,36 @@ const hasRail = page != null;
       }
     </div>
 
+    {
+      navFooter && (
+        <footer class="site-footer">
+          <div class="site-footer-inner">
+            {footerText && (
+              <span
+                class="site-footer-text"
+                data-nb-nav-label={relocalizeNav && typeof nav.footer.text !== "string" ? navLabelId("footer", "text") : undefined}
+              >
+                {footerText}
+              </span>
+            )}
+            {nav.footer.links.length > 0 && (
+              <nav class="site-footer-links" aria-label={m.navLinks}>
+                <NavLinks items={nav.footer.links} section="footer" variant="footer" locale={locale} relocalize={relocalizeNav} />
+              </nav>
+            )}
+            {nav.footer.poweredBy && (
+              <span class="site-footer-powered">
+                <span data-i18n="poweredBy">{m.poweredBy}</span>{" "}
+                <a href="https://github.com/z29k/notabene" target="_blank" rel="noopener">
+                  notabene
+                </a>
+              </span>
+            )}
+          </div>
+        </footer>
+      )
+    }
+
     <div id="nb-scrim" class="nb-scrim" hidden></div>
 
     {/* Agent directive (public builds): tells an agent reading the HTML where the
@@ -636,12 +697,30 @@ const hasRail = page != null;
                 el.textContent = new Date(`${iso}T00:00:00Z`).toLocaleDateString(loc, { dateStyle: "medium", timeZone: "UTC" });
               } catch {}
           }
+          const def = i18nCfg?.defaultLocale || loc;
+          // Per-locale nav strings (config `nav`): the same server-side default-locale
+          // rendering, re-localized here from #notabene-nav (ids = section:index).
+          const navEl = document.getElementById("notabene-nav");
+          if (navEl) {
+            const navLabels = JSON.parse(navEl.textContent || "{}");
+            const navValue = (el: HTMLElement, attr: string) => localizeField(navLabels[el.getAttribute(attr) || ""], loc, def);
+            for (const el of document.querySelectorAll<HTMLElement>("[data-nb-nav-label]")) {
+              const v = navValue(el, "data-nb-nav-label");
+              if (v != null) el.textContent = v;
+            }
+            for (const el of document.querySelectorAll<HTMLElement>("[data-nb-nav-aria]")) {
+              const v = navValue(el, "data-nb-nav-aria");
+              if (v != null) {
+                el.setAttribute("aria-label", v);
+                el.setAttribute("title", v);
+              }
+            }
+          }
           // Per-locale roots[].label / .description: cards (home / 404) and the comments space
           // filter render the default-locale string server-side; re-localize to `loc` here.
           const rootsEl = document.getElementById("notabene-roots");
           if (rootsEl) {
             const rootsData = JSON.parse(rootsEl.textContent || "[]");
-            const def = i18nCfg?.defaultLocale || loc;
             const byKey: Record<string, (typeof rootsData)[number]> = {};
             for (const r of rootsData) byKey[r.key] = r;
             const relabel = (attr: string, field: "labelI18n" | "descriptionI18n") => {

@@ -47,7 +47,10 @@ language client-side and carry the same switcher.
 - Search and [PDF export](./pdf-export.md) (`notabene pdf --locale fr`) are scoped to one
   language; a [public site](./publish/index.md) ships per-locale `llms.txt` and Markdown
   twins.
-- A space's own `label`/`description` accept a per-locale map:
-  `label: { en: "Docs", fr: "Documentation" }`.
+- Every human string of the config accepts a per-locale map: a space's
+  `label`/`description` (`label: { en: "Docs", fr: "Documentation" }`), the
+  [custom home page](./configuration.md#custom-home-page) (`home: { en: …, fr: … }`), and
+  every [navigation link](./configuration.md#navigation-links) label, sidebar block title
+  and footer line. Unset for a locale → it falls back to the default one.
 
 Omit `i18n` for a single language — behavior is unchanged.

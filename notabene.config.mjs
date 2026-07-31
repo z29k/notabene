@@ -50,6 +50,27 @@ export default {
     socialImage: "assets/notabene-logo.jpg",
   },
 
+  // Outbound navigation: from any doc page, back to the repo, the releases, the package.
+  // Topbar stays to a single icon; the long list lives under the space tree.
+  nav: {
+    header: [{ label: "GitHub", href: "https://github.com/z29k/notabene", icon: "github", iconOnly: true }],
+    sidebar: {
+      title: { en: "Resources", fr: "Ressources" },
+      links: [
+        { label: "GitHub", href: "https://github.com/z29k/notabene", icon: "github" },
+        { label: "Releases", href: "https://github.com/z29k/notabene/releases", icon: "star" },
+        { label: "npm", href: "https://www.npmjs.com/package/@z29k/notabene", icon: "npm" },
+      ],
+    },
+    footer: {
+      links: [
+        { label: { en: "Issues", fr: "Tickets" }, href: "https://github.com/z29k/notabene/issues" },
+        { label: { en: "MIT licence", fr: "Licence MIT" }, href: "https://github.com/z29k/notabene/blob/main/LICENSE" },
+      ],
+      text: "© 2026 z29k",
+    },
+  },
+
   // Dogfood the flagship feature: agent proposes, humans validate at /review.
   review: "approve",
 

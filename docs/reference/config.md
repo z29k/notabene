@@ -21,7 +21,8 @@ optional. The narrative version with examples is in the
 | `store` | `"docs/.notabene"` | Comments + journal folder — commit it ([contract](./store-contract.md)) |
 | `home` | — | [Custom landing page](../guide/configuration.md#custom-home-page): a repo-relative Markdown file (or per-locale map) rendered above the space cards on `/` |
 | `branding` | — | [Identity assets](../guide/configuration.md#branding): `{ logo, logoDark, favicon, socialImage }`, repo-relative files served at `/_nb/…`. Unset favicon → a built-in default mark |
-| `theme` | — | [Look customization](../guide/customize.md): `{ tokens, css }` — `--nb-*` token overrides (validated; a typo throws) and/or a stylesheet loaded after the renderer's (cascade-layer-safe) |
+| `theme` | — | [Look customization](../guide/customize.md): `{ tokens, css, assets, code }` — `--nb-*` token overrides (validated; a typo throws), a stylesheet loaded after the renderer's (cascade-layer-safe), a repo folder served at `/_nb/assets/…` for fonts/images (extension allow-list, no traversal), a Shiki theme for code (`"github-light"` or `{ light, dark }` — dual palettes follow the scheme toggle), and `mermaid: false` to keep Mermaid's own diagram palette |
+| `nav` | — | [Outbound links](../guide/configuration.md#navigation-links): `{ header[], sidebar: { title, links[] }, footer: { links[], text, poweredBy } }`. One item shape — `{ label, href, icon, iconOnly, publish }`; `label` accepts a per-locale map, `publish: false` keeps a link out of public builds. Validated at load (scheme allow-list, icon names, duplicates) |
 | `port` | `3009` | `astro dev` port |
 | `host` | `false` | `true`/`NOTABENE_HOST=1`/`--host` exposes the write API to the LAN ([safety](./safety.md)) |
 | `verify[]` | `[]` | Post-edit checks the agent runs (the renderer build always runs) |

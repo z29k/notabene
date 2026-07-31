@@ -12,7 +12,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { contains } from "./lib/asset-dir.mjs";
 import { decode as decodeLocale, routeFor as i18nRouteFor, localizeField } from "./lib/i18n-content.mjs";
+import { filterPublicNav, hasFooter, navClientLabels, normalizeNav } from "./lib/nav-links.mjs";
+import { codeThemeCss, normalizeCodeTheme } from "./lib/shiki-themes.mjs";
 import { tokensToCss, validateTokens } from "./lib/theme-tokens.mjs";
 
 export const REPO_ROOT = process.env.NOTABENE_ROOT ? path.resolve(process.env.NOTABENE_ROOT) : process.cwd();
@@ -346,6 +349,22 @@ export const branding = {
   socialImage: brandFile("socialImage"),
 };
 
+// Outbound navigation (§ nav links). Optional, three mount points, ONE item shape
+// (`{ label, href, icon?, iconOnly?, publish? }` — see lib/nav-links.mjs, where all the
+// validation lives):
+//   nav.header  — topbar links (mirrored into the mobile drawer, like every util).
+//   nav.sidebar — a titled block under the space tree (drawer gets it for free).
+//   nav.footer  — the site footer: links + a localizable line + an opt-in "powered by".
+// A FIRST-LEVEL key, deliberately not `theme.nav`: links are repo DATA (they depend on
+// the repo, not on the appearance), so a theme package can style them but never declare
+// one. Public builds drop `publish: false` links HERE — a single filter, so no component
+// has to know about publish scoping. Unset → nothing is emitted anywhere (byte-identical).
+const navAll = normalizeNav(userConfig.nav ?? null);
+export const nav = publicMode ? filterPublicNav(navAll) : navAll;
+export const navFooter = hasFooter(nav);
+// Per-locale nav strings for the cross-locale aggregate pages (see clientRoots).
+export const clientNavLabels = i18n.enabled ? navClientLabels(nav) : {};
+
 // Theme (§ theming contract). Two knobs, combinable; both target ONLY the `--nb-*`
 // tokens documented in lib/theme-tokens.mjs + styles/global.css:
 //   theme.css    — a repo-relative stylesheet loaded AFTER the renderer's styles
@@ -353,15 +372,52 @@ export const branding = {
 //   theme.tokens — quick inline overrides without a CSS file: { accent: "#7c3aed" }.
 //                  Keys are validated against the contract (a typo throws, never
 //                  silently no-ops); values are emitted verbatim.
+//   theme.code   — syntax-highlighting theme: a bundled Shiki name, or { light, dark }.
+//                  Set → Shiki emits BOTH palettes as CSS variables (defaultColor:false)
+//                  and the scheme toggle recolors code with no rebuild; the code theme
+//                  then owns the block background too (see codeThemeCss). Unset → the
+//                  renderer's single github-dark, byte-identical to before.
+//   theme.mermaid— false opts diagrams OUT of the palette (Mermaid's own themes instead);
+//                  default true, i.e. diagrams follow --nb-* like everything else.
+//   theme.assets — a repo-relative FOLDER served at the fixed /_nb/assets/<path>, so a
+//                  stylesheet can ship its own fonts/images and the artifact stays
+//                  self-contained (no CDN). Everything in it is emitted, referenced or
+//                  not → declare a dedicated folder, never `docs/`. Guarded by
+//                  lib/asset-dir.mjs (extension allow-list + containment).
 // print.css overrides the INTERNAL variables, so themes can never break the PDF.
+function normalizeRepoDir(raw, what) {
+  const rel = String(raw).replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  const abs = path.resolve(REPO_ROOT, rel);
+  if (!contains(REPO_ROOT, abs) || abs === path.resolve(REPO_ROOT)) {
+    throw new Error(`notabene: ${what} folder "${raw}" must be a folder INSIDE the repo.`);
+  }
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) {
+    throw new Error(`notabene: ${what} folder "${raw}" not found (the path is repo-relative).`);
+  }
+  // The folder itself may be a symlink — resolve it before trusting the path check
+  // above (containment is compared REAL path to REAL path: on macOS the repo may sit
+  // under /tmp, itself a symlink to /private/tmp).
+  if (!contains(fs.realpathSync(REPO_ROOT), fs.realpathSync(abs))) {
+    throw new Error(`notabene: ${what} folder "${raw}" is a symlink escaping the repo.`);
+  }
+  return rel;
+}
 const themeCfg = userConfig.theme ?? {};
 const themeTokens = themeCfg.tokens ?? {};
 validateTokens(themeTokens);
+const themeCode = normalizeCodeTheme(themeCfg.code ?? null);
 export const theme = {
   css: themeCfg.css == null ? null : normalizeRepoFile(themeCfg.css, "theme.css"),
+  assets: themeCfg.assets == null ? null : normalizeRepoDir(themeCfg.assets, "theme.assets"),
   tokens: themeTokens,
+  /** null = single built-in theme (unchanged); { light, dark } = dual-theme Shiki. */
+  code: themeCode,
+  /** false → Mermaid keeps its built-in themes (see lib/client/mermaid-theme.ts). */
+  mermaid: themeCfg.mermaid !== false,
   /** Inline `<style>` body for the token overrides ("" when none). */
   tokensCss: tokensToCss(themeTokens),
+  /** Inline `<style>` body wiring Shiki's dual output to light-dark() ("" when none). */
+  codeCss: codeThemeCss(themeCode),
 };
 
 /**
@@ -410,6 +466,9 @@ export default {
   home,
   homeFiles,
   branding,
+  nav,
+  navFooter,
+  clientNavLabels,
   theme,
   routeForPage,
 };

@@ -1,5 +1,7 @@
-// Pure helpers for the branding asset route (pages/_nb/): stable public name +
-// content type from a configured file's extension. Unit-tested; no fs, no config.
+// Pure helpers for the /_nb asset route: stable public name + content type from a
+// configured file's extension. Covers both families — the named branding/theme files
+// and the consumer asset folder (`theme.assets`), hence the font types.
+// Unit-tested; no fs, no config.
 
 const TYPES: Record<string, string> = {
   svg: "image/svg+xml",
@@ -11,6 +13,11 @@ const TYPES: Record<string, string> = {
   gif: "image/gif",
   avif: "image/avif",
   css: "text/css",
+  woff2: "font/woff2",
+  woff: "font/woff",
+  ttf: "font/ttf",
+  otf: "font/otf",
+  eot: "application/vnd.ms-fontobject",
 };
 
 /** Lowercased extension of a path ("docs/a/logo.SVG" → "svg"; none → ""). */

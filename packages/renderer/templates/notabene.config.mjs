@@ -62,7 +62,26 @@ export default {
   // load your own stylesheet AFTER the renderer's (cascade layers → your CSS always wins).
   // A plain value applies to both color schemes; a light-dark(a, b) pair sets each — the
   // header's scheme toggle flips them. Only touch --nb-* tokens + the documented hooks.
+  //   assets  = a repo folder served at /_nb/assets/… for the fonts/images your CSS needs
+  //             (address them RELATIVE: url("./assets/…") — that also absorbs `base`).
+  //   code    = Shiki theme for code blocks: "github-light" or { light, dark } (both
+  //             palettes then follow the scheme toggle, with no rebuild).
+  //   mermaid = false keeps Mermaid's own diagram colors (default: they follow --nb-*).
   // theme: { tokens: { accent: "light-dark(#7c3aed, #b79bff)" }, css: "docs/notabene-theme.css" },
+  // theme: { assets: "docs/theme/assets", code: { light: "github-light", dark: "github-dark" } },
+
+  // Outbound navigation links — the way back to your repo, product or releases. One item
+  // shape everywhere: { label, href, icon, iconOnly, publish }. `label` may be a per-locale
+  // map; `href` is an http(s)/mailto URL or a site path "/…"; `icon` is one of the built-in
+  // set (github, gitlab, npm, discord, slack, x, mastodon, rss, mail, book, home, star,
+  // download, external); `publish: false` keeps a link OUT of public builds. Everything is
+  // validated at load. header = topbar (mirrored in the mobile drawer), sidebar = a titled
+  // block under the space tree, footer = the site footer (unset → no footer at all).
+  // nav: {
+  //   header: [{ label: "GitHub", href: "https://github.com/you/repo", icon: "github", iconOnly: true }],
+  //   sidebar: { title: "Resources", links: [{ label: "Releases", href: "https://github.com/you/repo/releases", icon: "star" }] },
+  //   footer: { links: [{ label: "Licence", href: "/reference/licence" }], text: "© 2026 you — MIT", poweredBy: false },
+  // },
 
   // Public publishing (`notabene build --public`): a read-only STATIC site — no
   // comments/review UI, no API, no store data — plus an agent-readable surface
@@ -77,13 +96,15 @@ export default {
   //   - a whole space:  `publish: false` on a roots[] entry (above)
   //   - a sub-tree:     `exclude` globs on `<space key>/<page id>` (locale-independent)
   //   - a single page:  frontmatter `publish: false`
+  //   - a nav link:     `publish: false` on the `nav` entry (below) — dev-only links
   // publish: { site: "https://user.github.io", base: "/my-repo", exclude: ["docs/internal/**"] },
 
   // Multi-language docs. Optional — omit for a single language. Clean prefixed URLs
   // (default locale unprefixed, others /<locale>/…). Two authoring layouts:
   //   "directory" → a folder per locale:  docs/en/guide.md · docs/fr/guide.md
   //   "suffix"    → one tree, per file:    docs/guide.md · docs/guide.fr.md
-  // Translate a space's own name via a per-locale `roots[].label`/`description` map (above).
+  // Every human string of this file accepts a per-locale map: `roots[].label`/`description`,
+  // `home`, and each `nav` label / sidebar title / footer line (above).
   // i18n: { locales: ["en", "fr"], defaultLocale: "en", strategy: "directory" },
 
   // Default comment identity. Omit → the CLI uses this repo's `git config user.name` /
