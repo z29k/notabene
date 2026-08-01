@@ -57,6 +57,22 @@ describe("remarkRewriteLinks", () => {
     expect(run("/repo/docs/index.md", "./guide/index.md", SUF)).toBe("/docs/guide/index");
   });
 
+  // Regression: the loader slugs every segment (github-slugger), so `README.md` is served
+  // at `…/readme`. Rewriting without slugging emitted `…/README` — a 404 on every inline
+  // link to a README, invisible in the sidebar (built from the already-slugged route table).
+  it("slugs each segment like the loader, so README links resolve", () => {
+    expect(run("/repo/docs/api/extractor.md", "./README.md")).toBe("/docs/api/readme");
+    expect(run("/repo/docs/api/iam/clients.md", "../README.md#conventions")).toBe("/docs/api/readme#conventions");
+    expect(run("/repo/docs/index.md", "./API/Guide.md")).toBe("/docs/api/guide");
+  });
+  it("slugs in i18n directory mode too, keeping the locale prefix", () => {
+    expect(run("/repo/docs/fr/api/x.md", "./README.md", DIR)).toBe("/fr/docs/api/readme");
+  });
+  it("suffix i18n does NOT slug (a dotted locale marker must survive)", () => {
+    // github-slugger deletes dots (`a.fr` → `afr`); slugging here would break the marker.
+    expect(run("/repo/docs/index.md", "./README.md", SUF)).toBe("/docs/README");
+  });
+
   it("public base: prefixes rewritten routes, leaves non-rewritten links untouched", () => {
     expect(run("/repo/docs/index.md", "./guide/a.md", OFF, "/repo")).toBe("/repo/docs/guide/a");
     expect(run("/repo/docs/fr/index.md", "./guide/a.md", DIR, "/repo")).toBe("/repo/fr/docs/guide/a");

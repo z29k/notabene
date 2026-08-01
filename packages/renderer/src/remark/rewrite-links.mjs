@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { slug as githubSlug } from "github-slugger";
 import { decode, routeFor } from "../lib/i18n-content.mjs";
 
 // Rewrites RELATIVE links to .md/.mdx files (between docs) into site routes.
@@ -31,8 +32,9 @@ function visit(node, fn) {
 
 /**
  * The file→route mapping, shared by the remark plugin below and `notabene lint`
- * (bin — this module is raw-Node importable on purpose: only node:fs/path +
- * i18n-content.mjs). Returns `{ rootOf, localeOfFile, toRoute }`:
+ * (bin — this module is raw-Node importable on purpose: only node:fs/path,
+ * i18n-content.mjs and github-slugger, a dependency-free ESM package).
+ * Returns `{ rootOf, localeOfFile, toRoute }`:
  *   toRoute(absFilePath, srcLocale) → base-less site route, or null when the file
  *   is outside every declared root.
  * @param {{ roots: { key: string, abs: string }[], i18n: { locales: string[], defaultLocale: string, strategy: string, enabled: boolean } }} opts
@@ -52,15 +54,28 @@ export function makeLinkMapper({ roots, i18n }) {
     if (!r) return null;
     const rawRel = slug(path.relative(r.abs, abs));
     let { locale, id } = decode(rawRel, i18n);
-    // Mirror the ACTUAL id convention of the content loader. Astro's DEFAULT
-    // generateId collapses a FOLDER's index file to the folder id ("publish/index"
-    // → "publish") — without mirroring it, links to `<folder>/index.md` target a
-    // route that only exists as an .html file on lenient static hosts (404 in
-    // dev/preview). But suffix i18n swaps in makeSuffixGenerateId, which keeps ids
-    // VERBATIM (no collapse) — so the collapse must follow the same switch as
+    // Mirror the ACTUAL id convention of the content loader, or links land on routes
+    // that were never emitted. Astro's DEFAULT generateId (`generateIdDefault` →
+    // `getContentEntryIdAndSlug`) runs EVERY path segment through github-slugger and
+    // then collapses a FOLDER's index ("publish/index" → "publish"):
+    //
+    //     rawSlugSegments.map(githubSlug).join("/").replace(/\/index$/, "")
+    //
+    // Slugging is what lowercases: `api/README.md` is served at `/<space>/api/readme`.
+    // Rewriting the link without it produced `/<space>/api/README` — a 404 that the
+    // sidebar (built from the route table, already slugged) never showed, so it only
+    // surfaced on inline links. Same slugger instance as Astro's, on purpose: a
+    // hand-rolled copy would drift.
+    //
+    // Suffix i18n swaps in makeSuffixGenerateId, which keeps ids VERBATIM (slugging
+    // would eat the ".<loc>" marker) — so this must follow the same switch as
     // content.config.ts. A root-level "index" keeps its id in both conventions.
-    if (!(i18n.enabled && i18n.strategy === "suffix") && /\/index$/i.test(id)) {
-      id = id.replace(/\/index$/i, "");
+    if (!(i18n.enabled && i18n.strategy === "suffix")) {
+      id = id
+        .split("/")
+        .map((segment) => githubSlug(segment))
+        .join("/")
+        .replace(/\/index$/, "");
     }
     // Suffix mode: a canonical target reached from a non-default-locale source → prefer the
     // same-locale sibling when it exists.
