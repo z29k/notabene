@@ -68,6 +68,9 @@ export default {
         { label: { en: "MIT licence", fr: "Licence MIT" }, href: "https://github.com/z29k/notabene/blob/main/LICENSE" },
       ],
       text: "© 2026 z29k",
+      // Dogfood the attribution link too: this site is the reference example of
+      // what a notabene-published doc site looks like, footer included.
+      poweredBy: true,
     },
   },
 
