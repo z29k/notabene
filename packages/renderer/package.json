@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "author": "z29k",
-  "homepage": "https://github.com/z29k/notabene#readme",
+  "homepage": "https://z29k.github.io/notabene/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/z29k/notabene.git",
@@ -72,7 +72,10 @@
     "markdown",
     "astro",
     "ai",
-    "agent"
+    "agent",
+    "docs-as-code",
+    "claude-code",
+    "technical-writing"
   ],
   "engines": {
     "node": ">=22.12.0"
