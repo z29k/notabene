@@ -1,5 +1,6 @@
 // @ts-check
 import { fileURLToPath } from "node:url";
+import { unified } from "@astrojs/markdown-remark";
 import { defineConfig } from "astro/config";
 import mdx from "@astrojs/mdx";
 import node from "@astrojs/node";
@@ -87,12 +88,18 @@ export default defineConfig({
     // theme.codeCss feeds to light-dark() → the scheme toggle recolors code instantly.
     // Unset → the single built-in theme, i.e. the exact output of every prior version.
     shikiConfig: codeThemes ? { themes: codeThemes, defaultColor: false, wrap: true } : { theme: "github-dark", wrap: true },
-    // Rewrite inter-doc .md links → site routes (see src/remark/). Tuple form
-    // [attacher, options]: unified calls remarkRewriteLinks(roots). The base is
-    // passed explicitly (remark runs outside Vite → no BASE_URL there).
-    remarkPlugins: [[remarkRewriteLinks, { roots, i18n, base: publicMode ? publish.base : "/" }]],
-    // ```mermaid fence → <pre class="mermaid"> (rendered client-side; see lib/client/mermaid.ts).
-    rehypePlugins: [rehypeMermaid],
+    // Astro 6 moved the plugin lists off `markdown.*` and onto a PROCESSOR object;
+    // `markdown.remarkPlugins`/`rehypePlugins` still work (they are coerced into the
+    // default processor) but warn on every run. `unified()` IS that default processor,
+    // taking the lists directly — same pipeline, no deprecation.
+    //   · remarkRewriteLinks: inter-doc .md links → site routes (see src/remark/). Tuple
+    //     form [attacher, options]; the base is passed explicitly (remark runs outside
+    //     Vite → no BASE_URL there).
+    //   · rehypeMermaid: ```mermaid fence → <pre class="mermaid"> (rendered client-side).
+    processor: unified({
+      remarkPlugins: [[remarkRewriteLinks, { roots, i18n, base: publicMode ? publish.base : "/" }]],
+      rehypePlugins: [rehypeMermaid],
+    }),
   },
   vite: {
     // Consumer content (docs, notabene.config) lives outside the Astro root
