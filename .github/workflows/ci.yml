@@ -277,18 +277,18 @@ jobs:
           RANGE=$(grep -o 'data-nb-range="[0-9]*:[0-9]*"' /tmp/dev-page.html | head -1 | grep -o '[0-9]*:[0-9]*')
           curl -sf "http://127.0.0.1:3111/api/page?page=$EDPAGE&start=${RANGE%%:*}&end=${RANGE##*:}" -o /tmp/dev-block.json
           python3 -c "
-import json
-b = json.load(open('/tmp/dev-block.json'))['block']
-src = open('/tmp/consumer/docs/index.md').read()
-assert b['text'] and b['text'] in src, b
-" || { echo "MISSING: block source from GET /api/page"; exit 1; }
+          import json
+          b = json.load(open('/tmp/dev-block.json'))['block']
+          src = open('/tmp/consumer/docs/index.md').read()
+          assert b['text'] and b['text'] in src, b
+          " || { echo "MISSING: block source from GET /api/page"; exit 1; }
           BEFORE=$(md5sum /tmp/consumer/docs/index.md | cut -d' ' -f1)
           CODE=$(curl -s -o /tmp/dev-put.json -w '%{http_code}' -X PUT http://127.0.0.1:3111/api/page \
             -H 'content-type: application/json' \
             --data-binary "$(EDPAGE="$EDPAGE" python3 -c "
-import json, os
-b = json.load(open('/tmp/dev-block.json'))['block']
-print(json.dumps({'page':os.environ['EDPAGE'],'start':b['start'],'end':b['end'],'original':b['text'],'markdown':'edited by CI'}))")")
+          import json, os
+          b = json.load(open('/tmp/dev-block.json'))['block']
+          print(json.dumps({'page':os.environ['EDPAGE'],'start':b['start'],'end':b['end'],'original':b['text'],'markdown':'edited by CI'}))")")
           test "$CODE" = "403" || { echo "editor: save outside git should be refused 403, got $CODE"; cat /tmp/dev-put.json; exit 1; }
           grep -q '"error":"untracked"' /tmp/dev-put.json || { echo "editor: expected the untracked guard"; cat /tmp/dev-put.json; exit 1; }
           test "$BEFORE" = "$(md5sum /tmp/consumer/docs/index.md | cut -d' ' -f1)" \
