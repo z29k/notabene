@@ -155,6 +155,26 @@ Two zero-config touches under every doc page:
 editPattern: "https://github.com/you/repo/edit/main/{path}",
 ```
 
+  It is rendered only where the [in-page editor](./editor.md) is *not* available — that
+  is, in builds and published sites. Under `notabene dev` the editor is the better way to
+  do the same thing.
+
+## In-page editing
+
+Under `notabene dev`, a ✎ in the margin opens any block for editing right in the page —
+see [Editing in the page](./editor.md). It is on by default and needs no configuration;
+these are the knobs if you want them:
+
+```js
+edit: {
+  enabled: true,      // false hides the editor entirely
+  requireGit: true,   // false allows writing a file git isn't tracking
+},
+roots: [
+  { key: "reference", path: "docs/reference", edit: false },  // read-only space
+],
+```
+
 ## Sidebar labels & ordering
 
 By default a page's sidebar entry is its **humanized file name** and siblings sort

@@ -63,6 +63,10 @@ c'est utile :
 - **[Commentaires ancrés](https://z29k.github.io/notabene/guide/first-review)** - sur une
   sélection de texte, une page entière, un **diagramme ou une image**. Fils, résolution,
   mise en attente, vue globale `/comments`, tactile sur mobile.
+- **[Éditer dans la page](https://z29k.github.io/notabene/guide/editor)** - un ✎ dans la
+  marge ouvre n'importe quel bloc là où vous le lisez ; la même sauvegarde ferme les
+  commentaires auxquels elle répond et journalise le changement. Dev uniquement, et refuse
+  d'écrire un fichier que git ne suit pas.
 - **[La boucle de revue agent](https://z29k.github.io/notabene/guide/review-loop)** - un
   protocole file-I/O-first que n'importe quel agent peut suivre (ni serveur, ni port, ni
   MCP). Livré comme skill Claude Code ; le fichier de skill *est* la spec.

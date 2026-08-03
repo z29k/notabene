@@ -629,6 +629,17 @@ const m = t(locale);
         floatBtn.hidden = true;
         return;
       }
+      // A selection inside a block being edited belongs to the editor's formatting
+      // toolbar, not to commenting — otherwise both pop up on the same gesture and
+      // overlap. Commenting on that block is available again the moment editing ends
+      // (dev-only concern: `.nb-edit-live` only exists while the editor is mounted).
+      const anchorNode = range.commonAncestorContainer;
+      const anchorEl =
+        anchorNode.nodeType === Node.ELEMENT_NODE ? (anchorNode as Element) : anchorNode.parentElement;
+      if (anchorEl?.closest(".nb-edit-live")) {
+        floatBtn.hidden = true;
+        return;
+      }
       savedRange = range.cloneRange();
       if (coarse()) {
         floatBtn.classList.add("cmt-float--bar");
@@ -644,6 +655,16 @@ const m = t(locale);
     document.addEventListener("pointerdown", (e) => {
       pointerDown = true;
       lastPointerType = (e as PointerEvent).pointerType || "mouse";
+    });
+    // A press does not always end in `pointerup`: when a long-press turns into a NATIVE
+    // text selection, the browser takes the gesture over and ends it with `pointercancel`.
+    // Without this, `pointerDown` stays true forever, the selectionchange fallback below
+    // early-returns on every future selection, and the comment affordance never appears
+    // again for the life of the page — which is precisely how selecting text to comment
+    // stopped working on Android.
+    document.addEventListener("pointercancel", () => {
+      pointerDown = false;
+      updateFloatFromSelection();
     });
     // pointerup covers mouse, touch AND pen (was mouseup = mouse only).
     document.addEventListener("pointerup", (e) => {

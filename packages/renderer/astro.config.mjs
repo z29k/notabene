@@ -9,6 +9,7 @@ import { notabeneAppRoutes } from "./src/integrations/app-routes.mjs";
 import { notabeneAssetRoutes } from "./src/integrations/asset-routes.mjs";
 import { notabeneDevAssets } from "./src/integrations/dev-assets.mjs";
 import { notabeneDevSearch } from "./src/integrations/dev-search.mjs";
+import { notabeneEditor } from "./src/integrations/editor.mjs";
 import { notabeneRouteTruth } from "./src/integrations/route-truth.mjs";
 import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
@@ -76,7 +77,7 @@ export default defineConfig({
     notabeneRouteTruth(),
     ...(publicMode
       ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()]
-      : [notabeneAppRoutes(), notabeneDevSearch(), notabeneDevAssets()]),
+      : [notabeneAppRoutes(), notabeneDevSearch(), notabeneDevAssets(), notabeneEditor()]),
   ],
   markdown: {
     // GFM on by default. Shiki syntax highlighting — but NOT for ```mermaid: excludeLangs
@@ -96,6 +97,8 @@ export default defineConfig({
     //     form [attacher, options]; the base is passed explicitly (remark runs outside
     //     Vite → no BASE_URL there).
     //   · rehypeMermaid: ```mermaid fence → <pre class="mermaid"> (rendered client-side).
+    // The editor's source-map plugins are appended to THIS processor's options in dev
+    // only — see src/integrations/editor.mjs.
     processor: unified({
       remarkPlugins: [[remarkRewriteLinks, { roots, i18n, base: publicMode ? publish.base : "/" }]],
       rehypePlugins: [rehypeMermaid],
@@ -113,6 +116,23 @@ export default defineConfig({
     // try/catch — so no diagram renders and every block stays as plain text. Force Vite to
     // pre-bundle both so it synthesizes the CJS→ESM default. Dev-only: the production build
     // goes through Rollup, which handles CJS interop itself.
-    optimizeDeps: { include: ["mermaid", "dayjs"] },
+    // Milkdown (lazy-loaded by lib/client/editor.ts) has the same problem for a different
+    // reason: Vite's scanner never reaches these entry points from a single dynamic
+    // import, so the FIRST click on a block triggered an on-demand optimize — and Vite
+    // reloads the page when the dep graph changes. The editor was torn down mid-mount and
+    // fell back to plain-source editing, which read as "it opens a textarea full of raw
+    // Markdown". Pre-bundling them makes the first click behave like every other one.
+    optimizeDeps: {
+      include: [
+        "mermaid",
+        "dayjs",
+        "@milkdown/kit/core",
+        "@milkdown/kit/utils",
+        "@milkdown/kit/preset/commonmark",
+        "@milkdown/kit/preset/gfm",
+        "@milkdown/kit/plugin/history",
+        "@milkdown/kit/plugin/listener",
+      ],
+    },
   },
 });

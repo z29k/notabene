@@ -25,7 +25,8 @@ pouvez aussi :
 
 Sur téléphone ou tablette, la même boucle fonctionne d'abord au tactile : la nav se
 replie dans un tiroir, les commentaires deviennent des bottom sheets, et vous pouvez
-sélectionner du texte et commenter au pouce.
+sélectionner du texte et commenter au pouce. Tirez la poignée d'une feuille vers le haut
+pour l'agrandir, vers le bas pour la fermer.
 
 ## 2 · Confier les commentaires à votre agent
 

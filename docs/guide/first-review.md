@@ -17,13 +17,16 @@ Open `http://localhost:3009`, browse to any page, and **select a passage** — a
 bar appears; leave your comment right there. You can also:
 
 - comment a **whole page** (the comment box at the bottom of each page);
+
 - comment a **whole diagram or image** — hover it and use the 💬 in the toolbar
   (the ⤢ next to it opens a pan/zoom lightbox);
+
 - **reply** in threads, put a comment **on hold** (⏸ — the agent will skip it), and see
   everything across pages at **`/comments`**.
 
 On a phone or tablet the same loop works touch-first: the nav folds into a drawer,
 comments become bottom sheets, and you can select text and comment with your thumb.
+Drag a sheet's handle up to expand it, down to dismiss it.
 
 ## 2 · Hand the comments to your agent
 

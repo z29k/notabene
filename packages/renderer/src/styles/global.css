@@ -1434,7 +1434,9 @@ button.topbar-me:hover {
     inset: auto 0 var(--nb-kb, 0px) 0;
     width: auto;
     max-width: none;
-    max-height: 85svh;
+    /* Never taller than the space actually left above the keyboard (see --nb-sheet-max
+       in shell.ts); 85svh is only the ceiling when there is no keyboard. */
+    max-height: min(85svh, var(--nb-sheet-max, 85svh));
     z-index: 110;
     border: 1px solid var(--border);
     border-bottom: none;
@@ -1448,41 +1450,63 @@ button.topbar-me:hover {
   .rail.nb-sheet {
     display: block;
     padding: 12px 14px calc(env(safe-area-inset-bottom) + 12px);
+    /* The rail is a column in the page on desktop, so it never needed a background of
+       its own — it simply sat on the page's. As a bottom SHEET it overlays the article,
+       and without this the text scrolled visibly underneath it. `#cmt-pop` and
+       `#cmt-view`, which are overlays on every viewport, already carry the same token. */
+    background: var(--bg-elev);
   }
   .rail .toc-inner {
     display: none; /* the TOC lives inline on compact, not in the sheet */
   }
-  /* Drag-handle affordance atop each sheet (visual only; drag deferred). */
-  .rail.nb-sheet::before,
-  #cmt-pop:not([hidden])::before,
-  #cmt-view:not([hidden])::before {
+  /* Drag handle. It used to be a `::before` — a pill that looks grabbable and does
+     nothing, which is worse than no affordance at all. It is now a real button
+     (injected by shell.ts, which owns the drag): a pseudo-element cannot opt out of
+     the sheet's `touch-action: pan-y`, so the browser would steal every vertical drag
+     before any JS ran. The pill is drawn with ::before INSIDE the button; the button
+     itself is a comfortable 28px target spanning the sheet's width. */
+  .nb-sheet-grip {
+    display: block;
+    width: 100%;
+    height: 28px;
+    padding: 0;
+    margin: -4px 0 6px;
+    border: 0;
+    background: none;
+    cursor: grab;
+    touch-action: none;
+  }
+  .nb-sheet-grip:active {
+    cursor: grabbing;
+  }
+  .nb-sheet-grip::before {
     content: "";
     display: block;
     width: 36px;
     height: 4px;
-    margin: 2px auto 10px;
+    margin: 10px auto 0;
     border-radius: 999px;
     background: var(--border);
+  }
+  .nb-sheet-grip:hover::before,
+  .nb-sheet-grip:focus-visible::before {
+    background: var(--text-faint);
+  }
+  /* Expanded detent: fill the sheet's allowance instead of hugging the content. */
+  .rail.nb-sheet.nb-sheet-full,
+  #cmt-pop.nb-sheet-full:not([hidden]),
+  #cmt-view.nb-sheet-full:not([hidden]) {
+    height: min(85svh, var(--nb-sheet-max, 85svh));
+  }
+  /* Expanding the composer must give the extra room to the TEXTAREA — otherwise the
+     sheet just grows a dead grey area under a three-line form. */
+  #cmt-pop.nb-sheet-full:not([hidden]) textarea {
+    flex: 1;
   }
   #cmt-pop textarea {
     font-size: 16px; /* ≥16px prevents iOS focus-zoom */
   }
 
-  /* Selection affordance as a docked bottom action-bar (JS adds --bar on touch). */
-  .cmt-float.cmt-float--bar {
-    top: auto !important;
-    left: 12px !important;
-    right: 12px;
-    bottom: calc(env(safe-area-inset-bottom) + 12px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: auto;
-    min-height: 44px;
-    font-size: 15px;
-    border-radius: 10px;
-    z-index: 90;
-  }
 }
 
 @media (max-width: 560px) {
@@ -2329,6 +2353,409 @@ button.nb-scheme-toggle:hover {
 }
 .page-meta-edit:hover {
   color: var(--accent);
+}
+
+/* ── in-page editor (dev only) ─────────────────────────────────────────────
+   Editing has no chrome of its own. The surface must be visually INDISTINGUISHABLE
+   from the rendered block — no border, no background, no padding, no box — because
+   anything else makes the page jump the moment you click, which is exactly what a
+   block editor must not do. The only new things on screen are a caret, a hover
+   handle in the gutter, and a toolbar that appears at the selection.
+
+   These rules ship in the shared stylesheet like every other component's (.cmt-*
+   included), inert in any build: no build ever emits a stamp. Moving them into
+   Editor.astro was tried and is WORSE — an `is:global` component style gets inlined
+   into every page's HTML instead of the one bundled sheet. The CI canary therefore
+   greps for an actual stamp (`data-nb-range="`), not for the bare token. */
+
+/* Editable blocks stay completely unstyled until hovered — reading must not look
+   like an editor. The tint is the lightest possible "this responds to a click". */
+[data-nb-range]:hover {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  border-radius: 4px;
+}
+.nb-edit-handle {
+  position: absolute;
+  z-index: 40;
+  width: 28px;
+  height: 28px;
+  /* The visible button is 28px, but its HIT AREA reaches back to the block it belongs
+     to (::after below) — so the pointer never crosses dead space on its way here. */
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-soft);
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 10%);
+}
+.nb-edit-handle::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  left: 100%;
+  width: 10px;
+}
+.nb-edit-handle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* The live surface. `display: contents` would be ideal but breaks contenteditable,
+   so instead every wrapper contributes exactly nothing to layout and the inner
+   blocks inherit the article's own typography — margins collapse through as if the
+   editor were not there. */
+.nb-edit-live,
+.nb-edit-live .milkdown,
+.nb-edit-live .nb-wysiwyg-area {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  font: inherit;
+  color: inherit;
+}
+.nb-edit-live .nb-wysiwyg-area {
+  min-height: 1.6em;
+}
+/* ProseMirror wraps the content of every cell and list item in a real <p>, where the
+   rendered page leaves it bare inline. Left alone, `.prose p`'s 13.5px margins add 27px
+   to every table row and list item — the one place where "identical to the rendered
+   block" visibly broke (64px rows against 37px). Everything else about these tables,
+   borders and padding included, already comes from `.prose` and matches exactly. */
+.nb-edit-live :is(td, th, li) > p {
+  margin: 0;
+}
+/* Caret only — no focus ring. The block is the page; a ring would redraw its box. */
+.nb-edit-live .nb-wysiwyg-area:focus,
+.nb-edit-live .nb-wysiwyg-area:focus-visible {
+  outline: none;
+}
+/* Source fallback (⌘⇧M): monospace, but still box-free. */
+.nb-edit-source {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 0.92em;
+  line-height: 1.7;
+  resize: none;
+  outline: none;
+  overflow: hidden;
+}
+
+/* Selection toolbar — small, at the selection, gone the moment nothing is selected. */
+.nb-edit-float {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+.nb-edit-fmt {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 6px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-soft);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.nb-edit-fmt:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.nb-edit-fmt--strong {
+  font-weight: 700;
+}
+.nb-edit-fmt--emphasis {
+  font-style: italic;
+}
+.nb-edit-fmt--inlineCode {
+  font-family: var(--mono);
+}
+
+/* The block being edited must READ as being edited — same metrics, different surface.
+   Padding is cancelled by an equal negative margin, so the tint and the accent edge
+   cost exactly zero layout shift. */
+.nb-edit-live {
+  padding: 4px 10px;
+  margin: -4px -10px;
+  border-radius: 6px;
+  background: var(--bg-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* The editing chrome, vertical, in the gutter. Under the block it was easy to miss and
+   sat in the middle of the prose; a column of real buttons beside the block is visible
+   without ever entering the reading column. */
+.nb-edit-rail {
+  position: absolute;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
+}
+.nb-edit-act {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-soft);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.nb-edit-act:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.nb-edit-act--done {
+  color: var(--accent);
+  font-weight: 700;
+}
+.nb-edit-act sup {
+  position: absolute;
+  top: 0;
+  right: 1px;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* Card under the rail: the loop controls, and any refusal the server sent back. Hidden
+   until there is something to say — an empty card would be chrome for its own sake. */
+.nb-edit-panel {
+  position: absolute;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-soft);
+}
+.nb-edit-panel p {
+  margin: 0;
+}
+.nb-edit-panel-title {
+  color: var(--text-faint);
+}
+.nb-edit-close {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  cursor: pointer;
+}
+.nb-edit-close input {
+  margin: 2px 0 0;
+  flex: none;
+}
+.nb-edit-note {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.nb-edit-note:focus {
+  border-color: var(--accent);
+}
+.nb-edit-msg[data-kind="error"] {
+  color: #c0392b;
+}
+.nb-edit-msg[data-kind="warn"],
+.nb-edit-warn {
+  color: #b9770e;
+}
+.nb-edit-extend {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 0.2rem 0.5rem;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+/* Tooltip for the editor chrome. The native `title` is too slow, unstyleable and lands
+   wherever the OS wants — unusable for 30px buttons in a narrow gutter. */
+.nb-edit-tip {
+  position: absolute;
+  z-index: 70;
+  max-width: 15rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11.5px;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 22%);
+}
+
+/* ── in-page editor, touch ────────────────────────────────────────────────
+   A phone has no hover to reveal the pencil with and no gutter to hang a rail in, so
+   the model changes rather than shrinks: a TAP opens the block (selecting text there is
+   a long-press, so nothing is taken from commenting), and the chrome docks to the bottom
+   of the viewport — the same place the comment popover already goes on mobile
+   (.cmt-float--bar). Docked elements are laid out by CSS alone, so nothing can end up
+   positioned off-screen. */
+@media (pointer: coarse) {
+  .nb-edit-handle {
+    display: none;
+  }
+  .nb-edit-rail--dock {
+    position: fixed;
+    /* Same reasoning as .cmt-float--bar, with one more: while editing, the software
+       keyboard owns the bottom of the screen entirely. */
+    top: calc(var(--topbar-h) + 8px);
+    bottom: auto;
+    left: 12px;
+    right: 12px;
+    z-index: 90;
+    flex-direction: row;
+    justify-content: space-around;
+    padding: 6px;
+  }
+  .nb-edit-rail--dock .nb-edit-act {
+    flex: 1;
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 17px;
+  }
+  /* The card sits directly above the docked bar rather than under the block. */
+  .nb-edit-panel--dock {
+    position: fixed;
+    top: calc(var(--topbar-h) + 66px);
+    bottom: auto;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    z-index: 90;
+    max-height: 40vh;
+    overflow-y: auto;
+    font-size: 13px;
+  }
+  .nb-edit-panel--dock .nb-edit-note,
+  .nb-edit-panel--dock .nb-edit-close {
+    min-height: 40px;
+  }
+  .nb-edit-panel--dock .nb-edit-note {
+    font-size: 16px; /* avoid iOS focus-zoom */
+  }
+  /* Bigger targets in the selection toolbar, and a tooltip nobody can hover: drop it. */
+  .nb-edit-fmt {
+    min-width: 44px;
+    height: 40px;
+    font-size: 16px;
+  }
+  .nb-edit-tip {
+    display: none;
+  }
+  /* Tapped, not yet editing: a tap must never be destructive, so it only ARMS the
+     block and reveals the pencil. The outline says which block the pencil refers to. */
+  [data-nb-armed] {
+    outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+  .nb-edit-chip {
+    position: fixed;
+    top: calc(var(--topbar-h) + 8px);
+    left: 12px;
+    right: 12px;
+    z-index: 95;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-height: 44px;
+    padding: 0 14px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--bg);
+    background: var(--accent);
+    border: 0;
+    border-radius: 10px;
+    box-shadow: 0 6px 20px rgb(0 0 0 / 25%);
+    cursor: pointer;
+  }
+  /* The block being edited must stay clear of the docked chrome at the top. */
+  .nb-edit-live {
+    scroll-margin-top: 40vh;
+  }
+}
+
+/* Selection affordance as a docked bottom action-bar. The `--bar` class is added by JS
+   from the POINTER TYPE (touch), so its styling must not hang off a WIDTH media query —
+   it used to live inside `max-width: 1024px`, which meant that on a touch device wider
+   than that (tablet in landscape, touchscreen laptop) the class was applied with nothing
+   to position it: the button left the screen and commenting became impossible. The class
+   is the condition; the width is not. */
+.cmt-float.cmt-float--bar {
+  /* TOP, not bottom. The bottom of a phone screen is not ours: Android stacks its own
+     furniture there (the "tap to search" chip, the gesture pill) and it covered this
+     button outright — the action was simply unreachable. iOS is no better once the
+     keyboard is up. The top edge, just under our own sticky topbar, is the one strip
+     no platform claims, and it is clear of the native selection callout too (which is
+     drawn next to the selection, mid-screen). */
+  top: calc(var(--topbar-h) + 8px) !important;
+  bottom: auto;
+  left: 12px !important;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 44px;
+  font-size: 15px;
+  border-radius: 10px;
+  z-index: 90;
 }
 
 } /* @layer nb-base */

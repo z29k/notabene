@@ -3,7 +3,7 @@ title: Doc multilingue
 description: Servez les mêmes docs en plusieurs langues — URL propres préfixées, sélecteur dans l'en-tête, commentaires par langue.
 sidebar:
   label: Doc multilingue
-  order: 7
+  order: 8
 ---
 
 # Doc multilingue (i18n)

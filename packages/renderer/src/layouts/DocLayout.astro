@@ -14,6 +14,8 @@ import {
   author,
   authorEmail,
   branding,
+  edit,
+  roots,
   theme,
   clientI18n,
   clientNavLabels,
@@ -111,6 +113,24 @@ const {
 } = Astro.props;
 // UI chrome follows THIS page's locale (t() falls back to English per key).
 const m = t(locale);
+
+// In-page editor: shown only where a save can actually succeed. `publicMode` alone is not
+// enough — the write API is injected under `astro dev` only, so a normal build/preview
+// would otherwise show an "Edit" button that answers 403. Gated server-side (rather than
+// via clientRoots) so nothing about editing reaches any client payload.
+const editorOn =
+  !publicMode &&
+  edit.enabled &&
+  (import.meta.env.DEV || process.env.NOTABENE_ALLOW_WRITE === "1") &&
+  !!page &&
+  roots.find((r: { key: string; edit: boolean }) => r.key === space)?.edit !== false;
+const Editor = editorOn ? (await import("../components/Editor.astro")).default : null;
+
+// "Edit this page" sends the reader to GitHub. Where the in-page editor is available that
+// is a strictly worse way to do the same thing, so it is not rendered — but a BUILT or
+// PUBLISHED site has no editor, and then that link is the only way a reader can propose a
+// change. It survives exactly there.
+const showEditHref = !!editHref && !editorOn;
 const showLang = clientI18n.enabled && alternates.length > 1;
 // Aggregate pages: ship EVERY locale's catalog so the client can re-localize the chrome to
 // the visitor's current language (no per-page locale to key off server-side).
@@ -535,20 +555,21 @@ const relocalizeNav = navLabels != null;
         >
           <slot />
         </article>
-        {(editHref || lastUpdatedLabel) && (
+        {(showEditHref || lastUpdatedLabel) && (
           <div class="page-meta">
             {lastUpdatedLabel && (
               <span class="page-meta-updated">
                 {m.updatedOn} <time datetime={lastUpdatedIso}>{lastUpdatedLabel}</time>
               </span>
             )}
-            {editHref && (
+            {showEditHref && (
               <a class="page-meta-edit" href={editHref} target="_blank" rel="noopener">
                 {m.editPage}
               </a>
             )}
           </div>
         )}
+        {Editor && <Editor />}
         {Comments && <Comments page={page} space={space} locale={locale} />}
         {publicMode && hasRail && <PublicZoom />}
       </main>
@@ -612,8 +633,13 @@ const relocalizeNav = navLabels != null;
       import { closeOverlay, currentOverlay, initShell, openOverlay } from "../lib/client/shell";
       import { localizeField } from "../lib/i18n-content.mjs";
 
-      // Wire the shared scrim / Escape / resize-to-desktop overlay closers once.
-      initShell();
+      // Wire the shared scrim / Escape / resize-to-desktop overlay closers once. The
+      // label travels here because shell.ts is framework-free and has no catalog of
+      // its own — it is the accessible name of every bottom sheet's drag handle.
+      initShell(
+        (JSON.parse(document.getElementById("notabene-i18n")?.textContent || "{}") as Record<string, string>)
+          .sheetGrip,
+      );
 
       // Scheme toggle (auto → light → dark → auto). The icon follows [data-scheme]
       // via CSS; only the accessible label needs JS.

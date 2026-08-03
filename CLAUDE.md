@@ -195,6 +195,53 @@ reply (the agent re-reads it next pass). Diff renders unified/side-by-side
 (`src/lib/client/diff.ts`, mode persisted in `localStorage`). `reviewMode` is exported
 from `config.mjs` and injected to the client via `DocLayout` (`#notabene-review`).
 
+## Architecture: the in-page editor (the human half of the loop)
+
+**Dev-only by construction**, like the comments API — but it writes the **content**, not
+the store, so the blast radius is different and the guards differ too.
+
+- **Injected, never built in.** `src/integrations/editor.mjs` adds the source-map plugins
+  and the `/api/page` + `/api/asset` routes **only when `command === "dev"`** (or
+  `NOTABENE_ALLOW_WRITE=1`). Every build — normal, preview, public — is byte-identical to
+  one without the feature; CI greps the artifact for `data-nb-range=` / `/api/page` /
+  `@milkdown`. It pushes into `config.markdown.processor.options.{remark,rehype}Plugins`:
+  `updateConfig({ markdown })` is NOT usable, `mergeConfig` REPLACES `markdown.processor`.
+- **Block boundaries come from Astro's own render, in two stages.** `src/remark/source-map.mjs`
+  records each top-level node's `[start,end)` on the vfile; `src/rehype/source-stamp.mjs`
+  runs AFTER Shiki (which destroys `position` on code blocks) and joins **by index** —
+  560/576 blocks stamped on `docs/`, 0 misalignment. The attribute is **`data-nb-range`**,
+  NEVER `data-nb-src`: `lib/client/mermaid.ts` already stores diagram sources in
+  `dataset.nbSrc` and every diagram breaks. Counts disagreeing ⇒ nothing stamped ⇒ page
+  not editable (**fail-closed**); `.mdx` is skipped outright (its offsets are not
+  frontmatter-relative, and the server re-parses without `remark-mdx`).
+- **Offsets are body-relative.** The base is `parseFrontmatter(raw).content` **`.trim()`**
+  (astro's markdown entry type trims) — `lib/page-write.ts:bodySpan` derives it; drop the
+  `.trim()` and every `GET` answers `stale`.
+- **The range is a hint, `original` is the contract.** `lib/md-splice.ts` re-locates the
+  text among the CURRENT block ranges (never a raw string search — a match inside a code
+  fence would be invisible to the invariant), then splices, **re-parses, and refuses**
+  unless every untouched top-level block comes back byte-identical. Pure, exhaustively
+  tested over `docs/`.
+- **`edit: { enabled, requireGit }`** + `roots[].edit: false`. `requireGit` refuses to
+  write a file git isn't tracking — git is the only undo an editor on real content has,
+  and `notabene dev` does not require a repo. Reported by `doctor`.
+- **UI: the document is the interface.** No mode. Desktop: hover shows a ✎ in the gutter
+  (hiding is DELAYED — the handle lives outside the block, so reaching it means leaving
+  it); click opens the block in place, tinted, same metrics, zero layout shift. Selecting
+  text always means *comment*, everywhere — clicking the text to edit was tried and stole
+  that gesture. Touch: no hover and no gutter, so a **tap ARMS** the block (a bare tap must
+  never edit: on a phone the tap is the reading gesture) and the chrome docks to the
+  **top** — the bottom belongs to the platform (Android's search chip, the keyboard).
+- **Rich editing is Milkdown**, dynamically imported like mermaid, and its entry points
+  MUST be in `optimizeDeps.include`: otherwise Vite optimizes on the first click and
+  reloads the page mid-mount, which reads as "it opens a raw-Markdown textarea".
+  `lib/md-style.ts` infers the file's own conventions so an edited block comes back
+  looking like the rest of the file (lists: 87% rewritten → 0%).
+- **The loop, not a wiki.** A save can close the comments it answers (`PATCH /api/comments`,
+  `resolved` even under `review: "approve"` — the human editing IS the validator) and
+  journal the change (`POST /api/journal`, sharing `lib/journal-write.mjs` with the CLI).
+  `comments verify` audits the result exactly as it audits an agent pass.
+
 ## Architecture: PDF export
 
 Static `src/pages/print/[...scope].astro` routes render a print-optimized, concatenated view
@@ -214,7 +261,8 @@ parsing/ordering is the pure, unit-tested `src/lib/print-scope.ts`. Two ways to 
   Flags: `--scope`, `--locale`, `--out`, `--chrome`. `pagedjs` was evaluated and **removed** (client-side
   pagination hangs in a hidden tab and can't emit a real PDF outline — see the pdf-export memory).
 
-**Page footer meta.** Config `editPattern` ("{path}" placeholder REQUIRED, validated at
+**Page footer meta.** Config `editPattern` (rendered ONLY where the in-page editor is
+unavailable — builds and public sites; "{path}" placeholder REQUIRED, validated at
 load) → an "Edit this page" link under every doc page; last-updated = git AUTHOR date via
 ONE streamed `git log` per build (`src/lib/git-dates.mjs`, pure parser unit-tested;
 frontmatter `lastUpdated` overrides; silent null outside git), formatted per page locale

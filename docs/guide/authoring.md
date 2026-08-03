@@ -3,7 +3,7 @@ title: Authoring docs
 description: The rendering palette — what you can put in a notabene page (CommonMark/GFM, Shiki code, Mermaid diagrams, inter-doc links) and the MDX-safety rules.
 sidebar:
   label: Authoring docs
-  order: 6
+  order: 7
 # CANONICAL SOURCE. `npm run gen:protocol` regenerates the plugin skills and
 # packages/renderer/protocol.md (npm + every consumer's <store>/protocol.md) from this
 # page. Absolute links only — the text lands outside this site. Bump PROTOCOL_VERSION

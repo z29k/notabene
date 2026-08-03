@@ -1,0 +1,23 @@
+---
+// In-page editor island. Rendered ONLY when writing is possible — dev, `edit.enabled`, and
+// the page's space not opted out — so there is never an affordance that answers 403.
+// DocLayout imports this dynamically, exactly like Comments.astro, so a public build keeps
+// it out of the module graph entirely.
+//
+// It renders no chrome of its own: no button, no bar, no panel. The editor's entire surface
+// IS the document (see lib/client/editor.ts) — a hover handle in the gutter and a toolbar
+// that appears at the selection, both created by the script and attached to <body>.
+---
+
+<script>
+  import { mountEditor } from "../lib/client/editor";
+
+  const article = document.getElementById("doc-content");
+  const page = article?.dataset.page;
+  if (article && page) {
+    const messages: Record<string, string> = JSON.parse(
+      document.getElementById("notabene-i18n")?.textContent || "{}",
+    );
+    mountEditor({ page, article, messages });
+  }
+</script>
