@@ -35,7 +35,7 @@ describe("specSource", () => {
     expect(stripFrontmatter("# H\n")).toBe("# H\n");
   });
   it("drops the editor-only note — meaningless once the text sits in a consumer's store", () => {
-    expect(stripLeadingComments(EDITOR_NOTE + "\n# H\n")).toBe("# H\n");
+    expect(stripLeadingComments(`${EDITOR_NOTE}\n# H\n`)).toBe("# H\n");
     expect(specSource(SPEC).startsWith("# Title")).toBe(true);
   });
   it("leaves an unterminated comment alone rather than eating the document", () => {

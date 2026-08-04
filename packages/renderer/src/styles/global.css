@@ -1126,6 +1126,18 @@ button.topbar-me:hover {
   background: var(--bg-soft);
   font-weight: 600;
 }
+/* An improvised ROW header — the only kind GFM allows. Markdown has no row-header cell, so
+   the author writes `| **Label** | … |`, which still reads as a label on GitHub or in any
+   other viewer, and here it also gets the header row's own surface. No new syntax, nothing
+   to configure, and deleting the bold deletes the styling.
+   Triggered by the table toolbar's header-row / header-column actions, which bold the WHOLE
+   row or column — the only thing Markdown can carry. A lone bold cell is emphasis and is
+   left alone. The class is decided in src/rehype/table-row-header.mjs, NOT by a selector:
+   CSS can see neither text nodes nor "is every cell of this column bold?".
+   Consumers who dislike the tint override `.prose td.nb-cellhead` in their theme.css. */
+.prose td.nb-cellhead {
+  background: var(--bg-soft);
+}
 .prose img {
   max-width: 100%;
   border-radius: 6px;
@@ -2368,12 +2380,9 @@ button.nb-scheme-toggle:hover {
    into every page's HTML instead of the one bundled sheet. The CI canary therefore
    greps for an actual stamp (`data-nb-range="`), not for the bare token. */
 
-/* Editable blocks stay completely unstyled until hovered — reading must not look
-   like an editor. The tint is the lightest possible "this responds to a click". */
-[data-nb-range]:hover {
-  background: color-mix(in srgb, var(--accent) 5%, transparent);
-  border-radius: 4px;
-}
+/* Editable blocks stay COMPLETELY unstyled until opened — reading must not look like an
+   editor. Hover reveals the gutter handles and nothing else: a hover tint was tried and
+   read as a selection (Notion tints nothing either; the handles are the affordance). */
 .nb-edit-handle {
   position: absolute;
   z-index: 40;
@@ -2407,6 +2416,10 @@ button.nb-scheme-toggle:hover {
   border-color: var(--accent);
   background: var(--accent-soft);
 }
+.nb-edit-handle svg {
+  width: 15px;
+  height: 15px;
+}
 
 /* The live surface. `display: contents` would be ideal but breaks contenteditable,
    so instead every wrapper contributes exactly nothing to layout and the inner
@@ -2425,6 +2438,12 @@ button.nb-scheme-toggle:hover {
 }
 .nb-edit-live .nb-wysiwyg-area {
   min-height: 1.6em;
+  /* What prosemirror-view's own stylesheet would set (we cannot import it here — this
+     file ships in every build and the CI canary greps for that token): the editable
+     surface must preserve whitespace or consecutive spaces silently collapse. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  font-variant-ligatures: none;
 }
 /* ProseMirror wraps the content of every cell and list item in a real <p>, where the
    rendered page leaves it bare inline. Left alone, `.prose p`'s 13.5px margins add 27px
@@ -2469,12 +2488,153 @@ button.nb-scheme-toggle:hover {
   border-radius: 7px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
 }
+/* Notion's answer to "how would anyone know?": the empty block says what to press.
+   ProseMirror renders an empty paragraph as `<p><br class="ProseMirror-trailingBreak"></p>`,
+   so `:empty` never matches — `:has()` on that break is what identifies it. The text rides
+   in on an inherited custom property because it has to be translatable, and `attr()` only
+   reads the pseudo-element's OWN element.
+
+   The CHILD combinator is load-bearing: every cell of a fresh table is an empty paragraph
+   too, so a descendant selector painted the hint into all nine of them at once, overlapping
+   into an unreadable smear. Only a top-level block gets the prompt. */
+.nb-wysiwyg-area > p:has(> br.ProseMirror-trailingBreak:only-child)::before {
+  content: var(--nb-placeholder, "");
+  position: absolute;
+  color: var(--text-soft);
+  opacity: 0.62;
+  pointer-events: none;
+}
+.nb-wysiwyg-area > p:has(> br.ProseMirror-trailingBreak:only-child) {
+  position: relative;
+}
+/* The `/` palette. Same surface language as the floating bar — it is the same kind of
+   thing: transient chrome anchored to the caret, never part of the reading column.
+   Visibility is `data-show`, flipped by Milkdown's SlashProvider (which also positions
+   the element), not `hidden` — the provider owns this element's lifecycle. */
+.nb-edit-menu {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 264px;
+  max-height: 320px;
+  overflow-y: auto;
+  /* The default scrollbar is a wide, bright slab on a 190px popover — louder than the list
+     it is scrolling. The standard properties are the whole answer: setting EITHER of them
+     makes Chrome drop ::-webkit-scrollbar entirely, so the two cannot be combined. Most of
+     the noise was the bright track anyway, not the width. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  padding: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+/* Safari before 18.4 has neither standard property; there, and only there, the WebKit
+   pseudo-elements are still the way to calm it down. */
+@supports not (scrollbar-width: thin) {
+  .nb-edit-menu::-webkit-scrollbar {
+    width: 6px;
+  }
+  .nb-edit-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .nb-edit-menu::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  .nb-edit-menu::-webkit-scrollbar-thumb:hover {
+    background: var(--text-soft);
+  }
+}
+.nb-edit-menu:not([data-show="true"]) {
+  display: none;
+}
+.nb-edit-menu-sect {
+  padding: 6px 10px 2px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.nb-edit-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.nb-edit-menu-item:hover,
+.nb-edit-menu-item.is-active {
+  background: var(--accent-soft);
+}
+.nb-edit-menu-ic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text-soft);
+}
+.nb-edit-menu-ic svg {
+  width: 14px;
+  height: 14px;
+}
+.nb-edit-menu-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.nb-edit-menu-desc {
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The honest shortcut: the Markdown that types the same block. */
+.nb-edit-menu-item kbd {
+  margin-left: auto;
+  padding: 1px 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+/* The gutter + and ⋮⋮ sit further out than the ✎ and stay quieter until reached for. */
+.nb-edit-handle--add,
+.nb-edit-handle--menu {
+  opacity: 0.55;
+}
+.nb-edit-handle--add:hover,
+.nb-edit-handle--menu:hover {
+  opacity: 1;
+}
 .nb-edit-fmt {
-  min-width: 30px;
-  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
   padding: 0 6px;
   font: inherit;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1;
   color: var(--text-soft);
   background: none;
@@ -2482,18 +2642,43 @@ button.nb-scheme-toggle:hover {
   border-radius: 5px;
   cursor: pointer;
 }
+.nb-edit-fmt svg {
+  width: 16px;
+  height: 16px;
+}
 .nb-edit-fmt:hover {
   color: var(--accent);
   background: var(--accent-soft);
 }
-.nb-edit-fmt--strong {
-  font-weight: 700;
+/* Active marks read as pressed — the answer to "is this already bold?" the glyph-only
+   bar never gave. */
+.nb-edit-fmt.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
 }
-.nb-edit-fmt--emphasis {
-  font-style: italic;
+/* Turn into leads the bar, as a labelled control: the label IS the current block type,
+   which doubles as the bar's only state readout (Notion's "Normal text ▾"). */
+.nb-edit-fmt--turninto {
+  gap: 4px;
+  padding: 0 8px;
+  border-right: 1px solid var(--border);
+  border-radius: 5px 0 0 5px;
+  margin-right: 2px;
+  white-space: nowrap;
 }
-.nb-edit-fmt--inlineCode {
-  font-family: var(--mono);
+.nb-edit-fmt--turninto .nb-edit-fmt-chevron {
+  display: flex;
+}
+.nb-edit-fmt--turninto .nb-edit-fmt-chevron svg {
+  width: 12px;
+  height: 12px;
+}
+/* Header toggles only make sense in a table; the border groups them apart. */
+.nb-edit-fmt--headerRow,
+.nb-edit-fmt--outdent {
+  border-left: 1px solid var(--border);
+  margin-left: 2px;
+  border-radius: 0 5px 5px 0;
 }
 
 /* The block being edited must READ as being edited — same metrics, different surface.
@@ -2507,31 +2692,54 @@ button.nb-scheme-toggle:hover {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* The editing chrome, vertical, in the gutter. Under the block it was easy to miss and
-   sat in the middle of the prose; a column of real buttons beside the block is visible
-   without ever entering the reading column. */
-.nb-edit-rail {
-  position: absolute;
-  z-index: 45;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 3px;
+/* The session card, directly under the block, IN FLOW in the reading column. It replaced
+   a vertical rail + far-left panel that put the cancel confirmation 800px from the hand
+   asking for it. Compact when the block is untouched (one row of actions); the loop
+   controls appear underneath once there is a change to attach them to. */
+.nb-edit-card {
+  margin: 0.5rem 0 1rem;
+  padding: 0.45rem 0.55rem;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 10%);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-soft);
 }
-.nb-edit-act {
-  position: relative;
-  width: 30px;
-  height: 30px;
-  padding: 0;
+.nb-edit-card-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+}
+.nb-edit-card-spring {
+  flex: 1;
+}
+.nb-edit-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+.nb-edit-card-body[hidden] {
+  display: none;
+}
+.nb-edit-card-body p {
+  margin: 0;
+}
+.nb-edit-card-title {
+  color: var(--text-faint);
+}
+.nb-edit-act {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 9px;
   font: inherit;
-  font-size: 15px;
+  font-size: 12.5px;
   line-height: 1;
   color: var(--text-soft);
   background: none;
@@ -2539,45 +2747,128 @@ button.nb-scheme-toggle:hover {
   border-radius: 5px;
   cursor: pointer;
 }
+.nb-edit-act svg {
+  width: 14px;
+  height: 14px;
+}
 .nb-edit-act:hover {
   color: var(--accent);
   background: var(--accent-soft);
 }
 .nb-edit-act--done {
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
 }
-.nb-edit-act sup {
-  position: absolute;
-  top: 0;
-  right: 1px;
-  font-size: 8px;
-  line-height: 1;
-  color: var(--accent);
+/* Cancel is the only control here that destroys work, so it never wears the accent —
+   and once armed it says so in the one place the eye is already looking. Same literal
+   as .nb-edit-msg[data-kind="error"]: there is no danger token, and inventing one here
+   would put a colour outside the documented --nb-* surface. */
+.nb-edit-act--cancel:hover {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 12%, transparent);
+}
+.nb-edit-act--armed,
+.nb-edit-act--armed:hover {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 16%, transparent);
+  font-weight: 600;
 }
 
-/* Card under the rail: the loop controls, and any refusal the server sent back. Hidden
-   until there is something to say — an empty card would be chrome for its own sake. */
-.nb-edit-panel {
+/* The ⋮⋮ block menu and the toolbar's Turn into menu — one popover language. */
+.nb-block-menu {
   position: absolute;
-  z-index: 45;
+  z-index: 60;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  padding: 0.5rem 0.6rem;
+  min-width: 200px;
+  padding: 4px;
   background: var(--bg-elev);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 14%);
-  font-size: 11.5px;
-  line-height: 1.45;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+.nb-block-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.nb-block-menu-item:hover {
+  background: var(--accent-soft);
+}
+.nb-block-menu-ic {
+  display: flex;
+  flex: none;
   color: var(--text-soft);
 }
-.nb-edit-panel p {
-  margin: 0;
+.nb-block-menu-ic svg {
+  width: 14px;
+  height: 14px;
 }
-.nb-edit-panel-title {
-  color: var(--text-faint);
+.nb-block-menu-check {
+  display: flex;
+  margin-left: auto;
+  color: var(--accent);
+}
+.nb-block-menu-check svg {
+  width: 13px;
+  height: 13px;
+}
+.nb-block-menu-item--danger {
+  color: #c0392b;
+}
+.nb-block-menu-item--danger .nb-block-menu-ic {
+  color: inherit;
+}
+.nb-block-menu-item--danger:hover,
+.nb-block-menu-item--armed {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 12%, transparent);
+}
+
+/* Transient confirmation near the action (link copied, a refusal from the menu). */
+.nb-toast {
+  position: absolute;
+  z-index: 80;
+  max-width: 22rem;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 12px;
+  line-height: 1.4;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 22%);
+  pointer-events: none;
+  animation: nb-toast-in 0.15s ease-out;
+}
+@keyframes nb-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+/* Post-save notice: the save's own HMR reload replaces the page, so this variant is
+   FIXED (survives layout, findable at the same spot on the fresh page), wider, and
+   dismissible — the base toast is a 2s pointer-events-none flash. */
+.nb-toast--save {
+  position: fixed;
+  top: calc(var(--topbar-h) + 10px);
+  left: 50%;
+  /* `translate`, not `transform`: the entry animation animates `transform` and would
+     override the centring for its first frames. */
+  translate: -50% 0;
+  max-width: min(42rem, 90vw);
+  z-index: 95;
+  pointer-events: auto;
+  cursor: pointer;
 }
 .nb-edit-close {
   display: flex;
@@ -2649,43 +2940,33 @@ button.nb-scheme-toggle:hover {
   .nb-edit-handle {
     display: none;
   }
-  .nb-edit-rail--dock {
+  /* The session card docks under the topbar instead of sitting under the block. Same
+     reasoning as .cmt-float--bar, with one more: while editing, the software keyboard
+     owns the bottom of the screen entirely. */
+  .nb-edit-card--dock {
     position: fixed;
-    /* Same reasoning as .cmt-float--bar, with one more: while editing, the software
-       keyboard owns the bottom of the screen entirely. */
     top: calc(var(--topbar-h) + 8px);
     bottom: auto;
     left: 12px;
     right: 12px;
+    margin: 0;
     z-index: 90;
-    flex-direction: row;
-    justify-content: space-around;
-    padding: 6px;
-  }
-  .nb-edit-rail--dock .nb-edit-act {
-    flex: 1;
-    min-height: 44px;
-    min-width: 44px;
-    font-size: 17px;
-  }
-  /* The card sits directly above the docked bar rather than under the block. */
-  .nb-edit-panel--dock {
-    position: fixed;
-    top: calc(var(--topbar-h) + 66px);
-    bottom: auto;
-    left: 12px;
-    right: 12px;
-    width: auto;
-    z-index: 90;
-    max-height: 40vh;
+    max-height: 45vh;
     overflow-y: auto;
     font-size: 13px;
   }
-  .nb-edit-panel--dock .nb-edit-note,
-  .nb-edit-panel--dock .nb-edit-close {
+  .nb-edit-card--dock .nb-edit-act {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    min-width: 44px;
+    font-size: 15px;
+  }
+  .nb-edit-card--dock .nb-edit-note,
+  .nb-edit-card--dock .nb-edit-close {
     min-height: 40px;
   }
-  .nb-edit-panel--dock .nb-edit-note {
+  .nb-edit-card--dock .nb-edit-note {
     font-size: 16px; /* avoid iOS focus-zoom */
   }
   /* Bigger targets in the selection toolbar, and a tooltip nobody can hover: drop it. */

@@ -11,11 +11,12 @@ sidebar:
 La boucle de revue donne à un agent un moyen d'écrire. Ceci en donne un **à l'humain**,
 sans quitter la page qu'il est en train de lire.
 
-Au survol d'un paragraphe, un ✎ apparaît dans la marge. Un clic dessus et vous éditez ce
-bloc, en place : il conserve la typographie de la page et ne bouge pas, il prend seulement
-un fond teinté pour qu'on voie lequel est actif. Seule la source de ce bloc est réécrite —
-le reste du fichier n'est pas touché, donc le diff que relisent les collègues est la ligne
-réellement modifiée.
+Au survol d'un paragraphe, trois poignées apparaissent dans la marge — **✎** édite le
+bloc, **+** en ajoute un dessous, **⋮⋮** ouvre le menu du bloc. Un clic sur le crayon et
+vous éditez ce bloc, en place : il conserve la typographie de la page et ne bouge pas, il
+prend seulement un fond teinté pour qu'on voie lequel est actif. Seule la source de ce
+bloc est réécrite — le reste du fichier n'est pas touché, donc le diff que relisent les
+collègues est la ligne réellement modifiée.
 
 C'est un outil **de dev uniquement**, exactement comme le commentaire : l'API d'écriture
 n'existe que sous `notabene dev`. Un site construit ou publié n'a ni éditeur, ni endpoint,
@@ -28,19 +29,132 @@ Deux intentions, deux gestes — d'où l'absence de bascule de mode :
 | Action | Effet |
 |---|---|
 | **✎** dans la marge | vous éditez ce bloc |
+| **⋮⋮** dans la marge | le menu du bloc — dupliquer, copier le lien, commenter, supprimer — sans ouvrir l'éditeur |
 | **Sélection** de texte, partout | la bulle de commentaire, comme avant |
-| Sélection *pendant l'édition* | une petite barre de mise en forme, à la sélection |
-| **Échap**, ou clic ailleurs | terminé — la modification est écrite s'il y en a une |
+| Sélection *pendant l'édition* | la barre de mise en forme, à la sélection — **Transformer en** en tête |
+| **+** dans la marge | un nouveau bloc sous celui-ci |
+| `/` pendant l'édition | la palette de blocs — elle **insère dessous** ; taper pour filtrer |
+| **Terminer**, ou `⌘↵` | enregistrer — la modification est écrite |
+| Clic ailleurs | un bloc intact se ferme ; un bloc modifié reste ouvert et pose la question |
+| **Annuler**, ou **Échap** | abandonner — le bloc revient tel qu'il était |
 | `⌘Z` | annuler la frappe, comme partout |
 | `⌘⇧M` | passer ce bloc en Markdown brut, et revenir |
 
 Lecture et édition ne se disputent jamais le même geste : sélectionner du texte veut
-toujours dire « commenter ceci », et éditer part toujours du crayon. Il n'y a pas non plus
-de bouton Enregistrer : quitter un bloc le valide, comme dans un éditeur de document. Rien
-de changé signifie rien d'écrit — se déplacer dans la page ne touche jamais au dépôt.
+toujours dire « commenter ceci », et éditer part toujours du crayon. **Écrire est un geste
+explicite** : seul **Terminer** (ou `⌘↵`) touche au dépôt. Cliquer ailleurs ferme un bloc
+intact — se déplacer dans la page n'écrit jamais — mais un bloc modifié reste ouvert et
+pose la question : un clic égaré ne peut ni écrire votre modification, ni la perdre.
 
-Pendant l'édition, une petite barre verticale se place à côté du bloc, dans la marge —
-terminer, annuler, passer en Markdown — et reste hors de la colonne de lecture.
+Abandonner est la seule sortie qui jette du travail : quand le bloc a des modifications non
+enregistrées, une confirmation est demandée — appuyer à nouveau, ou cliquer sur
+**Annuler** — là où le regard est déjà. Sur un bloc intact, la fermeture est immédiate.
+Rien n'est envoyé au serveur dans les deux cas, et le brouillon est supprimé : rouvrir le
+bloc redonne le texte du fichier.
+
+Pendant l'édition, une **carte compacte se place directement sous le bloc** : Terminer,
+Annuler, l'annulation de frappe et la bascule Markdown sur sa première ligne, puis — dès
+que quelque chose a changé — tout ce que la sauvegarde peut emporter (voir *Fermer la
+boucle*). Il n'y a aucun autre chrome : pas de mode, pas de rail, pas de panneau ailleurs
+à l'écran.
+
+**Les tableaux portent leurs commandes sur la grille elle-même**, pas sur une barre qui
+suit le curseur. Survoler une cellule fait apparaître une poignée sur sa ligne et sur sa
+colonne ; la poignée de colonne ouvre l'alignement (`:--`, `:-:`, `--:` — une propriété de
+colonne en Markdown) et la suppression, celle de ligne la suppression, et les bords du
+tableau offrent des boutons **+** pour une nouvelle ligne ou colonne. Lignes et colonnes
+se réordonnent en les faisant glisser — le tout à l'intérieur du seul bloc que possède
+l'éditeur.
+
+Deux actions de la barre d'outils font lire toute une **ligne** ou toute une **colonne**
+comme un en-tête — elles apparaissent quand la sélection est dans un tableau. Elles
+existent sous contrainte : Markdown ne transporte aucun style, la seule chose qu'elles
+peuvent écrire est du gras. Elles mettent donc en gras chaque cellule de la ligne ou de la
+colonne, et le rendu donne à une ligne ou une colonne entièrement en gras la surface de
+l'en-tête. Un second appui annule. La ligne d'en-tête elle-même est épargnée : c'en est
+déjà une.
+
+Ce seuil est voulu. Une cellule *isolée* en gras reste de l'emphase : `| **✎** dans la
+marge | … |` n'est pas un libellé, et le teinter serait une devinette. Seule une série
+complète est traitée comme une décision — ce que produisent précisément les boutons. Le
+fichier reste portable dans les deux cas : sur GitHub ou dans n'importe quel éditeur, ces
+cellules se lisent simplement en gras.
+
+Au-delà de ça, il n'y a pas d'option d'en-tête ni de pied, et c'est le format qui le veut, non un oubli :
+un tableau GFM a **exactement une ligne d'en-tête**, toujours, et Markdown ne connaît ni
+ligne de pied ni colonne d'en-tête. Les proposer supposerait d'émettre des tableaux HTML
+bruts — qui cessent d'être du Markdown, cessent de passer la vérification de confinement, et
+cessent de s'afficher partout ailleurs où vos fichiers `.md` sont lus.
+
+La barre d'outils, elle, n'apparaît **qu'à la sélection de texte** — un simple curseur
+n'obtient rien. Une barre qui suit le curseur se pose sur le texte même qu'on édite ; la
+structure vit donc ailleurs : les tableaux sur leur grille, les listes au clavier (`Tab` /
+`⇧Tab` pour indenter et désindenter) et dans la barre quand du texte y est sélectionné.
+`Tab` passe de cellule en cellule dans un tableau — sur la dernière cellule il ajoute une
+ligne au lieu de faire sortir du bloc.
+
+Un tableau édité revient dans la convention du fichier, jusqu'à la ligne de séparation : un
+fichier en `| --- |` compact le reste, un fichier aligné reste aligné. Ce n'est pas un
+détail : un tableau incapable de faire l'aller-retour serait réécrit en entier par
+quelqu'un qui s'est contenté de l'ouvrir et d'appuyer sur Terminer.
+
+## Les blocs
+
+Un bloc vide le dit de lui-même : il porte un texte indicatif *Taper « / » pour les
+commandes*, comme celui de Notion. Un geste qu'il faut apprendre dans une documentation est
+un geste que la plupart des gens ne trouvent jamais.
+
+`/` ouvre la palette que Notion a appris à tout le monde, avec le verbe de Notion : elle
+**insère un nouveau bloc sous** celui où l'on est — **Texte, Titre 1 à 4, Liste à puces,
+Liste numérotée, Liste de tâches, Citation, Code, Tableau, Séparateur, Image**, chacun
+avec son raccourci Markdown affiché à côté. Seul un bloc *vide* est typé en place, le seul
+cas où insérer et transformer veulent dire la même chose. Taper pour filtrer, `↑`/`↓` pour
+se déplacer, `↵` pour appliquer ; le `/requête` saisi est absorbé.
+
+Changer ce qu'un bloc existant *est* vit dans la barre d'outils : sélectionner du texte,
+et la barre commence par **Transformer en** — le type courant du bloc, avec le menu de
+tout ce que GFM sait en faire. Deux verbes, deux surfaces, jamais confondus.
+
+Gérer le bloc, c'est le **menu ⋮⋮**, et il ne demande aucune session d'édition :
+**dupliquer** et **supprimer** sont des écritures de plage en un coup (dupliquer écrit le
+bloc deux fois, supprimer n'écrit rien et emporte un séparateur — les voisins reviennent
+identiques octet pour octet, et supprimer demande confirmation avant d'agir) ; **copier le
+lien du bloc** met l'ancre du titre le plus proche dans le presse-papier ; **commenter**
+confie le bloc au flux de commentaire par sélection.
+
+Ce que Notion propose et que Markdown ne sait pas transporter : la **couleur**,
+l'**alignement de bloc** (il n'y a pas de text-align en Markdown ; seules les *colonnes de
+tableau* ont un alignement, réglé depuis la poignée de colonne), **monter/descendre** (cela
+réécrit deux blocs à la fois, ce que la vérification de confinement refuse par construction),
+les encadrés, les blocs dépliants et les colonnes.
+
+La barre de mise en forme couvre ce que GFM possède : **gras**, *italique*, `code`,
+~~barré~~, liens — le bouton lien ouvre un petit champ pour l'URL, et survoler un lien
+existant propose de l'éditer, le copier ou le retirer — et un bouton **effacer la mise en
+forme** qui retire toutes les marques de la sélection. Les boutons s'allument quand la
+sélection porte déjà leur marque. Le souligné, la couleur et le surlignage n'ont pas de
+syntaxe Markdown : ils ne sont pas proposés plutôt qu'écrits en HTML en douce.
+
+Les raccourcis Markdown fonctionnent aussi, et l'ont toujours fait : `- `, `1. `, `# `,
+`> `, ` ``` `, `![alt](src)`, et `|3x2|` pour un tableau 3×2. La palette existe parce qu'un
+raccourci qu'il faut déjà connaître n'est pas une interface.
+
+**+** dans la marge, à côté du ✎, démarre un **nouveau bloc sous celui-ci**. Le bloc à côté
+duquel on clique reste *rendu* — ce n'est pas lui qu'on édite — et une surface vide s'ouvre
+en dessous, prête pour `/`. La laisser vide n'écrit rien du tout : cliquer sur + puis changer
+d'avis ne coûte rien.
+
+Sous le capot, la sauvegarde réécrit la plage de ce seul bloc avec deux blocs — d'où des
+voisins qui reviennent identiques octet pour octet. (Éditer l'original pour taper en dessous
+était la première version, et cela se lisait comme un saut de ligne ajouté au bloc.)
+
+**Images** : coller, ou choisir `Image…` dans la palette. Dans les deux cas le fichier est
+écrit dans le dépôt à côté de la page, sous un nom au hash du contenu, et le lien est
+inséré — il arrive donc dans le même commit que la prose qui le référence.
+
+Ce qui n'a délibérément **pas** été repris de Notion : le glisser-déposer pour réordonner.
+Déplacer un bloc au-delà de son voisin réécrit deux blocs à la fois, ce que la vérification
+de confinement refuse — et c'est elle qui garde les diffs à la ligne réellement modifiée.
 
 Les blocs de prose s'ouvrent en **texte enrichi** : ce que vous tapez ressemble à ce que la
 page affichera, et sélectionner à l'intérieur fait apparaître la barre de mise en forme.
@@ -68,7 +182,7 @@ un commentaire tout en corrigeant la phrase qu'il concerne.
 
 ## Fermer la boucle
 
-Dès que quelque chose a réellement changé, une carte apparaît sous cette barre : les
+Dès que quelque chose a réellement changé, la carte sous le bloc s'étoffe : les
 commentaires ouverts de la page, et de quoi décrire la modification. Cocher ceux auxquels
 elle répond les passe en **resolved** dans la même sauvegarde, liés à une entrée de journal
 — le registre même où écrit une passe d'agent. Rien ne s'affiche tant qu'il n'y a rien à y
@@ -103,7 +217,7 @@ autre chose que ce qui était voulu.
   irrécupérable. Le message indique de faire `git add`. `edit: { requireGit: false }` lève
   la garde si l'on tient à éditer hors gestion de version.
 - **Il prévient avant de casser une ancre.** Si la modification retire le texte que cite un
-  commentaire, la carte à côté du bloc le signale pendant la saisie — ce commentaire
+  commentaire, la carte sous le bloc le signale pendant la saisie — ce commentaire
   deviendrait orphelin.
 
 ## Images
@@ -115,14 +229,12 @@ est refusé ; coller deux fois la même capture réutilise un seul fichier.
 
 ## Ce qu'une sauvegarde ne peut pas vérifier à votre place
 
-Une passe d'agent se termine par un build, `notabene lint` et vos commandes `verify[]`. Une
-édition humaine ne fait rien de tout cela : l'éditeur signale donc ce qu'il a sauté, plutôt
-que de laisser la CI le découvrir.
-
-- un lien `.md` relatif du bloc qui ne pointe sur aucun fichier est signalé, sans bloquer
-  l'enregistrement (`notabene lint` reste la vérification exhaustive) ;
-- si la config déclare des `verify[]`, une note rappelle qu'elles n'ont pas tourné.
-  L'éditeur n'exécute **délibérément pas** vos commandes depuis le serveur de dev.
+Une passe d'agent se termine par un build, `notabene lint` et vos commandes `verify[]`.
+Une édition humaine ne fait rien de tout cela — et la sauvegarde ne prétend pas le
+contraire : elle répond **enregistré** ou elle refuse, rien entre les deux. Les
+vérifications exhaustives restent où elles ont toujours été — `notabene lint` pour les
+liens, vos `verify[]` en CI et dans chaque passe d'agent. L'éditeur n'exécute
+**délibérément pas** vos commandes depuis le serveur de dev.
 
 ## Configuration
 

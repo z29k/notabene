@@ -13,6 +13,7 @@ import { notabeneEditor } from "./src/integrations/editor.mjs";
 import { notabeneRouteTruth } from "./src/integrations/route-truth.mjs";
 import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
+import { rehypeTableRowHeader } from "./src/rehype/table-row-header.mjs";
 import { remarkRewriteLinks } from "./src/remark/rewrite-links.mjs";
 import { REPO_ROOT, host, i18n, mdxEnabled, port, publicMode, publish, roots, theme } from "./src/config.mjs";
 
@@ -101,7 +102,7 @@ export default defineConfig({
     // only — see src/integrations/editor.mjs.
     processor: unified({
       remarkPlugins: [[remarkRewriteLinks, { roots, i18n, base: publicMode ? publish.base : "/" }]],
-      rehypePlugins: [rehypeMermaid],
+      rehypePlugins: [rehypeMermaid, rehypeTableRowHeader],
     }),
   },
   vite: {
@@ -132,6 +133,10 @@ export default defineConfig({
         "@milkdown/kit/preset/gfm",
         "@milkdown/kit/plugin/history",
         "@milkdown/kit/plugin/listener",
+        "@milkdown/kit/plugin/slash",
+        "@milkdown/kit/prose/state",
+        "@milkdown/kit/component/link-tooltip",
+        "@milkdown/kit/component/table-block",
       ],
     },
   },

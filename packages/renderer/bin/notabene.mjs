@@ -928,7 +928,10 @@ function pruneOrphanAssets(distDir) {
   };
   let removed = 0;
   // A dropped orphan can orphan the file it alone referenced → iterate to a fixpoint.
-  for (let pass = 0; pass < 5; pass++) {
+  // The cap is a runaway guard, not a budget: it must exceed the deepest orphan CHAIN,
+  // and the editor's Milkdown graph (wysiwyg → presets/components → core → state) proved
+  // 5 too small — two @milkdown chunks survived a public build and tripped the canary.
+  for (let pass = 0; pass < 25; pass++) {
     const corpus = walk(distDir)
       .filter((p) => textExt.has(path.extname(p)))
       .map((p) => ({ p, text: fs.readFileSync(p, "utf8") }));

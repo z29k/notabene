@@ -10,7 +10,25 @@
 // Pure: a string in, remark-stringify options out. No fs, no config, no Astro.
 import { stripCode } from "./lint-links.mjs";
 
+/**
+ * How a file writes the delimiter row of a table. remark-gfm can be told whether to pad the
+ * pipes, but NOT how wide to draw the dashes: un-aligned it always emits the minimum `-`,
+ * where nearly every hand-written table uses `---`. That one line was the entire remaining
+ * difference — measured over docs/, 15 of 16 tables came back rewritten, and every single
+ * one of them differed ONLY in that row.
+ */
+export interface TableStyle {
+  /** Pad every cell out to the column width (remark-gfm's `tablePipeAlign`). */
+  pipeAlign: boolean;
+  /** Dash run in the delimiter row: `---` is 3. */
+  dashes: number;
+  /** Spaces around the dashes: `| --- |` vs `|---|`. */
+  pad: boolean;
+}
+
 export interface MdStyle {
+  /** NOT a remark-stringify option — see applyTableStyle. Absent when the file has no table. */
+  nbTable?: TableStyle | null;
   bullet: "-" | "*" | "+";
   bulletOrdered: "." | ")";
   emphasis: "*" | "_";
@@ -88,6 +106,7 @@ export function inferMdStyle(source: string): MdStyle {
   const flatOrdered = /^[ \t]*1[.)][ \t]+\S[\s\S]*?^[ \t]*1[.)][ \t]+\S/m.test(text);
 
   return {
+    nbTable: inferTableStyle(String(source ?? "")),
     bullet,
     bulletOrdered,
     emphasis,
@@ -102,4 +121,57 @@ export function inferMdStyle(source: string): MdStyle {
     resourceLink: false,
     tightDefinitions: true,
   };
+}
+
+/** A table's delimiter row: `| --- | :--: |`. Never matches inside a fence — see stripCode. */
+const DELIMITER_ROW = /^\|[ :\-|]+\|$/;
+
+/**
+ * Read the file's table convention off its delimiter rows. `null` when the file has no
+ * table at all, so a file that never had one is never given an opinion about them.
+ */
+export function inferTableStyle(source: string): TableStyle | null {
+  const stripped: string = stripCode(String(source ?? ""));
+  const rows: string[][] = (stripped.match(new RegExp(DELIMITER_ROW.source, "gm")) ?? []).map((r: string) =>
+    r.split("|").slice(1, -1),
+  );
+  if (!rows.length) return null;
+
+  const cells: string[] = rows.flat();
+  // "Aligned" means the dashes were stretched to the column width, which only a formatter
+  // does; a hand-written table keeps them short. 3 is the longest anyone types by hand.
+  const runs: number[] = cells.map((c) => c.trim().replace(/^:|:$/g, "").length);
+  const short = runs.filter((n) => n <= 3).length;
+  const dashCounts = tally(runs.filter((n) => n <= 3).join(",") || "3", /(\d+)/g, (m) => m[1]);
+  const padded = cells.filter((c) => /^ .* $/.test(c)).length;
+
+  return {
+    pipeAlign: short * 2 < runs.length,
+    dashes: Number(dominant(dashCounts, "3")) || 3,
+    pad: padded * 2 >= cells.length,
+  };
+}
+
+/**
+ * Redraw a serialized TABLE block's delimiter row in the file's own convention. Applied to
+ * the editor's output, never to the file: the block being serialized is a single table, so
+ * the first delimiter-looking line IS its delimiter row — there is no fence for the pattern
+ * to wander into. A no-op for aligned tables (remark already draws those to width) and for
+ * any block that is not a table.
+ */
+export function applyTableStyle(markdown: string, style: TableStyle | null | undefined): string {
+  if (!style || style.pipeAlign) return markdown;
+  const lines = String(markdown ?? "").split("\n");
+  const i = lines.findIndex((l) => DELIMITER_ROW.test(l));
+  if (i < 1) return markdown; // a delimiter row is never the first line of a table
+  const space = style.pad ? " " : "";
+  lines[i] = `|${lines[i]
+    .split("|")
+    .slice(1, -1)
+    .map((cell) => {
+      const m = /^ *(:?)-+(:?) *$/.exec(cell);
+      return m ? `${space}${m[1]}${"-".repeat(style.dashes)}${m[2]}${space}` : cell;
+    })
+    .join("|")}|`;
+  return lines.join("\n");
 }

@@ -1,12 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
   anchorsBrokenBy,
+  anchorRect,
+  appendedBlock,
   approxRendered,
+  toolbarButtons,
+  cancelAction,
+  filterSlash,
+  scrollToItem,
+  SLASH_ITEMS,
+  TURN_INTO,
+  slashQueryOf,
   displayName,
   draftKey,
   editorMessage,
   parseStamp,
 } from "../src/lib/client/editor";
+import { t } from "../src/i18n.mjs";
 import { appendEntry, newEntryId, normalizeEntry, readEntries } from "../src/lib/journal-write.mjs";
 import fs from "node:fs";
 import os from "node:os";
@@ -29,6 +39,185 @@ describe("draftKey", () => {
     const a = draftKey("docs/x", { start: 1, end: 2, kind: "" });
     expect(a).not.toBe(draftKey("docs/y", { start: 1, end: 2, kind: "" }));
     expect(a).not.toBe(draftKey("docs/x", { start: 1, end: 3, kind: "" }));
+  });
+});
+
+describe("appendedBlock", () => {
+  it("writes the original then the new block under it", () => {
+    expect(appendedBlock("First.", "Second.")).toBe("First.\n\nSecond.");
+  });
+
+  it("writes NOTHING new when the added block is empty — clicking + and changing your mind", () => {
+    expect(appendedBlock("First.", "")).toBe("First.");
+    expect(appendedBlock("First.", "   \n  ")).toBe("First.");
+  });
+
+  it("keeps the original byte-identical, whitespace and all", () => {
+    expect(appendedBlock("- a\n- b", "x")).toBe("- a\n- b\n\nx");
+  });
+});
+
+describe("cancelAction", () => {
+  it("closes straight away when there is nothing to lose", () => {
+    expect(cancelAction(false, false)).toBe("discard");
+  });
+
+  it("asks first when the block is dirty — this is the only path that destroys work", () => {
+    expect(cancelAction(true, false)).toBe("arm");
+  });
+
+  it("discards on the second ask", () => {
+    expect(cancelAction(true, true)).toBe("discard");
+  });
+
+  it("never asks twice on a clean block, however it got armed", () => {
+    expect(cancelAction(false, true)).toBe("discard");
+  });
+});
+
+describe("toolbarButtons", () => {
+  const none = { inTable: false, inList: false };
+
+  it("shows NOTHING at a bare caret — the caret-following bar sat on the text it edited", () => {
+    expect(toolbarButtons(false, none)).toBeNull();
+    expect(toolbarButtons(false, { inTable: true, inList: false })).toBeNull();
+    expect(toolbarButtons(false, null)).toBeNull();
+  });
+
+  it("leads with Turn into on a plain selection, like Notion's bar", () => {
+    const buttons = toolbarButtons(true, none);
+    expect(buttons?.[0]).toBe("turnInto");
+    expect(buttons).toContain("strong");
+    expect(buttons).toContain("link");
+    expect(buttons?.at(-1)).toBe("clearFormat");
+  });
+
+  it("adds list operations only inside a list", () => {
+    expect(toolbarButtons(true, none)).not.toContain("indent");
+    expect(toolbarButtons(true, { inTable: false, inList: true })).toContain("indent");
+    expect(toolbarButtons(true, { inTable: false, inList: true })).toContain("outdent");
+  });
+
+  it("adds the header toggles inside a table, and drops Turn into there — the top-level block IS the table", () => {
+    const inTable = toolbarButtons(true, { inTable: true, inList: false });
+    expect(inTable).toContain("headerRow");
+    expect(inTable).toContain("headerCol");
+    expect(inTable).not.toContain("turnInto");
+  });
+});
+
+describe("slashQueryOf", () => {
+  it("derives the query from the text before the caret", () => {
+    expect(slashQueryOf("/")).toBe("");
+    expect(slashQueryOf("/tab")).toBe("tab");
+    expect(slashQueryOf("Some prose /tab")).toBe("tab");
+  });
+
+  it("requires the slash to OPEN a word — `and/or` in prose must not summon a menu", () => {
+    expect(slashQueryOf("and/or")).toBeNull();
+    expect(slashQueryOf("https://example.com/path")).toBeNull();
+  });
+
+  it("closes on whitespace after the slash, and on a bare text", () => {
+    expect(slashQueryOf("/two words")).toBeNull();
+    expect(slashQueryOf("no slash here")).toBeNull();
+    expect(slashQueryOf("")).toBeNull();
+  });
+});
+
+describe("menu catalogs", () => {
+  it("every slash item resolves its label, description and icon", () => {
+    const en = t("en");
+    for (const item of SLASH_ITEMS) {
+      expect(en[item.key], item.key).toBeTruthy();
+      expect(en[item.descKey], item.descKey).toBeTruthy();
+      expect(item.icon).toBeTruthy();
+      expect(["blocks", "media"]).toContain(item.section);
+    }
+  });
+
+  it("every turn-into entry resolves its label", () => {
+    const en = t("en");
+    for (const item of TURN_INTO) {
+      expect(en[item.key], item.key).toBeTruthy();
+    }
+  });
+
+  it("turn-into transforms and never inserts: no image, no divider, no table", () => {
+    const kinds = TURN_INTO.map((i) => i.kind);
+    expect(kinds).not.toContain("image");
+    expect(kinds).not.toContain("divider");
+    expect(kinds).not.toContain("table");
+  });
+});
+
+describe("filterSlash", () => {
+  const label = (k: string) => ({ blockH1: "Heading 1", blockQuote: "Quote", blockImage: "Image…" })[k] ?? k;
+  const items = SLASH_ITEMS.filter((i) => ["blockH1", "blockQuote", "blockImage"].includes(i.key));
+
+  it("shows everything until something is typed", () => {
+    expect(filterSlash(items, "", label)).toHaveLength(3);
+  });
+
+  it("matches the visible label", () => {
+    expect(filterSlash(items, "quo", label).map((i) => i.cmd)).toEqual(["quote"]);
+  });
+
+  it("matches the hints too, so the English name finds a translated label", () => {
+    expect(filterSlash(items, "citation", label).map((i) => i.cmd)).toEqual(["quote"]);
+    expect(filterSlash(items, "h1", label).map((i) => i.cmd)).toEqual(["heading1"]);
+  });
+
+  it("ignores case and accents — /separateur must find Séparateur", () => {
+    const sep = SLASH_ITEMS.filter((i) => i.cmd === "divider");
+    expect(filterSlash(sep, "SÉPARA", (k) => (k === "blockDivider" ? "Séparateur" : k))).toHaveLength(1);
+  });
+
+  it("returns nothing for a query that matches none — the menu closes on that", () => {
+    expect(filterSlash(items, "zzz", label)).toEqual([]);
+  });
+});
+
+describe("anchorRect", () => {
+  const rect = (width: number, height: number) => ({ top: 0, bottom: height, left: 0, right: width, width, height });
+
+  it("uses the caret when it has been laid out", () => {
+    expect(anchorRect(rect(2, 18), rect(200, 40))).toEqual(rect(2, 18));
+  });
+
+  it("falls back to the container for a 0×0 caret — an empty table cell has no text node", () => {
+    expect(anchorRect(rect(0, 0), rect(200, 40))).toEqual(rect(200, 40));
+  });
+
+  it("accepts a caret with height but no width, which is the normal collapsed case", () => {
+    expect(anchorRect(rect(0, 18), rect(200, 40))).toEqual(rect(0, 18));
+  });
+
+  it("gives up when neither has extent, rather than anchoring at the origin", () => {
+    expect(anchorRect(rect(0, 0), rect(0, 0))).toBeNull();
+    expect(anchorRect(null, null)).toBeNull();
+  });
+});
+
+describe("scrollToItem", () => {
+  // A 100px-tall list of 20px rows.
+  it("leaves the offset alone when the item is already visible", () => {
+    expect(scrollToItem(0, 100, 40, 20)).toBe(0);
+    expect(scrollToItem(60, 100, 100, 20)).toBe(60);
+  });
+
+  it("scrolls up to reveal an item above the fold", () => {
+    expect(scrollToItem(60, 100, 20, 20)).toBe(20);
+  });
+
+  it("scrolls down just far enough to reveal one below it", () => {
+    // The item ends at 140; the viewport is 100 tall, so the top must be 40 — not 120,
+    // which would jump the whole list to put one row at the top.
+    expect(scrollToItem(0, 100, 120, 20)).toBe(40);
+  });
+
+  it("handles an item taller than the viewport by showing its top", () => {
+    expect(scrollToItem(50, 100, 40, 200)).toBe(40);
   });
 });
 

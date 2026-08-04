@@ -225,18 +225,29 @@ the store, so the blast radius is different and the guards differ too.
 - **`edit: { enabled, requireGit }`** + `roots[].edit: false`. `requireGit` refuses to
   write a file git isn't tracking — git is the only undo an editor on real content has,
   and `notabene dev` does not require a repo. Reported by `doctor`.
-- **UI: the document is the interface.** No mode. Desktop: hover shows a ✎ in the gutter
-  (hiding is DELAYED — the handle lives outside the block, so reaching it means leaving
-  it); click opens the block in place, tinted, same metrics, zero layout shift. Selecting
-  text always means *comment*, everywhere — clicking the text to edit was tried and stole
-  that gesture. Touch: no hover and no gutter, so a **tap ARMS** the block (a bare tap must
-  never edit: on a phone the tap is the reading gesture) and the chrome docks to the
-  **top** — the bottom belongs to the platform (Android's search chip, the keyboard).
-- **Rich editing is Milkdown**, dynamically imported like mermaid, and its entry points
-  MUST be in `optimizeDeps.include`: otherwise Vite optimizes on the first click and
-  reloads the page mid-mount, which reads as "it opens a raw-Markdown textarea".
-  `lib/md-style.ts` infers the file's own conventions so an edited block comes back
-  looking like the rest of the file (lists: 87% rewritten → 0%).
+- **UI: the document is the interface** (reworked per `plans/wysiwyg-reprise.md`). No
+  mode. Desktop: hover shows THREE gutter handles — ✎ opens, + adds below, ⋮⋮ opens the
+  block menu (duplicate / copy link / comment / delete: one-shot range writes, NO session)
+  — hiding is DELAYED (the handles live outside the block, so reaching one means leaving
+  it), and hover tints NOTHING (a tint read as a selection). Open block: tinted, same
+  metrics, zero shift; ALL session chrome is ONE card in flow directly under the block
+  (Done/Cancel/undo/Markdown + the loop) — a far-left panel was tried and put the cancel
+  confirm 800px from the hand. The floating toolbar exists ONLY at a text selection and
+  leads with Turn into; a caret-following structure bar was tried and covered the text.
+  `/` INSERTS a block below (transforms only an empty one — Notion's rule). Selecting
+  text always means *comment*, everywhere. Touch: a **tap ARMS** the block, chrome docks
+  to the **top** — the bottom belongs to the platform.
+- **Rich editing is Milkdown — and its own building blocks, never hand-rolled chrome**:
+  `component/link-tooltip` (the preset's bare `toggleLinkCommand` THROWS without a
+  payload), `component/table-block` (handles on the grid), `plugin/slash` (query DERIVED
+  from the doc each update — a recorded position was a race), keyboard via ProseMirror
+  `handleKeyDown`, never a `document` keydown. Every entry point MUST be in
+  `optimizeDeps.include`: otherwise Vite optimizes on the first click and reloads the
+  page mid-mount, which reads as "it opens a raw-Markdown textarea". Milkdown-specific
+  selectors live in `lib/client/wysiwyg-theme.css` (imported ONLY by wysiwyg.ts, so
+  dev-only) — never in global.css, which ships in builds where CI greps `@milkdown` /
+  `prosemirror-view`. `lib/md-style.ts` infers the file's own conventions so an edited
+  block comes back looking like the rest of the file (lists: 87% rewritten → 0%).
 - **The loop, not a wiki.** A save can close the comments it answers (`PATCH /api/comments`,
   `resolved` even under `review: "approve"` — the human editing IS the validator) and
   journal the change (`POST /api/journal`, sharing `lib/journal-write.mjs` with the CLI).

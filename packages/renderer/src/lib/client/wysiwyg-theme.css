@@ -1,0 +1,202 @@
+/* Editor-only stylesheet for the Milkdown surfaces the block editor mounts:
+   the link tooltip (preview + URL input) and the table widget (row/column handles,
+   add buttons, drag preview).
+
+   This file is imported by lib/client/wysiwyg.ts and by NOTHING else, which is the
+   load-bearing part: the editor module only ever loads under `notabene dev`, so these
+   selectors — which necessarily name Milkdown's own classes — never reach global.css
+   and never ship in any build. The CI canaries (`@milkdown`, `prosemirror-view`) stay
+   at zero without having to be careful here.
+
+   Everything is drawn from the same --nb-* consuming aliases as the rest of the
+   chrome, so themes recolour this too. */
+
+/* ── link tooltip ─────────────────────────────────────────────────────────── */
+.milkdown-link-preview,
+.milkdown-link-edit {
+  position: absolute;
+  z-index: 65;
+  max-width: min(26rem, 90vw);
+}
+.milkdown-link-preview[data-show="false"],
+.milkdown-link-edit[data-show="false"] {
+  display: none;
+}
+.milkdown-link-preview .link-preview,
+.milkdown-link-edit .link-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+  font-size: 13px;
+}
+.milkdown-link-preview .link-display {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  text-decoration: none;
+}
+.milkdown-link-preview .link-display:hover {
+  text-decoration: underline;
+}
+.milkdown-link-edit .input-area {
+  width: 16rem;
+  padding: 4px 6px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.milkdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 5px;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.milkdown-icon:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.milkdown-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ── table widget ─────────────────────────────────────────────────────────── */
+/* The widget positions every handle itself (floating-ui + inline styles) and drives
+   visibility through data-show / data-display-type. CSS only has to give the pieces
+   a shape and keep them invisible until the component says otherwise. */
+.milkdown-table-block {
+  position: relative;
+}
+.milkdown-table-block .table-wrapper {
+  overflow-x: auto;
+}
+/* A fresh 3×3 grid is all empty cells; without a floor they collapse to slivers nobody
+   can click into. The floor only matters while cells are empty — content wins past it. */
+.milkdown-table-block td,
+.milkdown-table-block th {
+  min-width: 6em;
+}
+/* Handles are hidden by default — the component flips data-show on cell hover. */
+.milkdown-table-block .handle {
+  position: absolute;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-soft);
+  cursor: grab;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 10%);
+}
+.milkdown-table-block .handle[data-show="false"] {
+  display: none;
+}
+.milkdown-table-block .handle .milkdown-icon {
+  width: 20px;
+  height: 20px;
+}
+.milkdown-table-block .cell-handle[data-role="col-drag-handle"] {
+  min-width: 28px;
+  height: 16px;
+}
+.milkdown-table-block .cell-handle[data-role="row-drag-handle"] {
+  width: 16px;
+  min-height: 28px;
+}
+/* The button group is the small popover a handle opens (align / delete). */
+.milkdown-table-block .button-group {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 56;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
+}
+.milkdown-table-block .cell-handle[data-role="row-drag-handle"] .button-group {
+  top: 0;
+  left: calc(100% + 4px);
+}
+.milkdown-table-block .button-group[data-show="false"] {
+  display: none;
+}
+.milkdown-table-block .button-group button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.milkdown-table-block .button-group button:hover {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+/* Line handles carry the + that inserts a row/column at an edge. */
+.milkdown-table-block .line-handle {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.milkdown-table-block .line-handle .add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elev);
+  color: var(--text-soft);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 10%);
+}
+.milkdown-table-block .line-handle .add-button:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.milkdown-table-block .handle[data-role="x-line-drag-handle"] .add-button {
+  width: 100%;
+  height: 14px;
+}
+.milkdown-table-block .handle[data-role="y-line-drag-handle"] .add-button {
+  width: 14px;
+  height: 100%;
+}
+.milkdown-table-block .drag-preview {
+  position: absolute;
+  z-index: 54;
+  pointer-events: none;
+  opacity: 0.5;
+  background: var(--accent-soft);
+}
+.milkdown-table-block .drag-preview table {
+  margin: 0;
+}

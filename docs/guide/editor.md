@@ -11,11 +11,12 @@ sidebar:
 The review loop gives an agent a way to write. This gives *you* one, without leaving the
 page you are reading.
 
-Hover a paragraph and a ✎ appears in the margin. Click it and you are editing that block,
-in place: it keeps the page's own typography and does not move, it just takes on a tinted
-background so you can see which one is live. Only that block's source is rewritten — the
-rest of the file is not touched, so the diff your teammates review is the one line you
-actually changed.
+Hover a paragraph and three handles appear in the margin — **✎** edits the block, **+**
+adds one below, **⋮⋮** opens the block menu. Click the pencil and you are editing that
+block, in place: it keeps the page's own typography and does not move, it just takes on a
+tinted background so you can see which one is live. Only that block's source is
+rewritten — the rest of the file is not touched, so the diff your teammates review is the
+one line you actually changed.
 
 It is a **dev-only** tool, exactly like commenting: the write API exists under
 `notabene dev` and nowhere else. A built or published site has no editor, no endpoint,
@@ -25,22 +26,126 @@ and no trace of one.
 
 Two intentions, two gestures — which is why there is no mode switch:
 
-| You do                         | You get                                       |
-| ------------------------------ | --------------------------------------------- |
-| **✎** in the margin            | you are editing that block                    |
-| **Select** text, anywhere      | the comment popover, exactly as before        |
-| Select text *while editing*    | a small formatting toolbar, at the selection  |
-| **Escape**, or click elsewhere | done — the change is written if there is one  |
-| `⌘Z`                           | undo your typing, as anywhere else            |
-| `⌘⇧M`                          | swap to raw Markdown for that block, and back |
+| You do | You get |
+| --- | --- |
+| **✎** in the margin | you are editing that block |
+| **⋮⋮** in the margin | the block menu — duplicate, copy link, comment, delete — no editor needed |
+| **Select** text, anywhere | the comment popover, exactly as before |
+| Select text *while editing* | the formatting toolbar, at the selection — **Turn into** first |
+| **+** in the margin | a new block under this one |
+| `/` while editing | the block palette — it **inserts below**; type to filter |
+| **Done**, or `⌘↵` | save — the change is written |
+| Click elsewhere | an untouched block closes; a modified one stays open and asks |
+| **Cancel**, or **Escape** | discard — the block goes back as it was |
+| `⌘Z` | undo your typing, as anywhere else |
+| `⌘⇧M` | swap to raw Markdown for that block, and back |
 
 Reading and editing never fight over the same gesture: selecting text always means
-"comment on this", and editing always starts from the pencil. There is no Save button
-either — leaving a block commits it, the way a document editor does. Nothing changed means
-nothing is written, so moving around the page never touches the repo.
+"comment on this", and editing always starts from the pencil. **Writing is explicit**:
+only **Done** (or `⌘↵`) touches the repo. Clicking elsewhere closes an untouched block —
+moving around the page never writes — but a block with changes stays open and asks, so a
+stray click can neither write your edit nor lose it.
 
-While a block is live, a small vertical toolbar sits beside it in the margin — done, undo,
-swap to Markdown — and stays out of the reading column.
+Discarding is the one way out that throws work away, so when the block has unsaved changes
+it asks once: press again — or click **Cancel** — to confirm, right where you are looking.
+On an untouched block it just closes. Nothing is sent to the server either way, and the
+draft is dropped, so re-opening the block gives you the file's own text back.
+
+While a block is live, one compact **card sits directly under it**: Done, Cancel, undo and
+the Markdown toggle on its first row, and — once you have changed something — everything
+the save can carry (see *Closing the loop*). There is no other chrome: no mode, no rail,
+no panel somewhere else on the screen.
+
+**Tables carry their controls on the grid itself**, not on a bar that follows the caret.
+Hovering a cell raises a handle on its row and its column; the column handle opens
+alignment (`:--`, `:-:`, `--:` — a column property in Markdown) and delete, the row handle
+opens delete, and the table's edges grow **+** buttons for a new row or column. Rows and
+columns drag to reorder — all of it inside the one block the editor owns.
+
+Two toolbar actions make a whole row or a whole column read as a **header** — they appear
+when your selection is inside a table. They exist because Markdown carries no styling: the
+only thing they can write is bold, so they bold every cell of that row or column, and the
+renderer gives a fully-bold row or column the header's own surface. Press again to undo
+it. The header row itself is left out — it is already a header.
+
+That threshold is deliberate. A *lone* bold cell stays plain emphasis: `| **✎** in the
+margin | … |` is not a label, and tinting it would be guessing. Only a complete run is
+treated as a decision, which is exactly what the buttons produce. The file stays portable
+either way — on GitHub, or in any editor, those cells simply read as bold.
+
+There is no header or footer option beyond that, and that is the format rather than an omission: a GFM
+table has **exactly one header row**, always, and Markdown has no concept of a footer row or
+of a header column. Offering them would mean emitting raw HTML tables — which stop being
+Markdown, stop round-tripping through the containment check, and stop rendering anywhere
+else your `.md` files are read.
+
+The toolbar itself appears **only at a text selection** — a bare caret gets nothing. A bar
+that follows the caret sits on the very text being edited, so structure lives elsewhere:
+tables on their grid, lists on the keyboard (`Tab` / `⇧Tab` to indent and outdent) and on
+the toolbar when text is selected inside one. `Tab` moves between table cells, and `Tab`
+in the last cell adds a row rather than dropping you out of the block.
+
+An edited table comes back in the file's own convention, down to the delimiter row: a
+compact `| --- |` file stays compact, an aligned one stays aligned. That matters more than
+it sounds — a table that could not round-trip would be rewritten in full by someone who
+only opened it and pressed Done.
+
+## Blocks
+
+An empty block tells you so itself — it carries a *Type '/' for commands* placeholder,
+the way Notion's does. A gesture you have to be told about in documentation is a gesture
+most people never find.
+
+`/` opens the palette Notion trained everyone to reach for, with Notion's verb: it
+**inserts a new block below** the one you are in — **Text, Heading 1–4, Bulleted list,
+Numbered list, To-do list, Quote, Code, Table, Divider, Image**, each with its Markdown
+shortcut shown beside it. Only an *empty* block is typed in place instead, which is the
+one case where inserting and transforming mean the same thing. Type to filter, `↑`/`↓` to
+move, `↵` to apply; the `/query` you typed is swallowed.
+
+Changing what an existing block *is* lives on the toolbar instead: select text and the bar
+leads with **Turn into** — the current block type, with a menu of everything GFM can turn
+it into. Two verbs, two surfaces, never confused.
+
+Managing the block is the **⋮⋮ menu**, and it needs no editing session at all:
+**duplicate** and **delete** are one-shot range writes (a duplicate writes the block
+twice, a delete writes nothing and takes one blank-line separator with it — neighbours
+come back byte-identical either way, and delete asks once before acting); **copy link to
+block** puts the nearest heading anchor on your clipboard; **comment** hands the block
+straight to the selection-comment flow.
+
+What Notion offers and Markdown cannot carry: **colour**, **block alignment** (there is no
+text-align in Markdown; only *table columns* have alignment, set from the column handle),
+**move up/down** (it rewrites two blocks at once, which the containment check refuses by
+design), callouts, toggles and columns.
+
+The formatting toolbar covers what GFM has: **bold**, *italic*, `code`, ~~strikethrough~~,
+links — the link button opens a small input for the URL, and hovering an existing link
+offers edit, copy and remove — and a **clear formatting** button that strips every mark
+from the selection. Buttons light up when the selection already carries their mark.
+Underline, colour and highlight have no Markdown syntax, so they are not offered rather
+than silently written as HTML.
+
+The Markdown shortcuts work too, and always did: `- `, `1. `, `# `, `> `, ` ``` `,
+`![alt](src)`, and `|3x2|` for a 3×2 table. The palette exists because a shortcut you have
+to already know is not an interface.
+
+**+** in the margin, next to the ✎, starts a **new block under this one**. The block you
+clicked beside stays *rendered* — it is not what you are editing — and an empty surface
+opens beneath it, ready for `/`. Leave it empty and nothing at all is written, so clicking +
+and changing your mind costs nothing.
+
+Under the hood the save rewrites that one block's range with two blocks, which is why the
+neighbours still come back byte-identical. (Editing the original in order to type below it
+was the first attempt, and it read as adding a line break to it.)
+
+**Images**: paste one, or pick `Image…` from the palette. Either way the file is written
+into the repo next to the page with a content-hashed name and linked for you, so it lands
+in the same commit as the prose that references it.
+
+What we deliberately did **not** take from Notion is drag-to-reorder. Moving a block past
+its neighbour rewrites two blocks at once, which is precisely what the containment check
+refuses — and that check is what keeps your diffs down to the line you changed.
 
 Prose blocks open as **rich text**: what you type looks like what the page will render, and
 selecting inside shows the formatting toolbar. Code fences (and anything else the renderer
@@ -67,7 +172,7 @@ reading a comment while you fix the sentence it is about.
 
 ## Closing the loop
 
-Once you have actually changed something, a card appears under that toolbar: the open
+Once you have actually changed something, the card under the block grows: the open
 comments on that page, and a place to describe the change. Tick the comments your edit
 answers and they are **resolved** by the same save, linked to a journal entry — the same
 registry an agent pass writes to. Nothing appears until there is something to attach it to.
@@ -104,7 +209,7 @@ you did not mean:
   really want to edit outside version control.
 
 - **It warns before it breaks an anchor.** If your edit removes the text a comment is
-  quoting, the card beside the block says so while you type — that comment would be orphaned.
+  quoting, the card under the block says so while you type — that comment would be orphaned.
 
 ## Images
 
@@ -115,13 +220,11 @@ else is refused; pasting the same screenshot twice reuses one file.
 
 ## What a save cannot check for you
 
-An agent pass ends with a build, `notabene lint` and your `verify[]` commands. A human edit
-ends with none of that, so the editor says what it skipped instead of letting CI find it:
-
-- a relative `.md` link in the block that points at no file is reported, without blocking
-  the save (`notabene lint` remains the exhaustive check);
-- if your config declares `verify[]`, a note reminds you they have not run. The editor
-  deliberately does **not** execute your commands from the dev server.
+An agent pass ends with a build, `notabene lint` and your `verify[]` commands. A human
+edit ends with none of that — and the save does not pretend otherwise: it answers
+**saved** or it refuses, nothing in between. The exhaustive checks live where they always
+did — `notabene lint` for links, your `verify[]` in CI and in every agent pass. The
+editor deliberately does **not** execute your commands from the dev server.
 
 ## Configuration
 
