@@ -22,6 +22,10 @@ C'est un outil **de dev uniquement**, exactement comme le commentaire : l'API d'
 n'existe que sous `notabene dev`. Un site construit ou publié n'a ni éditeur, ni endpoint,
 ni la moindre trace de l'un ou de l'autre.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-editor-demo.gif" alt="édition en place notabene : le survol montre les poignées de marge, le crayon ouvre le bloc en place, une sélection obtient la barre de mise en forme, et la sauvegarde ferme le commentaire auquel elle répond avec une note de journal" width="820" />
+</p>
+
 ## Les gestes
 
 Deux intentions, deux gestes — d'où l'absence de bascule de mode :
@@ -29,7 +33,7 @@ Deux intentions, deux gestes — d'où l'absence de bascule de mode :
 | Action | Effet |
 |---|---|
 | **✎** dans la marge | vous éditez ce bloc |
-| **⋮⋮** dans la marge | le menu du bloc — dupliquer, copier le lien, commenter, supprimer — sans ouvrir l'éditeur |
+| **⋮⋮** dans la marge | le menu du bloc — ajouter dessous, dupliquer, copier le lien, commenter, supprimer |
 | **Sélection** de texte, partout | la bulle de commentaire, comme avant |
 | Sélection *pendant l'édition* | la barre de mise en forme, à la sélection — **Transformer en** en tête |
 | **+** dans la marge | un nouveau bloc sous celui-ci |
@@ -167,14 +171,32 @@ Si un rechargement vous interrompt — le HMR se déclenche à chaque sauvegarde
 l'agent écrit — le texte déjà saisi est conservé et restauré à la réouverture du bloc.
 
 **Sur téléphone**, les deux mêmes étapes survivent, avec le geste dont un téléphone
-dispose : un **tap** arme le bloc — il le souligne et fait apparaître un bouton *Éditer ce
-bloc* — et c'est ce bouton qui l'ouvre. Un tap seul n'édite jamais rien, car sur téléphone
-le tap est le geste de lecture : on tape en défilant, en visant un lien, ou avant un appui
-long. L'appui long sélectionne toujours, et propose toujours de commenter.
+dispose : un **tap** arme le bloc — il le souligne et fait apparaître deux boutons sous
+la barre du haut, *Éditer ce bloc* et **⋮** pour le menu du bloc (ajouter un bloc
+dessous, dupliquer, copier le lien, commenter, supprimer — en panneau bas). Un tap seul n'édite jamais rien, car sur
+téléphone le tap est le geste de lecture : on tape en défilant, en visant un lien, ou
+avant un appui long. L'appui long sélectionne toujours, et propose toujours de commenter.
 
-Tout ce chrome s'ancre en **haut** de l'écran, pas en bas. Le bas appartient à la
-plateforme — Android y empile sa pastille « appuyer pour rechercher » et sa barre de
-gestes, iOS y fait monter le clavier — et ce qu'on y place devient inatteignable.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-editor-mobile-demo.gif" alt="édition mobile notabene : un tap arme le bloc, la puce l'ouvre, Terminer révèle la note de journal et les fermetures de commentaires au-dessus de la barre clavier et devient Confirmer" width="340" />
+</p>
+
+Pendant l'édition, les outils d'écriture vivent dans **une barre posée sur le clavier**,
+là où sont déjà les pouces — la forme de Notion. La zone défilante agit sur le contenu :
+**+** (la palette de blocs, en panneau), **Transformer en**, gras, italique, barré, code,
+lien, désindenter et indenter, l'annulation de frappe et la bascule Markdown.
+Les deux sorties de session — **Annuler** et **Terminer** — sont regroupées à droite,
+derrière un léger filet. Pas de barre flottante au doigt — elle
+passerait sous la bulle de sélection native, et chaque marque est sur la barre en
+permanence. La carte de session ne garde que son corps et s'ancre juste au-dessus de la
+barre — et pendant la frappe elle reste à l'écart : avertissements et erreurs
+apparaissent d'eux-mêmes, mais la paperasse attend la sauvegarde. **Enregistrer se fait
+en deux temps** : sur un bloc modifié, appuyer sur Terminer fait apparaître la note de
+journal et les commentaires que cette sauvegarde ferme, juste au-dessus de la barre, et
+le bouton devient **Confirmer** — un second appui écrit, avec la note si elle a été
+remplie. Reprendre la frappe (ou ✕) replie la question. Au doigt, la sortie est
+**toujours explicite** : défilez et tapez librement — seuls le ✕ et Terminer de la
+barre closent la session.
 
 Tout ce qui entoure le bloc reste rendu pendant la saisie : le rail de commentaires, les
 surlignages, le sommaire, les diagrammes. C'est tout l'intérêt — le geste visé est de lire

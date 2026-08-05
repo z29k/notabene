@@ -22,6 +22,10 @@ It is a **dev-only** tool, exactly like commenting: the write API exists under
 `notabene dev` and nowhere else. A built or published site has no editor, no endpoint,
 and no trace of one.
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-editor-demo.gif" alt="notabene in-page editing: hover shows the gutter handles, the pencil opens the block in place, a selection gets the formatting toolbar, and the save closes the comment it answers with a journal note" width="820" />
+</p>
+
 ## The gestures
 
 Two intentions, two gestures — which is why there is no mode switch:
@@ -29,7 +33,7 @@ Two intentions, two gestures — which is why there is no mode switch:
 | You do | You get |
 | --- | --- |
 | **✎** in the margin | you are editing that block |
-| **⋮⋮** in the margin | the block menu — duplicate, copy link, comment, delete — no editor needed |
+| **⋮⋮** in the margin | the block menu — add below, duplicate, copy link, comment, delete |
 | **Select** text, anywhere | the comment popover, exactly as before |
 | Select text *while editing* | the formatting toolbar, at the selection — **Turn into** first |
 | **+** in the margin | a new block under this one |
@@ -157,14 +161,29 @@ If a reload interrupts you — HMR fires on every save, and whenever the agent w
 text you had typed is kept and restored when you reopen that block.
 
 **On a phone** the same two steps survive, with the gesture a phone can spare: a **tap**
-arms the block — it outlines it and raises an *Edit this block* button — and tapping that
-button opens it. A tap alone never edits anything, because on a phone the tap is how you
-read: you tap while scrolling, aiming at a link, or on your way to a long-press.
-Long-press still selects, and still offers to comment.
+arms the block — it outlines it and raises two buttons under the topbar, *Edit this
+block* and **⋮** for the block menu (add a block below, duplicate, copy link, comment,
+delete — as a bottom sheet). A tap alone never edits anything, because on a phone the tap is how you read:
+you tap while scrolling, aiming at a link, or on your way to a long-press. Long-press
+still selects, and still offers to comment.
 
-All of that chrome docks to the **top** of the screen, not the bottom. The bottom belongs
-to the platform — Android stacks its "tap to search" chip and gesture pill there, iOS
-raises the keyboard — and anything we put there ends up unreachable.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/z29k/notabene/main/assets/notabene-editor-mobile-demo.gif" alt="notabene mobile editing: a tap arms the block, the chip opens it, Done reveals the journal note and the comment closures above the keyboard bar and becomes Confirm" width="340" />
+</p>
+
+While you edit, the writing tools live in **one bar riding the top of the keyboard**,
+where your thumbs already are — Notion's shape. The scrolling zone acts on the content:
+**+** (the block palette, as a sheet), **Turn into**, bold, italic, strikethrough, code,
+link, outdent and indent, undo and the Markdown toggle. The session's two
+exits — **Cancel** and **Done** — sit together at the right end, behind a light divider. There is no floating toolbar on touch — it would sit under the native
+selection callout, and every mark is on the bar full-time. The session card keeps only
+its body and docks just above the bar — and while you type it stays out of the way:
+warnings and errors surface on their own, but the paperwork waits for the save. **Saving
+is a two-step**: on a changed block, pressing Done reveals the journal note and the
+comments this save closes just above the bar, and the button becomes **Confirm** —
+press it again and the save is written, with the note if you filled one in. Typing
+again (or ✕) folds the question back down. On touch, leaving is **always explicit**:
+scroll and tap around freely — only the bar's ✕ and Done end the session.
 
 Everything around the block stays rendered while you type: the comment rail, the
 highlights, the table of contents, the diagrams. That is the point — you are meant to be
