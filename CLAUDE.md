@@ -248,9 +248,12 @@ the store, so the blast radius is different and the guards differ too.
   dev-only) — never in global.css, which ships in builds where CI greps `@milkdown` /
   `prosemirror-view`. `lib/md-style.ts` infers the file's own conventions so an edited
   block comes back looking like the rest of the file (lists: 87% rewritten → 0%).
-- **The loop, not a wiki.** A save can close the comments it answers (`PATCH /api/comments`,
-  `resolved` even under `review: "approve"` — the human editing IS the validator) and
-  journal the change (`POST /api/journal`, sharing `lib/journal-write.mjs` with the CLI).
+- **The loop, not a wiki.** A save can close the comments it answers (`resolved` even
+  under `review: "approve"` — the human editing IS the validator) and journal the change.
+  Both ride IN the `PUT /api/page` body (`closes`, `journal`) and are written server-side,
+  sequenced with the page write BEFORE the content resync — client follow-up requests were
+  torn down by dev's post-save reload (`PATCH /api/comments` / `POST /api/journal` remain,
+  for the comment UIs; the journal write shares `lib/journal-write.mjs` with the CLI).
   `comments verify` audits the result exactly as it audits an agent pass.
 
 ## Architecture: PDF export

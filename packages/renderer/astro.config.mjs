@@ -51,6 +51,11 @@ export default defineConfig({
   // Astro's default `localhost` resolves to ::1 on Node ≥17, but the CLI's readiness/
   // status checks and printed URLs use 127.0.0.1 — bind 127.0.0.1 so they match.
   server: { host: host === true ? true : "127.0.0.1", port },
+  // Astro's dev toolbar is chrome for people developing THIS Astro app — a notabene
+  // consumer runs `notabene dev` to review docs, not to audit islands. It is noise on
+  // desktop and actively harmful on mobile: it docks to the same bottom edge as the
+  // editor's keyboard bar and the comment sheets. Never shown, dev included.
+  devToolbar: { enabled: false },
   // outDir/cacheDir default under the app root (= the installed package), which may
   // be read-only. The CLI (bin/notabene.mjs) points these at a writable per-consumer
   // temp dir. Absolute paths are used as-is; undefined = Astro's default.

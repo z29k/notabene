@@ -47,6 +47,19 @@ export function notabeneEditor() {
         injectRoute({ pattern: "/api/page", entrypoint: here("../app-routes/api/page.ts") });
         injectRoute({ pattern: "/api/asset", entrypoint: here("../app-routes/api/asset.ts") });
       },
+      // NOT destructured: `refreshContent` is OPTIONAL in Astro's hook type, and a
+      // destructuring parameter infers it required — which fails `astro check`.
+      "astro:server:setup": (opts) => {
+        const { refreshContent } = opts;
+        // Hand the content-layer sync to the write route (via globalThis: the route
+        // lives in Vite's module graph, this file in Node's — same process, no shared
+        // imports). The consumer's docs live OUTSIDE the Astro root, and the watcher
+        // over that external directory proved ERRATIC: a PUT landed on disk, the page
+        // kept rendering the stale collection, and no reload could fix it — "Saved,
+        // but no impact on the page" (observed over LAN, minutes of staleness). A save
+        // must not depend on a watcher noticing; it refreshes the content itself.
+        globalThis.__nbRefreshContent = refreshContent;
+      },
     },
   };
 }

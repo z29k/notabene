@@ -482,6 +482,11 @@ interface Session {
   note: string;
   /** Cancel has been asked for once on a dirty block and is awaiting confirmation. */
   cancelArmed: boolean;
+  /** Touch only: Done has been pressed once on a dirty block — the loop section
+   *  (journal note + comment closures) is showing and the next Done writes. Auto-
+   *  appearing paperwork covered the very lines being typed; a hidden-then-revealed
+   *  step surfaces it exactly when it is relevant instead. */
+  confirming: boolean;
   /** "+" session: the block stays RENDERED and what is edited is a new block under it. */
   appending: boolean;
 }
@@ -631,6 +636,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
 
   function hideBlockMenu() {
     blockMenu.hidden = true;
+    blockMenu.classList.remove("nb-block-menu--sheet");
     blockMenuFor = null;
     deleteArmed = false;
   }
@@ -653,6 +659,9 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
   function renderBlockMenu() {
     blockMenu.replaceChildren();
     blockMenu.append(
+      // Add-below leads: on touch there is no + handle in the gutter, so this menu is
+      // where the gesture lives (on desktop it doubles the + handle, harmlessly).
+      menuItem("addbelow", "plus", m.editAddBlock),
       menuItem("duplicate", "duplicate", m.blockDuplicate),
       menuItem("copylink", "link", m.blockCopyLink),
       menuItem("comment", "comment", m.blockComment),
@@ -666,6 +675,15 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     deleteArmed = false;
     renderBlockMenu();
     blockMenu.hidden = false;
+    if (coarse()) {
+      // Touch has no ⋮⋮ handle to hang a popover off — the menu opens as a bottom
+      // sheet, the mobile shape every platform trained (and the comment sheets set).
+      blockMenu.classList.add("nb-block-menu--sheet");
+      blockMenu.style.top = "";
+      blockMenu.style.left = "";
+      placeDocked();
+      return;
+    }
     const r = handleMenu.getBoundingClientRect();
     blockMenu.style.top = `${window.scrollY + r.bottom + 4}px`;
     blockMenu.style.left = `${window.scrollX + Math.max(8, r.left - 4)}px`;
@@ -743,11 +761,12 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     return `${location.origin}${location.pathname}${id ? `#${id}` : ""}`;
   }
 
-  blockMenu.addEventListener("mousedown", (e) => {
-    const act = (e.target as HTMLElement | null)?.closest<HTMLElement>(".nb-block-menu-item")?.dataset.act;
+  // onPress, not a raw mousedown: on touch the menu hides mid-tap and the trailing
+  // ghost click would land on the page beneath it (same hazard the dockbar had).
+  onPress(blockMenu, (target) => {
+    const act = target?.closest<HTMLElement>(".nb-block-menu-item")?.dataset.act;
     const el = blockMenuFor;
     if (!act || !el) return;
-    e.preventDefault();
     const near = el.getBoundingClientRect();
     const stamp = parseStamp(el.getAttribute("data-nb-range"), el.getAttribute("data-nb-block"));
     if (act === "delete") {
@@ -759,6 +778,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
         return;
       }
       hideBlockMenu();
+      disarm();
       if (!stamp) return;
       void fetchBlockSource(stamp).then(async (r) => {
         const err = "error" in r ? r.error : await writeRange(stamp, r.text, "");
@@ -767,7 +787,12 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
       return;
     }
     hideBlockMenu();
-    if (act === "duplicate") {
+    disarm();
+    if (act === "addbelow") {
+      // The same append session the gutter + opens: the block stays rendered, an empty
+      // surface (placeholder, palette, keyboard bar) opens beneath it.
+      void openBlock(el, true);
+    } else if (act === "duplicate") {
       if (!stamp) return;
       void fetchBlockSource(stamp).then(async (r) => {
         const err = "error" in r ? r.error : await writeRange(stamp, r.text, `${r.text}\n\n${r.text}`);
@@ -782,47 +807,48 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
       // Hand the block to the comment flow: a programmatic selection is exactly the
       // gesture Comments.astro already answers. No new comment surface to maintain.
       //
-      // TIMING IS THE WHOLE TRICK. This handler runs on the menu's mousedown, i.e. with
-      // the pointer DOWN — and Comments.astro deliberately ignores selectionchange while
-      // a pointer is down (a drag in progress is handled on pointerup). A selection made
-      // here was therefore invisible to it, and its own pointerup pass ran before the
-      // selection existed: nothing ever appeared. So the selection is applied one tick
-      // AFTER the click's pointerup — and once Comments' debounced fallback (120 ms) has
-      // shown its affordance, that affordance is pressed for the reader: the menu item
-      // promised a comment, not a second button to find.
-      document.addEventListener(
-        "pointerup",
-        () => {
-          window.setTimeout(() => {
-            const sel = window.getSelection();
-            if (!sel) return;
-            // Boundaries on TEXT nodes, exactly like a hand-made selection.
-            // `selectNodeContents(el)` was tried and produced an EMPTY anchor: the
-            // comment code maps Range containers through a flat map of the article's
-            // text nodes, and a container that is the element itself resolves to -1 —
-            // the composer opened over a quote of "".
-            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-            let first: Text | null = null;
-            let last: Text | null = null;
-            for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-              if (!(n as Text).data.trim()) continue;
-              first ??= n as Text;
-              last = n as Text;
-            }
-            if (!first || !last) return;
-            const range = document.createRange();
-            range.setStart(first, 0);
-            range.setEnd(last, last.data.length);
-            sel.removeAllRanges();
-            sel.addRange(range);
-            window.setTimeout(() => {
-              const btn = document.getElementById("cmt-float") as HTMLButtonElement | null;
-              if (btn && !btn.hidden) btn.click();
-            }, 180);
-          }, 0);
-        },
-        { once: true },
-      );
+      // TIMING IS THE WHOLE TRICK. Comments.astro deliberately ignores selectionchange
+      // while a pointer is down (a drag in progress is handled on pointerup), so the
+      // selection must be applied with the pointer UP — and once its debounced fallback
+      // (120 ms) has shown the affordance, that affordance is pressed for the reader:
+      // the menu item promised a comment, not a second button to find.
+      const select = () => {
+        const sel = window.getSelection();
+        if (!sel) return;
+        // Boundaries on TEXT nodes, exactly like a hand-made selection.
+        // `selectNodeContents(el)` was tried and produced an EMPTY anchor: the comment
+        // code maps Range containers through a flat map of the article's text nodes,
+        // and a container that is the element itself resolves to -1 — the composer
+        // opened over a quote of "".
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let first: Text | null = null;
+        let last: Text | null = null;
+        for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+          if (!(n as Text).data.trim()) continue;
+          first ??= n as Text;
+          last = n as Text;
+        }
+        if (!first || !last) return;
+        const range = document.createRange();
+        range.setStart(first, 0);
+        range.setEnd(last, last.data.length);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        window.setTimeout(() => {
+          const btn = document.getElementById("cmt-float") as HTMLButtonElement | null;
+          if (btn && !btn.hidden) btn.click();
+        }, 180);
+      };
+      if (coarse()) {
+        // On touch this handler runs on the COMPAT mousedown, which fires AFTER the
+        // tap's pointerup — a {once} pointerup listener here waited for the NEXT tap,
+        // and "Comment on this block" opened nothing (user report). The tap is already
+        // over: select now.
+        window.setTimeout(select, 50);
+      } else {
+        // With a mouse this runs pointer-DOWN; defer past the click's own pointerup.
+        document.addEventListener("pointerup", () => window.setTimeout(select, 0), { once: true });
+      }
     }
   });
 
@@ -1122,14 +1148,10 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     return false;
   }
 
-  /** Apply an entry: swallow the typed `/query`, then INSERT below — or type an empty
-   *  block in place, which is the only case Notion transforms too. */
-  function applySlash(item: SlashItem) {
-    const s = open;
-    if (!s?.rich || !slashState) return;
-    const query = slashState.query;
-    hideSlash();
-    s.rich.consumeSlash(query);
+  /** Palette semantics, shared by the `/` menu and the dockbar's + sheet: INSERT below —
+   *  or type an empty block in place, the only case Notion transforms too. */
+  function applyBlockItem(s: Session, item: SlashItem) {
+    if (!s.rich) return;
     if (item.cmd === "image") {
       void pickImage(s);
     } else if (s.rich.blockEmpty()) {
@@ -1139,6 +1161,17 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     }
     renderCardBody(s);
     positionBar();
+    refreshDockbar();
+  }
+
+  /** Apply a `/` entry: swallow the typed `/query`, then insert. */
+  function applySlash(item: SlashItem) {
+    const s = open;
+    if (!s?.rich || !slashState) return;
+    const query = slashState.query;
+    hideSlash();
+    s.rich.consumeSlash(query);
+    applyBlockItem(s, item);
   }
 
   slashMenu.addEventListener("mousedown", (e) => {
@@ -1186,6 +1219,12 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
   }
 
   function positionBar() {
+    // Touch never sees the floating toolbar: it would sit under the native selection
+    // callout, and every mark it offers lives on the keyboard bar full-time.
+    if (open && coarse()) {
+      bar.hidden = true;
+      return;
+    }
     const sel = window.getSelection();
     if (!open?.rich || !sel || sel.rangeCount === 0 || !open.host.contains(sel.anchorNode)) {
       bar.hidden = true;
@@ -1222,7 +1261,10 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     bar.style.top = `${window.scrollY + (top >= 4 ? top : r.bottom + 8)}px`;
     bar.style.left = `${window.scrollX + left}px`;
   }
-  document.addEventListener("selectionchange", positionBar);
+  document.addEventListener("selectionchange", () => {
+    positionBar();
+    refreshDockbar();
+  });
   for (const ev of ["scroll", "resize"]) {
     window.addEventListener(ev, positionBar, { passive: true });
   }
@@ -1300,8 +1342,15 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
       body.append(warn);
     }
 
+    // On touch the loop section appears at the CONFIRM step (first press on Done):
+    // auto-appearing above the keyboard bar it covered the very lines being typed
+    // (user screenshot), and an opt-in 📓 button went undiscovered (user question).
+    // Warnings and messages above still show themselves — feedback may interrupt,
+    // paperwork may not.
+    const showLoop = !coarse() || s.confirming;
+
     // The loop appears only once there is a change to attach it to.
-    if (dirty && s.comments.length) {
+    if (showLoop && dirty && s.comments.length) {
       const title = document.createElement("p");
       title.className = "nb-edit-card-title";
       title.textContent = m.editCloses;
@@ -1324,7 +1373,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
         body.append(row);
       }
     }
-    if (dirty) {
+    if (showLoop && dirty) {
       // The input alone read as "why would I comment here?" — its DESTINATION is the
       // context: the note becomes this save's entry in the journal, the same registry
       // an agent pass writes to, read on /journal and /review.
@@ -1339,9 +1388,17 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
       note.addEventListener("input", () => {
         s.note = note.value;
       });
+      // The note is the last input of a save — Enter in it means "and write it".
+      note.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          void commit();
+        }
+      });
       body.append(title, note);
     }
     body.hidden = !body.childElementCount;
+    placeDocked();
   }
 
   function message(s: Session, text: string, kind: "error" | "warn") {
@@ -1356,6 +1413,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     el.textContent = text;
     el.dataset.kind = kind;
     body.hidden = false;
+    placeDocked();
   }
 
   function clearMessage(s: Session) {
@@ -1389,6 +1447,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
 
     const host = document.createElement("div");
     host.className = "nb-edit-live";
+    if (coarse()) host.classList.add("nb-edit-live--touch");
     const card = document.createElement("div");
     card.className = "nb-edit-card";
     if (coarse()) card.classList.add("nb-edit-card--dock");
@@ -1417,6 +1476,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
       closing: new Set(),
       note: "",
       cancelArmed: false,
+      confirming: false,
       appending: append,
     };
     const s = open;
@@ -1452,6 +1512,12 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     // textarea whenever you clicked + beside a code fence.
     await mount(s, RICH_KINDS.has(append ? "paragraph" : stamp.kind), initial);
     renderCardBody(s);
+    if (coarse()) {
+      renderDockbar(s);
+      dockbar.hidden = false;
+      refreshDockbar();
+      watchKeyboard();
+    }
   }
 
   /** Swap the editing surface (rich ⇄ source) while keeping the current content. */
@@ -1472,7 +1538,9 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     const onChange = () => {
       session.set(keyFor(s), content());
       if (s.cancelArmed) disarmCancel(s);
+      else if (s.confirming) disarmConfirm(s);
       else renderCardBody(s);
+      keepCaretVisible();
     };
 
     if (rich) {
@@ -1520,6 +1588,9 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     disarm();
     hideSlash();
     hideTurnMenu();
+    hideSheet();
+    dockbar.hidden = true;
+    kbCleanup?.();
     if (!open) return;
     const { el, host, card } = open;
     open = null;
@@ -1559,6 +1630,12 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
   function requestCancel() {
     const s = open;
     if (!s || s.saving) return;
+    // During the confirm step the question on screen is the SAVE — ✕ withdraws that
+    // question and goes back to editing; only its next press asks about discarding.
+    if (s.confirming) {
+      disarmConfirm(s);
+      return;
+    }
     if (cancelAction(effective() !== s.original, s.cancelArmed) === "discard") {
       discard();
       return;
@@ -1569,6 +1646,7 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     // question 800px from the hand asking it.
     message(s, m.editCancelConfirm, "warn");
     renderCardActions(s);
+    if (!dockbar.hidden) renderDockbar(s);
   }
 
   /** Any further typing means the cancel was not meant — take the question back down. */
@@ -1578,6 +1656,15 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     clearMessage(s);
     renderCardActions(s);
     renderCardBody(s);
+    if (!dockbar.hidden) renderDockbar(s);
+  }
+
+  /** Typing again means the save was not final — fold the paperwork back down. */
+  function disarmConfirm(s: Session) {
+    if (!s.confirming) return;
+    s.confirming = false;
+    renderCardBody(s);
+    if (!dockbar.hidden) renderDockbar(s);
   }
 
   /**
@@ -1601,50 +1688,43 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     }
     s.saving = true;
 
+    // The journal entry and the comment closures ride IN the save request: dev's
+    // content resync pushes a full reload the moment the write lands, and follow-up
+    // requests from a page being torn down were silently lost (the text saved, while
+    // the closure, the journal and the toast all vanished). Server-side they are
+    // sequenced with the write itself.
+    //
+    // The toast is stashed BEFORE the request for the same reason: that reload can
+    // tear this page down before the response even arrives — everything after the
+    // fetch is best-effort. An error answer (no write, so no reload) takes it back.
+    session.set(noticeKey, JSON.stringify({ at: Date.now(), text: m.editSaved }));
     const res = await fetch("/api/page", {
       method: "PUT",
       headers: authHeaders(),
-      body: JSON.stringify({ page, start: s.stamp.start, end: s.stamp.end, original: s.original, markdown }),
+      body: JSON.stringify({
+        page,
+        start: s.stamp.start,
+        end: s.stamp.end,
+        original: s.original,
+        markdown,
+        ...(note || closing.length
+          ? { closes: closing, journal: { title: note || m.editJournalDefault, summary: note } }
+          : {}),
+      }),
     }).catch(() => null);
-    const payload = res ? await res.json().catch(() => ({})) : {};
     if (!res?.ok) {
+      // A real error RESPONSE means no write happened — take the stashed notice back.
+      // A null res is ambiguous: network failure, OR the fetch was aborted by the
+      // very teardown a successful write triggers. Defer the drop: timers die with
+      // the page, so a teardown keeps the stash (correct — the write landed) while a
+      // survived page drops it a beat later (correct — nothing was saved).
+      if (res) session.drop(noticeKey);
+      else window.setTimeout(() => session.drop(noticeKey), 50);
+      const payload = res ? await res.json().catch(() => ({})) : {};
       s.saving = false;
       message(s, editorMessage(res?.status ?? 0, payload, m), "error");
       if (payload.error === "containment" && s.nextEnd != null) offerExtend(s);
       return;
-    }
-
-    // Journal + comment closure, in the same registry an agent pass writes to. Sequenced
-    // client-side: there is no transaction to be had across three files, and
-    // `comments verify` already reports a half-linked resolution in both directions.
-    let journalEntryId: string | null = null;
-    if (note || closing.length) {
-      const first = s.comments.find((c) => closing.includes(c.id))?.thread?.[0];
-      const title = note || m.editJournalDefault;
-      const jr = await fetch("/api/journal", {
-        method: "POST",
-        headers: authHeaders(),
-        body: JSON.stringify({
-          title,
-          summary: note,
-          changes: [{ page, commentIds: closing, what: title, why: first?.body ?? "" }],
-        }),
-      }).catch(() => null);
-      if (jr?.ok) journalEntryId = (await jr.json().catch(() => ({}))).id ?? null;
-    }
-    for (const id of closing) {
-      await fetch("/api/comments", {
-        method: "PATCH",
-        headers: authHeaders(),
-        // `resolved`, not `addressed`, even under `review: "approve"` — whoever just
-        // edited the page IS the validator that mode waits for.
-        body: JSON.stringify({
-          page,
-          id,
-          status: "resolved",
-          resolution: { note: note || m.editJournalDefault, ...(journalEntryId ? { journalEntryId } : {}) },
-        }),
-      }).catch(() => null);
     }
 
     session.drop(keyFor(s));
@@ -1653,11 +1733,17 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     // dropped on user feedback ("I made an edit, why is it talking about
     // verifications?"): the exhaustive checks belong to `notabene lint`, CI and the
     // agent pass, not to a toast. The server still RETURNS the warnings (API contract,
-    // other clients); this UI just keeps quiet about them. Stashed because the save's
-    // own HMR reload replaces the page — the fresh page re-shows it (consume-on-mount).
-    session.set(noticeKey, JSON.stringify({ at: Date.now(), text: m.editSaved }));
+    // other clients); this UI just keeps quiet about them. The notice itself was
+    // stashed before the request — the fresh page re-shows it (consume-on-mount).
     showSaveNotice(m.editSaved);
     close(true);
+    // Dev's HMR normally replaces the page with the authoritative render — but a
+    // phone's websocket dies when the tab sleeps, and the page then kept showing the
+    // OLD block after a CONFIRMED write ("Saved, but no impact on the page" — user
+    // report; the saves were all on disk). Reload ourselves after a beat: long enough
+    // for the content layer to resync, and if HMR is alive it simply wins the race —
+    // the stashed notice re-shows "Saved" on whichever fresh page arrives.
+    window.setTimeout(() => window.location.reload(), 800);
   }
 
   /**
@@ -1688,6 +1774,304 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     body.hidden = false;
   }
 
+  // ── touch: the keyboard toolbar (Notion's mobile shape) ─────────────────────
+  // On a phone the writing tools live in ONE bar anchored to the top of the software
+  // keyboard — where the thumbs already are, and the one strip the platform cannot
+  // claim while the keyboard is up. The scrolling zone acts on the CONTENT (+, Turn
+  // into, marks, indent, undo, Markdown toggle, journal); the session's two exits —
+  // ✕ and ✓ — sit together at the right end behind a light divider.
+  // On touch the session card keeps only its BODY (journal, closures, messages), docked
+  // right above this bar; the floating selection toolbar never shows at all — it would
+  // fight the native selection callout, and the marks are on the bar full-time anyway.
+  const dockbar = document.createElement("div");
+  dockbar.className = "nb-edit-dockbar";
+  dockbar.hidden = true;
+  document.body.append(dockbar);
+  const sheet = document.createElement("div");
+  sheet.className = "nb-edit-sheet";
+  sheet.hidden = true;
+  document.body.append(sheet);
+
+  const DOCK_FMT: [EditorCommand, string, string][] = [
+    ["strong", "bold", m.editBold],
+    ["emphasis", "italic", m.editItalic],
+    ["strike", "strike", m.editStrike],
+    ["inlineCode", "code", m.editCode],
+    ["link", "link", m.editLink],
+    ["outdent", "outdent", m.editOutdent],
+    ["indent", "indent", m.editIndent],
+  ];
+
+  function renderDockbar(s: Session) {
+    dockbar.replaceChildren();
+    const scroll = document.createElement("div");
+    scroll.className = "nb-edit-dock-scroll";
+    if (s.rich) {
+      const plus = iconButton("nb-edit-dock-btn", "plus", m.editAddBlock);
+      plus.dataset.act = "sheet-insert";
+      const turn = iconButton("nb-edit-dock-btn", "text", m.editTurnInto);
+      turn.dataset.act = "sheet-turn";
+      scroll.append(plus, turn);
+      for (const [cmd, icon, tip] of DOCK_FMT) {
+        const b = iconButton("nb-edit-dock-btn", icon, tip);
+        b.dataset.act = `cmd-${cmd}`;
+        scroll.append(b);
+      }
+    }
+    const undoBtn = iconButton("nb-edit-dock-btn", "undo", m.editUndo);
+    undoBtn.dataset.act = "undo";
+    const mode = iconButton(
+      "nb-edit-dock-btn",
+      s.rich ? "codeBlock" : "text",
+      s.rich ? m.editModeSource : m.editModeRich,
+    );
+    mode.dataset.act = "mode";
+    scroll.append(undoBtn, mode);
+    dockbar.append(scroll);
+    // The session's two exits sit TOGETHER at the right end, behind a light divider:
+    // one zone acts on the content, the other ends the session — the divider is the
+    // boundary between the two ideas (user request; the earlier far-left ✕ read as
+    // just another formatting button).
+    const actions = document.createElement("div");
+    actions.className = "nb-edit-dock-actions";
+    const cancel = iconButton("nb-edit-dock-btn nb-edit-dock-btn--cancel", "close", m.editCancel);
+    cancel.dataset.act = "cancel";
+    if (s.cancelArmed) cancel.classList.add("nb-edit-act--armed");
+    const done = iconButton(
+      "nb-edit-dock-btn nb-edit-dock-btn--done",
+      "check",
+      m.editDone,
+      s.confirming ? m.editConfirm : m.editDoneShort,
+    );
+    done.dataset.act = "done";
+    actions.append(cancel, done);
+    dockbar.append(actions);
+    placeDocked();
+  }
+
+  /** Active marks + the current block type, following the caret — cheap, per change. */
+  function refreshDockbar() {
+    if (!open || dockbar.hidden) return;
+    if (!open.rich) return;
+    const marks = open.rich.marks() as unknown as Record<string, boolean>;
+    for (const [cmd] of DOCK_FMT) {
+      const b = dockbar.querySelector(`[data-act="cmd-${cmd}"]`);
+      if (b && cmd in marks) b.classList.toggle("is-active", !!marks[cmd]);
+    }
+    const turn = dockbar.querySelector<HTMLElement>('[data-act="sheet-turn"]');
+    if (turn) {
+      const kind = open.rich.blockType();
+      turn.innerHTML = ICONS[TURN_INTO.find((t) => t.kind === kind)?.icon ?? "text"] ?? "";
+    }
+  }
+
+  /**
+   * Touch-safe press wiring. A finger on a button must act on the SESSION, not steal
+   * it: preventDefault on the mouse-compat `mousedown` is not enough on touch — the
+   * editor still blurred and Gboard dropped, which read as "tapping B closes the
+   * editor" (user feedback). Cancelling the touch `pointerdown` keeps the focus (and
+   * the keyboard) where they are and suppresses the compat mouse events entirely; the
+   * action then fires on the release, like a native key. Cancelling pointerdown does
+   * NOT prevent scrolling, so the bar still pans — and a pan that the browser claims
+   * ends in `pointercancel`, which drops the pending press instead of firing it.
+   * With a mouse, unchanged: act on mousedown, keep focus via its preventDefault.
+   */
+  function onPress(el: HTMLElement, fn: (target: HTMLElement | null) => void) {
+    el.addEventListener("pointerdown", (e) => {
+      if (e.pointerType !== "touch") return;
+      e.preventDefault();
+      const up = (ue: PointerEvent) => {
+        el.removeEventListener("pointerup", up);
+        // The spec STILL dispatches a click after a cancelled pointerdown — and by
+        // then the pressed surface may be gone, so that click lands on the PAGE under
+        // the finger. Observed: cancelling a session armed the block beneath the ✕;
+        // over a link it would navigate. Swallow that one ghost click.
+        const swallow = (ce: MouseEvent) => {
+          ce.preventDefault();
+          ce.stopPropagation();
+        };
+        document.addEventListener("click", swallow, { capture: true, once: true });
+        window.setTimeout(() => document.removeEventListener("click", swallow, { capture: true }), 500);
+        fn(ue.target as HTMLElement | null);
+      };
+      el.addEventListener("pointerup", up);
+      el.addEventListener("pointercancel", () => el.removeEventListener("pointerup", up), { once: true });
+    });
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      fn(e.target as HTMLElement | null);
+    });
+  }
+
+  onPress(dockbar, (target) => {
+    const act = target?.closest<HTMLElement>(".nb-edit-dock-btn")?.dataset.act;
+    const s = open;
+    if (!act || !s) return;
+    if (act === "done") {
+      // First press on a modified block REVEALS the paperwork (journal note + comment
+      // closures) above the bar and turns Done into Confirm; only the second press
+      // writes — with the note if one was filled in. Same two-step as the ✕, for the
+      // same reason: the paperwork is folded away on touch, so the save must surface
+      // it before it is final (user request). A clean block still just closes.
+      if (!s.confirming && effective() !== s.original) {
+        s.confirming = true;
+        renderCardBody(s);
+        renderDockbar(s);
+        s.card.querySelector<HTMLInputElement>(".nb-edit-note")?.focus();
+      } else void commit();
+    } else if (act === "cancel") requestCancel();
+    else if (act === "undo") undo(s);
+    else if (act === "mode")
+      void mount(s, !s.rich).then(() => {
+        renderCardBody(s);
+        renderDockbar(s);
+      });
+    else if (act === "sheet-insert") openSheet("insert");
+    else if (act === "sheet-turn") openSheet("turn");
+    else if (act.startsWith("cmd-")) {
+      s.rich?.run(act.slice(4) as EditorCommand);
+      renderCardBody(s);
+      refreshDockbar();
+    }
+  });
+
+  function hideSheet() {
+    sheet.hidden = true;
+  }
+
+  /** The + and Turn-into menus, as bottom sheets above the bar — Notion's mobile shape
+   *  for both, and the same list content as the desktop `/` palette and Turn into menu. */
+  function openSheet(kind: "insert" | "turn") {
+    const s = open;
+    if (!s?.rich) return;
+    sheet.replaceChildren();
+    const title = document.createElement("div");
+    title.className = "nb-edit-sheet-title";
+    title.textContent = kind === "insert" ? m.editAddBlock : m.editTurnInto;
+    sheet.append(title);
+    const list = document.createElement("div");
+    list.className = "nb-edit-sheet-list";
+    if (kind === "insert") {
+      for (const item of SLASH_ITEMS) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "nb-edit-menu-item";
+        const ic = document.createElement("span");
+        ic.className = "nb-edit-menu-ic";
+        ic.innerHTML = ICONS[item.icon] ?? "";
+        const txt = document.createElement("span");
+        txt.className = "nb-edit-menu-txt";
+        const name = document.createElement("span");
+        name.textContent = label(item.key);
+        const desc = document.createElement("span");
+        desc.className = "nb-edit-menu-desc";
+        desc.textContent = label(item.descKey);
+        txt.append(name, desc);
+        b.append(ic, txt);
+        onPress(b, () => {
+          hideSheet();
+          applyBlockItem(s, item);
+        });
+        list.append(b);
+      }
+    } else {
+      const current = s.rich.blockType();
+      for (const item of TURN_INTO) {
+        const b = menuItem(`turn:${item.kind}`, item.icon, label(item.key));
+        if (item.kind === current) {
+          const check = document.createElement("span");
+          check.className = "nb-block-menu-check";
+          check.innerHTML = ICONS.check;
+          b.append(check);
+        }
+        onPress(b, () => {
+          hideSheet();
+          s.rich?.turnInto(item.kind);
+          renderCardBody(s);
+          refreshDockbar();
+        });
+        list.append(b);
+      }
+    }
+    sheet.append(list);
+    sheet.hidden = false;
+    placeDocked();
+  }
+
+  /**
+   * Pin the docked chrome to the bottom of the VISUAL viewport — i.e. to the top of the
+   * software keyboard when it is up.
+   *
+   * Anchored by TOP, not by bottom: `top = vv.offsetTop + vv.height − height` puts an
+   * element's bottom edge exactly at the visual-viewport bottom in fixed-position
+   * coordinates, and that identity holds in EVERY Android/iOS mode. The first attempt
+   * published a bottom inset computed against `window.innerHeight`, and what `bottom: 0`
+   * refers to shifts with `interactive-widget` and the URL bar — on a real Android the
+   * bar sat half-sunk into Gboard (user's screenshot). The visual viewport is the only
+   * coordinate system that tells the truth here; use it directly.
+   */
+  /** Height of the docked overlay stack (bar + card), for scroll math. */
+  let dockedOverlayH = 0;
+  function placeDocked() {
+    const vv = window.visualViewport;
+    const vpBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    // Fractional heights + ceil: offsetHeight rounds down, and the sub-pixel remainder
+    // showed as a 1px sliver of page between the bar and the keyboard (user screenshot).
+    // Ceil errs DOWNWARD — under the keyboard, where nothing shows through.
+    const place = (el: HTMLElement, above: number): number => {
+      const h = el.getBoundingClientRect().height;
+      el.style.top = `${Math.ceil(vpBottom - above - h)}px`;
+      el.style.bottom = "auto";
+      return h;
+    };
+    let barH = 0;
+    if (!dockbar.hidden) barH = place(dockbar, 0);
+    let cardH = 0;
+    if (open?.card.classList.contains("nb-edit-card--dock")) {
+      const visible = getComputedStyle(open.card).display !== "none";
+      if (visible) cardH = place(open.card, barH + 6) + 6;
+    }
+    if (!sheet.hidden) place(sheet, barH);
+    if (!blockMenu.hidden && blockMenu.classList.contains("nb-block-menu--sheet")) place(blockMenu, 0);
+    dockedOverlayH = barH + cardH;
+    // Let the BROWSER's own caret-reveal account for the overlay: scroll-padding is the
+    // documented lever for fixed chrome, and it costs nothing when the bar is away.
+    document.documentElement.style.scrollPaddingBottom = dockbar.hidden ? "" : `${Math.ceil(dockedOverlayH) + 12}px`;
+  }
+
+  /**
+   * Nudge the page so the caret stays ABOVE the docked chrome while typing. The browser
+   * reveals the caret within the visual viewport, but knows nothing of the bar and card
+   * floating over its bottom — each new line sank behind them and "the scroll does not
+   * follow" (user report). scroll-padding covers most engines; this is the belt.
+   */
+  function keepCaretVisible() {
+    const vv = window.visualViewport;
+    if (!vv || dockbar.hidden) return;
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || !open?.host.contains(sel.anchorNode)) return;
+    const holder = sel.anchorNode instanceof Element ? sel.anchorNode : (sel.anchorNode?.parentElement ?? null);
+    const r = anchorRect(sel.getRangeAt(0).getBoundingClientRect(), holder?.getBoundingClientRect() ?? null);
+    if (!r) return;
+    const limit = vv.offsetTop + vv.height - dockedOverlayH - 12;
+    if (r.bottom > limit) window.scrollBy(0, r.bottom - limit);
+  }
+
+  let kbCleanup: (() => void) | null = null;
+  function watchKeyboard() {
+    const vv = window.visualViewport;
+    if (!vv || kbCleanup) return;
+    vv.addEventListener("resize", placeDocked);
+    vv.addEventListener("scroll", placeDocked);
+    placeDocked();
+    kbCleanup = () => {
+      vv.removeEventListener("resize", placeDocked);
+      vv.removeEventListener("scroll", placeDocked);
+      document.documentElement.style.scrollPaddingBottom = "";
+      kbCleanup = null;
+    };
+  }
+
   // ── gestures ────────────────────────────────────────────────────────────────
   // TOUCH: a tap ARMS a block, it does not edit it. Opening the editor on a bare tap was
   // tried and is wrong — on a phone the tap is the READING gesture (you tap while
@@ -1695,30 +2079,39 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
   // into an editor they had not asked for and made choosing between commenting and
   // editing a fight. Arming is the same two-step the desktop already has (hover reveals
   // the pencil, clicking the pencil opens), with the one gesture a phone can spare.
-  const chip = document.createElement("button");
-  chip.type = "button";
-  chip.className = "nb-edit-chip";
-  chip.hidden = true;
-  chip.textContent = `✎ ${m.editBlockHint}`;
-  document.body.append(chip);
+  // The armed chip carries TWO buttons — Edit, and ⋮ for the block menu: touch has no
+  // hover to reveal the ⋮⋮ handle with, and this is where that menu lives instead.
+  const chipbar = document.createElement("div");
+  chipbar.className = "nb-edit-chipbar";
+  chipbar.hidden = true;
+  const chipEdit = iconButton("nb-edit-chip", "pencil", m.editBlockHint, m.editBlockHint);
+  const chipMenu = iconButton("nb-edit-chip nb-edit-chip--menu", "menu", m.blockMenu);
+  chipbar.append(chipEdit, chipMenu);
+  document.body.append(chipbar);
   let armed: HTMLElement | null = null;
 
   function disarm() {
     armed?.removeAttribute("data-nb-armed");
     armed = null;
-    chip.hidden = true;
+    chipbar.hidden = true;
   }
   function arm(el: HTMLElement) {
     disarm();
     armed = el;
     el.setAttribute("data-nb-armed", "");
-    chip.hidden = false;
+    chipbar.hidden = false;
   }
-  chip.addEventListener("click", (e) => {
+  chipEdit.addEventListener("click", (e) => {
     e.preventDefault();
     const el = armed;
     disarm();
     if (el) void openBlock(el);
+  });
+  chipMenu.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (!armed) return;
+    if (blockMenuFor) hideBlockMenu();
+    else openBlockMenu(armed);
   });
 
   article.addEventListener("click", (e) => {
@@ -1785,12 +2178,18 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
 
   document.addEventListener("pointerdown", (e) => {
     const t = e.target as HTMLElement | null;
-    if (blockMenuFor && !blockMenu.contains(t) && t !== handleMenu && !handleMenu.contains(t)) hideBlockMenu();
+    if (blockMenuFor && !blockMenu.contains(t) && t !== handleMenu && !handleMenu.contains(t) && !chipMenu.contains(t))
+      hideBlockMenu();
     if (!open) return;
-    if (slashMenu.contains(t) || turnMenu.contains(t)) return;
+    if (slashMenu.contains(t) || turnMenu.contains(t) || sheet.contains(t)) return;
     hideSlash();
     hideTurnMenu();
-    if (open.host.contains(t) || open.card.contains(t) || bar.contains(t)) return;
+    // A tap outside an open sheet CLOSES the sheet — that tap has said all it means.
+    if (!sheet.hidden) {
+      hideSheet();
+      return;
+    }
+    if (open.host.contains(t) || open.card.contains(t) || bar.contains(t) || dockbar.contains(t)) return;
     // Milkdown chrome (the link tooltip's input, the table widget's handles) can render
     // outside the host element; anything of Milkdown's is part of the session.
     if (t?.closest?.('[class*="milkdown"]')) return;
@@ -1799,12 +2198,24 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
     // Click-away used to commit, document-editor style, and read as "my draft was
     // validated without me pressing anything" (user feedback) — a stray click must be
     // able neither to write an edit nor to lose one.
-    if (effective() !== open.original) {
-      if (open.cancelArmed) disarmCancel(open);
-      message(open, m.editUnsavedAsk, "warn");
+    const settle = () => {
+      if (!open) return;
+      if (effective() !== open.original) {
+        if (open.cancelArmed) disarmCancel(open);
+        message(open, m.editUnsavedAsk, "warn");
+        return;
+      }
+      void commit();
+    };
+    if ((e as PointerEvent).pointerType === "touch") {
+      // On touch the session is quasi-modal — the keyboard bar IS the way out, its
+      // ✕ and ✓ always under the thumb. A tap elsewhere neither closes nor asks
+      // (first pass ended the session on scroll-start; second pass on any stray tap —
+      // both wrong on a phone, per user feedback). At most the tap blurs the editor
+      // and drops the keyboard; the block stays open, tap it to resume.
       return;
     }
-    void commit();
+    settle();
   });
 
   document.addEventListener("keydown", (e) => {

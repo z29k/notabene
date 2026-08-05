@@ -254,7 +254,17 @@ const relocalizeNav = navLabels != null;
 >
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- interactive-widget: with the default (resizes-visual) the software keyboard
+      shrinks only the VISUAL viewport, and on Android the bottom that position:fixed
+      anchors to does not reliably match visualViewport's bottom — the editor's
+      keyboard bar rendered half-sunk into Gboard (measured on device: correct math,
+      wrong coordinate system). resizes-content makes the LAYOUT viewport itself end
+      above the keyboard, so fixed chrome (editor bar, comment sheets) is exact with no
+      viewport math at all. iOS ignores the token and keeps the visualViewport path. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <title>{title} · {siteName}</title>
     <script is:inline set:html={schemeInitScript} />
     <link rel="icon" type={faviconType} href={faviconHref} />

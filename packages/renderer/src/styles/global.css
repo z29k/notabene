@@ -2380,6 +2380,17 @@ button.nb-scheme-toggle:hover {
    into every page's HTML instead of the one bundled sheet. The CI canary therefore
    greps for an actual stamp (`data-nb-range="`), not for the bare token. */
 
+/* Editor CHROME surface. --bg-elev is nearly the page colour in the dark scheme
+   (#161b22 on #0e1116), so every toolbar and menu melted into the content and nothing
+   read as interactive (user feedback). A step of the TEXT colour mixed into the
+   surface lifts it in either scheme — text is the one colour guaranteed to contrast
+   with the background — and a crisper border separates chrome from prose. Internal
+   aliases derived entirely from the --nb-* contract, never new public tokens. */
+:root {
+  --chrome-bg: color-mix(in srgb, var(--text) 8%, var(--bg-elev));
+  --chrome-border: color-mix(in srgb, var(--text) 18%, var(--border));
+}
+
 /* Editable blocks stay COMPLETELY unstyled until opened — reading must not look like an
    editor. Hover reveals the gutter handles and nothing else: a hover tint was tried and
    read as a selection (Notion tints nothing either; the handles are the affordance). */
@@ -2396,9 +2407,9 @@ button.nb-scheme-toggle:hover {
   justify-content: center;
   font-size: 15px;
   line-height: 1;
-  color: var(--text-soft);
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  color: var(--text);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
   border-radius: 6px;
   cursor: pointer;
   box-shadow: 0 2px 6px rgb(0 0 0 / 10%);
@@ -2483,8 +2494,8 @@ button.nb-scheme-toggle:hover {
   display: flex;
   gap: 2px;
   padding: 3px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
   border-radius: 7px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
 }
@@ -2526,8 +2537,8 @@ button.nb-scheme-toggle:hover {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   padding: 4px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
 }
@@ -2636,7 +2647,7 @@ button.nb-scheme-toggle:hover {
   font: inherit;
   font-size: 13px;
   line-height: 1;
-  color: var(--text-soft);
+  color: var(--text);
   background: none;
   border: 0;
   border-radius: 5px;
@@ -2699,8 +2710,8 @@ button.nb-scheme-toggle:hover {
 .nb-edit-card {
   margin: 0.5rem 0 1rem;
   padding: 0.45rem 0.55rem;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
   border-radius: 8px;
   box-shadow: 0 4px 14px rgb(0 0 0 / 10%);
   font-size: 11.5px;
@@ -2741,7 +2752,7 @@ button.nb-scheme-toggle:hover {
   font: inherit;
   font-size: 12.5px;
   line-height: 1;
-  color: var(--text-soft);
+  color: var(--text);
   background: none;
   border: 0;
   border-radius: 5px;
@@ -2782,8 +2793,8 @@ button.nb-scheme-toggle:hover {
   flex-direction: column;
   min-width: 200px;
   padding: 4px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
   border-radius: 8px;
   box-shadow: 0 6px 20px rgb(0 0 0 / 18%);
 }
@@ -2930,85 +2941,232 @@ button.nb-scheme-toggle:hover {
 }
 
 /* ── in-page editor, touch ────────────────────────────────────────────────
-   A phone has no hover to reveal the pencil with and no gutter to hang a rail in, so
-   the model changes rather than shrinks: a TAP opens the block (selecting text there is
-   a long-press, so nothing is taken from commenting), and the chrome docks to the bottom
-   of the viewport — the same place the comment popover already goes on mobile
-   (.cmt-float--bar). Docked elements are laid out by CSS alone, so nothing can end up
-   positioned off-screen. */
+   Notion's mobile shape, under our gestures: a tap ARMS the block (the chip below), and
+   once a block is open the writing tools live in ONE horizontal bar anchored to the top
+   of the software keyboard — where the thumbs are. The session card keeps only its body
+   and docks right above that bar; the + / Turn-into / block menus open as bottom
+   sheets. Everything here is keyed on CLASSES the script sets from the pointer type,
+   not on a width or pointer media query — the class is the condition (same lesson as
+   .cmt-float--bar), and it keeps a touchscreen laptop honest. */
+
+/* The keyboard bar. --nb-edit-kb mirrors the software keyboard's height
+   (visualViewport) while a touch session is open; closed keyboard = safe-area only. */
+.nb-edit-dockbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: var(--nb-edit-kb, 0px);
+  z-index: 96;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: var(--chrome-bg);
+  /* Accent-tinted top edge: the same colour that edges the live block — one signature
+     for "this is editing", and the bar's strongest cue that it is interactive chrome. */
+  border-top: 1px solid color-mix(in srgb, var(--accent) 50%, var(--chrome-border));
+  /* Solid bleed below the bar: sub-pixel rounding between the bar's bottom and the
+     keyboard's top edge otherwise shows a hairline of page (seen on device). */
+  box-shadow: 0 2px 0 0 var(--chrome-bg);
+}
+.nb-edit-dock-scroll {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+/* Session exits (✕ / ✓), grouped after a light divider: left of it you act on the
+   content, right of it you end the session. */
+.nb-edit-dock-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-left: 4px;
+  padding-left: 8px;
+  border-left: 1px solid var(--chrome-border);
+}
+.nb-edit-dock-scroll::-webkit-scrollbar {
+  display: none;
+}
+.nb-edit-dock-btn {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: none;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.nb-edit-dock-btn svg {
+  width: 18px;
+  height: 18px;
+}
+.nb-edit-dock-btn.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.nb-edit-dock-btn--done {
+  color: var(--accent);
+  font-weight: 600;
+}
+/* The session card, docked just above the bar. Its action row is the bar's job on
+   touch; only the body (journal, closures, messages) shows — and the whole card stays
+   out of the way until that body has something to say. */
+.nb-edit-card--dock {
+  position: fixed;
+  top: auto;
+  left: 10px;
+  right: 10px;
+  bottom: calc(var(--nb-edit-kb, 0px) + env(safe-area-inset-bottom, 0px) + 58px);
+  margin: 0;
+  z-index: 94;
+  max-height: min(38vh, 320px);
+  overflow-y: auto;
+  font-size: 13px;
+  box-shadow: 0 -6px 24px rgb(0 0 0 / 18%);
+}
+.nb-edit-card--dock .nb-edit-card-actions {
+  display: none;
+}
+.nb-edit-card--dock .nb-edit-card-body {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.nb-edit-card--dock:not(:has(.nb-edit-card-body:not([hidden]))) {
+  display: none;
+}
+.nb-edit-card--dock .nb-edit-note,
+.nb-edit-card--dock .nb-edit-close {
+  min-height: 40px;
+}
+.nb-edit-card--dock .nb-edit-note {
+  font-size: 16px; /* avoid iOS focus-zoom */
+}
+/* Raw-Markdown surface on touch: same zoom rule as every mobile input. */
+.nb-edit-live--touch .nb-edit-source {
+  font-size: 16px;
+}
+/* The + / Turn-into sheets, above the bar. Same list language as the desktop menus. */
+.nb-edit-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nb-edit-kb, 0px) + env(safe-area-inset-bottom, 0px) + 58px);
+  z-index: 97;
+  display: flex;
+  flex-direction: column;
+  max-height: min(50vh, 420px);
+  padding: 6px;
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 25%);
+}
+.nb-edit-sheet-title {
+  padding: 8px 12px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.nb-edit-sheet-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.nb-edit-sheet .nb-edit-menu-item,
+.nb-edit-sheet .nb-block-menu-item {
+  min-height: 46px;
+  font-size: 15px;
+}
+/* The ⋮ block menu as a bottom sheet (no hover, no ⋮⋮ handle to hang a popover off). */
+.nb-block-menu--sheet {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  position: fixed;
+  min-width: 0;
+  padding: 8px 8px calc(10px + env(safe-area-inset-bottom, 0px));
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 -8px 30px rgb(0 0 0 / 25%);
+  z-index: 97;
+}
+.nb-block-menu--sheet .nb-block-menu-item {
+  min-height: 48px;
+  font-size: 15px;
+}
+/* Tapped, not yet editing: a tap must never be destructive, so it only ARMS the block
+   and raises the chip. The outline says which block the chip refers to. (The attribute
+   and these classes are only ever set on touch — no media query needed.) */
+[data-nb-armed] {
+  outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+.nb-edit-chipbar {
+  position: fixed;
+  top: calc(var(--topbar-h) + 8px);
+  left: 12px;
+  right: 12px;
+  z-index: 95;
+  display: flex;
+  gap: 8px;
+}
+.nb-edit-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 46px;
+  padding: 0 14px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 25%);
+  cursor: pointer;
+}
+.nb-edit-chip svg {
+  width: 16px;
+  height: 16px;
+}
+.nb-edit-chip--menu {
+  flex: 0 0 46px;
+  padding: 0;
+  color: var(--text);
+  background: var(--chrome-bg);
+  border: 1px solid var(--chrome-border);
+}
 @media (pointer: coarse) {
   .nb-edit-handle {
     display: none;
   }
-  /* The session card docks under the topbar instead of sitting under the block. Same
-     reasoning as .cmt-float--bar, with one more: while editing, the software keyboard
-     owns the bottom of the screen entirely. */
-  .nb-edit-card--dock {
-    position: fixed;
-    top: calc(var(--topbar-h) + 8px);
-    bottom: auto;
-    left: 12px;
-    right: 12px;
-    margin: 0;
-    z-index: 90;
-    max-height: 45vh;
-    overflow-y: auto;
-    font-size: 13px;
-  }
-  .nb-edit-card--dock .nb-edit-act {
-    flex: 1;
-    justify-content: center;
-    min-height: 44px;
-    min-width: 44px;
-    font-size: 15px;
-  }
-  .nb-edit-card--dock .nb-edit-note,
-  .nb-edit-card--dock .nb-edit-close {
-    min-height: 40px;
-  }
-  .nb-edit-card--dock .nb-edit-note {
-    font-size: 16px; /* avoid iOS focus-zoom */
-  }
-  /* Bigger targets in the selection toolbar, and a tooltip nobody can hover: drop it. */
-  .nb-edit-fmt {
-    min-width: 44px;
-    height: 40px;
-    font-size: 16px;
-  }
   .nb-edit-tip {
     display: none;
   }
-  /* Tapped, not yet editing: a tap must never be destructive, so it only ARMS the
-     block and reveals the pencil. The outline says which block the pencil refers to. */
-  [data-nb-armed] {
-    outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-    outline-offset: 3px;
-    border-radius: 4px;
-  }
-  .nb-edit-chip {
-    position: fixed;
-    top: calc(var(--topbar-h) + 8px);
-    left: 12px;
-    right: 12px;
-    z-index: 95;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.4rem;
-    min-height: 44px;
-    padding: 0 14px;
-    font: inherit;
-    font-size: 15px;
-    color: var(--bg);
-    background: var(--accent);
-    border: 0;
-    border-radius: 10px;
-    box-shadow: 0 6px 20px rgb(0 0 0 / 25%);
-    cursor: pointer;
-  }
-  /* The block being edited must stay clear of the docked chrome at the top. */
+  /* The block being edited must stay clear of the topbar chip zone and visible above
+     the keyboard bar; the browser scrolls the focused editor into this margin. */
   .nb-edit-live {
-    scroll-margin-top: 40vh;
+    scroll-margin-top: 30vh;
+    scroll-margin-bottom: 40vh;
   }
 }
 

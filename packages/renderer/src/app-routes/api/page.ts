@@ -1,6 +1,8 @@
 import path from "node:path";
 import type { APIRoute } from "astro";
-import { edit, extensions, verify } from "../../config.mjs";
+import { edit, extensions, storeAbs, verify } from "../../config.mjs";
+import { listComments, patchComment } from "../../lib/comments";
+import { appendEntry, newEntryId, normalizeEntry } from "../../lib/journal-write.mjs";
 import { blockRanges, spliceBlock } from "../../lib/md-splice";
 import { inferMdStyle } from "../../lib/md-style";
 import {
@@ -116,6 +118,8 @@ export const PUT: APIRoute = async ({ request }) => {
     end?: number;
     original?: string;
     markdown?: string;
+    closes?: unknown;
+    journal?: { title?: unknown; summary?: unknown };
   } | null;
 
   if (!b?.page || typeof b.original !== "string" || typeof b.markdown !== "string") {
@@ -161,6 +165,52 @@ export const PUT: APIRoute = async ({ request }) => {
   const next = withBody(src.raw, result.next, src.span);
   await writePageSource(src.file, next);
 
+  // The loop half of the save — the journal entry and the comment closures — happens
+  // HERE, in the same request as the write, not as client follow-ups: the resync below
+  // makes dev push a full reload the moment the write lands, and a follow-up request
+  // from a page being torn down may never be sent (observed: the text saved, while the
+  // closure, the journal and the toast all silently vanished). Store writes come BEFORE
+  // the resync so the reload finds them done.
+  const closes = Array.isArray(b.closes)
+    ? b.closes.filter((x): x is string => typeof x === "string").slice(0, 200)
+    : [];
+  const title = typeof b.journal?.title === "string" ? b.journal.title : "";
+  const summary = typeof b.journal?.summary === "string" ? b.journal.summary : "";
+  let journalEntryId: string | null = null;
+  if (title || summary) {
+    const first = (await listComments(b.page)).find((c) => closes.includes(c.id))?.thread?.[0];
+    const now = new Date().toISOString();
+    const entry = normalizeEntry(
+      {
+        title,
+        summary,
+        changes: [{ page: b.page, commentIds: closes, what: title || summary, why: first?.body ?? "" }],
+      },
+      { id: newEntryId(now, Math.random()), date: now.slice(0, 10) },
+    );
+    try {
+      appendEntry(storeAbs, entry);
+      journalEntryId = entry.id as string;
+    } catch {}
+  }
+  for (const id of closes) {
+    // `resolved`, not `addressed`, even under `review: "approve"` — whoever just edited
+    // the page IS the validator that mode waits for.
+    await patchComment(b.page, id, {
+      status: "resolved",
+      resolution: { note: title || summary, ...(journalEntryId ? { journalEntryId } : {}) },
+    }).catch(() => null);
+  }
+
+  // Resync the content layer BEFORE answering: the consumer's docs sit outside the
+  // Astro root and the file watcher over that external directory is not reliable —
+  // a write could land on disk while every render kept serving the stale collection
+  // ("Saved, but no impact on the page"). With the sync awaited here, a 200 means the
+  // NEXT render is fresh; the client's post-save reload can never race it.
+  // (Handed over by integrations/editor.mjs at astro:server:setup; absent outside dev.)
+  const refreshContent = (globalThis as { __nbRefreshContent?: (o: object) => Promise<void> }).__nbRefreshContent;
+  if (refreshContent) await refreshContent({}).catch(() => {});
+
   // Non-blocking warnings. An agent pass ends with a build + `notabene lint` + the
   // consumer's `verify[]`; a human editing in the page ends with none of that, so say what
   // was skipped rather than let it surface in CI later. Running the consumer's commands
@@ -170,5 +220,11 @@ export const PUT: APIRoute = async ({ request }) => {
     ...(links.length ? { links } : {}),
     ...(verify.length ? { verifyPending: verify } : {}),
   };
-  return json({ hash: hashOf(next), start: result.start, end: result.end, warnings });
+  return json({
+    hash: hashOf(next),
+    start: result.start,
+    end: result.end,
+    warnings,
+    ...(journalEntryId ? { journalEntryId } : {}),
+  });
 };
