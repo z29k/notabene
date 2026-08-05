@@ -119,7 +119,8 @@ has **`docs.detected`** instead.
      // branding: { logo: "assets/logo.svg", favicon: "assets/favicon.svg" },  // identity (optional)
      // theme: { tokens: { accent: "#7c3aed" }, css: "docs/theme.css" },  // --nb-* overrides (optional)
      // nav: { header: [{ label: "GitHub", href: "https://github.com/OWNER/REPO", icon: "github", iconOnly: true }] },  // outbound links (optional)
-     // editPattern: "https://github.com/OWNER/REPO/edit/main/{path}",  // "Edit this page" footer link (optional)
+     // editPattern: "https://github.com/OWNER/REPO/edit/main/{path}",  // "Edit this page" footer link (builds/published sites; optional)
+     // edit: { enabled: true, requireGit: true },  // in-page editor under `dev` — on by default; requireGit:false writes untracked files (optional)
      // author: "Alex", authorEmail: "alex@x.io",  // comment identity default (else git user.name/.email)
    };
    ```
@@ -162,8 +163,12 @@ regenerate from the template.
    `{ label, href, icon, iconOnly, publish }`, labels may be per-locale maps, and
    `publish: false` keeps a link out of public builds);
    `editPattern` (a URL template with a literal `{path}` placeholder — renders the page
-   footer's "Edit this page" link); `verify[]`; `host` (⚠ security — only on explicit
-   request).
+   footer's "Edit this page" link, in builds and published sites only: under `dev` the
+   in-page editor supersedes it); `edit` (`{ enabled, requireGit }` — the in-page editor,
+   dev-only and on by default; `requireGit: false` lets it write a file git isn't
+   tracking, which is the only undo it has, so leave it on unless asked; per space,
+   `roots[].edit: false` makes that space read-only); `verify[]`; `host` (⚠ security —
+   only on explicit request).
 3. **Surface the consequences — never silently** (some edits orphan comments):
    - **`store` moved** → existing comments stay at the old path. Offer to move the store dir.
    - **`roots[].key` renamed** → changes URL slugs and the stored `space`/`page` prefix →

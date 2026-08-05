@@ -8,8 +8,10 @@ sidebar:
 
 # Modèle de sécurité
 
-L'API de commentaires écrit dans votre git — elle est donc cloisonnée, par
-construction :
+Les API d'écriture touchent votre git — elles sont donc cloisonnées, par construction.
+Il y en a deux : l'**API de commentaires**, qui écrit le store, et l'**[éditeur dans la
+page](../guide/editor.md)**, qui écrit votre source Markdown. Les règles ci-dessous
+valent pour les deux ; l'éditeur en ajoute une qui lui est propre.
 
 - **Dev uniquement.** Le chemin d'écriture n'existe que sous `notabene dev`. En
   `build`/`preview` les mutations renvoient `403`, et un
@@ -22,6 +24,11 @@ construction :
   (anti-DNS-rebinding), et — quand vous définissez `NOTABENE_TOKEN` — chaque écriture
   doit porter un `x-notabene-token` correspondant. Définir un token est **recommandé
   avec `--host`**.
+- **L'éditeur refuse d'écrire un fichier non suivi.** Il touche votre *contenu*, pas
+  seulement le store : git est donc le seul retour arrière qu'il puisse offrir — et
+  `notabene dev` n'exige pas un dépôt. Un fichier que git ne suit pas est refusé,
+  bruyamment, avec le remède. Contournable via `edit: { requireGit: false }`, ou éditeur
+  désactivé entièrement via `edit: { enabled: false }`.
 - **Une identité par personne.** Sur un hôte non-loopback, chaque visiteur est invité à
   renseigner son nom (+ e-mail optionnel) avant de naviguer, pour que les commentaires
   soient attribués à de vraies personnes plutôt qu'au défaut git du propriétaire du

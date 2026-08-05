@@ -34,6 +34,7 @@ import fs from "node:fs";
 import { mergeAgentsBlock, renderAgentsBlock } from "../src/lib/agents-md.mjs";
 import { applyDone, applyReopen, composeAuthor, statusForReview } from "../src/lib/comment-mutate.mjs";
 import { buildReport, findFreePort } from "../src/lib/doctor.mjs";
+import { appendEntry } from "../src/lib/journal-write.mjs";
 import {
   PROTOCOL_STORE_SCHEMA,
   PROTOCOL_VERSION,
@@ -666,18 +667,10 @@ function doJournalAdd() {
   } catch {
     fail("journal add: expected a JSON entry on stdin");
   }
-  const journalPath = path.join(store, "journal.json");
-  let journal = [];
-  try {
-    journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
-  } catch {
-    /* no journal yet */
-  }
-  if (!Array.isArray(journal)) journal = [];
-  journal.push(entry);
   // Atomic like every other store write (src/lib/comments.ts): an agent appending an
   // entry must never leave a half-written journal.json behind for the next reader.
-  writeAtomic(journalPath, `${JSON.stringify(journal, null, 2)}\n`);
+  // Shared with POST /api/journal (the editor's save prompt) — see lib/journal-write.mjs.
+  appendEntry(store, entry);
   if (argv.includes("--json")) {
     process.stdout.write(`${JSON.stringify({ id: entry.id ?? null }, null, 2)}\n`);
     return;
@@ -723,6 +716,16 @@ async function doDoctor() {
   );
   if (c.publish?.site) {
     console.log(`    publish: ${c.publish.site}${c.publish.base !== "/" ? c.publish.base : ""} (build --public)`);
+  }
+  if (c.edit) {
+    // The one combination that silently refuses every save: editing on, requireGit on,
+    // no repo. Say so here rather than let the user discover it at the first save.
+    const blocked = c.edit.enabled && c.edit.requireGit && !report.git.isRepo;
+    const scope = c.edit.readOnlySpaces.length ? ` · read-only: ${c.edit.readOnlySpaces.join(", ")}` : "";
+    console.log(
+      `    editor: ${c.edit.enabled ? "on (dev only)" : "off"}${c.edit.enabled ? ` · requireGit ${c.edit.requireGit}` : ""}${scope}` +
+        (blocked ? " → NOT a git repo: every save will be refused (git init, or edit.requireGit: false)" : ""),
+    );
   }
   const p = report.port;
   console.log(`    port ${p.number} ${p.free ? "free" : `busy → suggested ${p.suggested}`}`);
@@ -925,7 +928,10 @@ function pruneOrphanAssets(distDir) {
   };
   let removed = 0;
   // A dropped orphan can orphan the file it alone referenced → iterate to a fixpoint.
-  for (let pass = 0; pass < 5; pass++) {
+  // The cap is a runaway guard, not a budget: it must exceed the deepest orphan CHAIN,
+  // and the editor's Milkdown graph (wysiwyg → presets/components → core → state) proved
+  // 5 too small — two @milkdown chunks survived a public build and tripped the canary.
+  for (let pass = 0; pass < 25; pass++) {
     const corpus = walk(distDir)
       .filter((p) => textExt.has(path.extname(p)))
       .map((p) => ({ p, text: fs.readFileSync(p, "utf8") }));

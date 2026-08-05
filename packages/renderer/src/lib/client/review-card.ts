@@ -102,6 +102,7 @@ export function renderReviewCard(
     <div class="rev-diffs">${changes.length ? changes.map((ch) => renderChange(ch, diffs, byId, m, mode)).join("") : `<p class="cmt-empty">${m.noChangesRecorded}</p>`}</div>
     <div class="rev-actions">
       <a class="rev-jump" href="${href}">${m.viewInPage}</a>
+      <a class="rev-jump" href="${href}&edit=1">${m.editFixHere}</a>
       <button data-act="reject" data-id="${c.id}" aria-label="${m.reject}">${m.reject}</button>
       <button data-act="approve" data-id="${c.id}" class="primary" aria-label="${m.approve}">✓ ${m.approve}</button>
     </div>

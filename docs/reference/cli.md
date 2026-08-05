@@ -15,7 +15,7 @@ your repo**. Without a local install, always use the scoped name —
 
 | Command | What it does |
 | --- | --- |
-| `notabene doctor` | Read-only state as JSON: config/store/port + detected doc folders — `--json` |
+| `notabene doctor` | Read-only state as JSON: config/store/port/editor + detected doc folders — `--json` |
 | `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present); `--detect` auto-detects doc folders. Also writes the [agent entry point](./agent-protocol.md): `<store>/protocol.md` + a bounded block in `AGENTS.md` — opt out with `--no-protocol` / `--no-agents-md`. Idempotent: re-run it to refresh both |
 | `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon. With the optional `pagefind` dev dep, its search is [full-text](../guide/publish/index.md#full-text-search-optional) too |
 | `notabene status` | Is the detached server running? (pid, port, URL) — `--json` |

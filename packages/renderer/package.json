@@ -38,12 +38,18 @@
     "format": "biome format --write bin src test"
   },
   "dependencies": {
-    "@astrojs/mdx": "5.0.6",
-    "@astrojs/node": "10.0.6",
+    "@astrojs/markdown-remark": "^7.2.0",
+    "@astrojs/mdx": "^6.0.3",
+    "@astrojs/node": "^10.1.4",
     "@astrojs/sitemap": "^3.6.0",
-    "astro": "^6.0.0",
+    "@milkdown/kit": "^7.21.3",
+    "astro": "^6.4.8",
     "github-slugger": "^2.0.0",
-    "mermaid": "^11.16.0"
+    "mermaid": "^11.16.0",
+    "remark-gfm": "^4.0.1",
+    "remark-parse": "^11.0.0",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5"
   },
   "peerDependencies": {
     "pagefind": ">=1.3",

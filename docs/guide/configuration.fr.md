@@ -159,6 +159,25 @@ Deux touches sans configuration sous chaque page :
 editPattern: "https://github.com/vous/repo/edit/main/{path}",
 ```
 
+  Il n'est rendu que là où l'[éditeur dans la page](./editor.md) n'est *pas* disponible :
+  builds et sites publiés. Sous `notabene dev`, l'éditeur fait la même chose en mieux.
+
+## Édition dans la page
+
+Sous `notabene dev`, un ✎ dans la marge ouvre n'importe quel bloc à l'édition directement
+dans la page — voir [Éditer dans la page](./editor.md). Actif par défaut et sans
+configuration ; voici les réglages si besoin :
+
+```js
+edit: {
+  enabled: true,      // false masque entièrement l'éditeur
+  requireGit: true,   // false autorise l'écriture d'un fichier non suivi par git
+},
+roots: [
+  { key: "reference", path: "docs/reference", edit: false },  // espace en lecture seule
+],
+```
+
 ## Labels & ordre de la sidebar
 
 Par défaut, l'entrée d'une page dans la sidebar est son **nom de fichier humanisé**, et

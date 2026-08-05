@@ -61,6 +61,10 @@ only where you're curious:
 - **[Anchored comments](https://z29k.github.io/notabene/guide/first-review)** - select
   text on the rendered page, or comment a whole page, **diagram or image**. Threads,
   resolve, hold, a global `/comments` view, touch-first on mobile.
+- **[Editing in the page](https://z29k.github.io/notabene/guide/editor)** - a ✎ in the
+  margin opens any block right where you're reading it; the same save closes the comments
+  it answers and journals the change. Dev-only, and it refuses to write a file git isn't
+  tracking.
 - **[The agent review loop](https://z29k.github.io/notabene/guide/review-loop)** - a
   file-I/O-first protocol any agent can follow (no server, no port, no MCP). Ships as a
   Claude Code skill; the skill file *is* the spec.

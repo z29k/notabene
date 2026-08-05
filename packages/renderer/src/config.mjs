@@ -107,6 +107,9 @@ function normalizeRoot(root, defaultLocale, storePath) {
     // `build --public` artifact (routes, nav, search, llms, twins, sitemap).
     // Dev/normal builds always include everything.
     publish: root.publish !== false,
+    // In-page editor scoping (mirrors `publish`): `edit: false` makes this space
+    // read-only in the editor — no affordance, and the write API refuses it.
+    edit: root.edit !== false,
     abs,
     baseUrl: pathToFileURL(abs),
     // Content-loader glob: format extensions minus the exclusions.
@@ -158,6 +161,22 @@ export const pdf = {
   enabled: pdfCfg.enabled ?? true,
   pageSize: pdfCfg.pageSize ?? "A4",
   margin: pdfCfg.margin ?? "18mm",
+};
+
+// In-page editor (§ editor). Lets a reviewer fix a block of prose right where they are
+// reading it, instead of leaving for an IDE — the human half of the same review loop
+// (a save can journal and close comments, exactly like an agent pass).
+//   enabled     — show the affordance and inject the write API (default true).
+//   requireGit  — refuse to write a file git isn't tracking (default true). git is the
+//                 only undo an editor pointed at real content can offer, and `notabene
+//                 dev` does NOT require a repo; without it an edit is unrecoverable.
+// Dev-only by construction: the route and the `data-nb-src` stamps are injected only
+// under `astro dev` (see integrations/editor.mjs), so EVERY build — normal, preview and
+// public — is byte-identical to a build without this feature.
+const editCfg = userConfig.edit ?? {};
+export const edit = {
+  enabled: editCfg.enabled !== false,
+  requireGit: editCfg.requireGit !== false,
 };
 
 // Public publish mode (§ public exposure). `notabene build --public` produces a
@@ -258,6 +277,7 @@ export const i18n = {
  * @property {string} subLabel
  * @property {string[]} exclude
  * @property {boolean} publish false = this space stays out of `build --public` artifacts
+ * @property {boolean} edit false = this space is read-only in the in-page editor
  * @property {string} abs
  * @property {URL} baseUrl
  * @property {string[]} pattern
@@ -453,6 +473,7 @@ export default {
   reviewMode,
   author,
   authorEmail,
+  edit,
   editPattern,
   pdf,
   publicMode,

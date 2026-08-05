@@ -29,6 +29,8 @@ let savedScrollY = 0;
 let lastFocus: Element | null = null;
 let inerted: Element[] = [];
 let initialized = false;
+/** Localized label for the sheet grip; set by initShell(). */
+let gripLabel = "Resize or close";
 
 function scrimEl(): HTMLElement | null {
   return document.getElementById("nb-scrim");
@@ -77,7 +79,14 @@ function onViewport(): void {
   const vv = window.visualViewport;
   if (!vv) return;
   const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-  document.documentElement.style.setProperty("--nb-kb", `${kb}px`);
+  const style = document.documentElement.style;
+  style.setProperty("--nb-kb", `${kb}px`);
+  // How tall a bottom-anchored sheet may actually be. `svh` cannot answer this: it is the
+  // SMALL viewport height and does not shrink when the keyboard opens, so a sheet sized in
+  // `svh` and lifted by --nb-kb has its top pushed off the TOP of the screen once the two
+  // exceed the display — which is exactly what happened to the expanded compose sheet.
+  // The visual viewport knows the real figure.
+  style.setProperty("--nb-sheet-max", `${Math.max(160, vv.height - 12)}px`);
 }
 function bindViewport(): void {
   const vv = window.visualViewport;
@@ -92,6 +101,87 @@ function unbindViewport(): void {
     vv.removeEventListener("scroll", onViewport);
   }
   document.documentElement.style.setProperty("--nb-kb", "0px");
+  document.documentElement.style.removeProperty("--nb-sheet-max");
+}
+
+// ── the sheet grip ──────────────────────────────────────────────────────────
+// The pill at the top of every bottom sheet used to be a `::before` — a decoration
+// that promises a gesture and delivers nothing. On a phone, grabbing it to expand or
+// dismiss is the reflex, so it is now a REAL element with the drag wired here: one
+// implementation for every sheet, since they all pass through openOverlay().
+//
+// It must be a real element, not a pseudo-element: the sheet scrolls (`touch-action:
+// pan-y`), so the browser would claim a vertical drag started anywhere inside it before
+// any JS ran. Only an element of its own can opt out with `touch-action: none`.
+
+/** Past this fraction of its own height, a downward drag dismisses instead of snapping back. */
+const DISMISS_RATIO = 0.3;
+
+function reducedMotion(): boolean {
+  return matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function setExpanded(panel: HTMLElement, on: boolean): void {
+  panel.classList.toggle("nb-sheet-full", on);
+  panel.querySelector(".nb-sheet-grip")?.setAttribute("aria-expanded", String(on));
+}
+
+function attachGrip(panel: HTMLElement, label: string): void {
+  const existing = panel.querySelector<HTMLButtonElement>(".nb-sheet-grip");
+  if (!existing) {
+    const grip = document.createElement("button");
+    grip.type = "button";
+    grip.className = "nb-sheet-grip";
+    grip.setAttribute("aria-label", label);
+    grip.setAttribute("aria-expanded", "false");
+    panel.prepend(grip);
+
+    let startY = 0;
+    let dy = 0;
+    let height = 0;
+    let dragging = false;
+
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      panel.style.transition = reducedMotion() ? "" : "transform .18s ease, height .18s ease";
+      panel.style.transform = "";
+      // Down far enough (or from expanded) → collapse a step; otherwise snap back.
+      if (dy > height * DISMISS_RATIO) {
+        if (panel.classList.contains("nb-sheet-full")) setExpanded(panel, false);
+        else closeOverlay();
+      } else if (dy < -40) {
+        setExpanded(panel, true);
+      }
+      dy = 0;
+    };
+
+    grip.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      startY = e.clientY;
+      dy = 0;
+      height = panel.getBoundingClientRect().height;
+      panel.style.transition = "none";
+      grip.setPointerCapture(e.pointerId);
+    });
+    grip.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      dy = e.clientY - startY;
+      // Downward follows the finger; upward resists, since there is nowhere to go past
+      // the expanded detent.
+      panel.style.transform = `translateY(${dy > 0 ? dy : dy / 4}px)`;
+    });
+    grip.addEventListener("pointerup", end);
+    grip.addEventListener("pointercancel", end);
+    // Keyboard: the grip is a button, so it must do something without a pointer.
+    grip.addEventListener("click", (e) => {
+      if (e.detail !== 0) return; // real clicks are handled by the drag above
+      setExpanded(panel, !panel.classList.contains("nb-sheet-full"));
+    });
+  }
+  setExpanded(panel, false);
+  panel.style.transform = "";
+  panel.style.transition = "";
 }
 
 /**
@@ -107,6 +197,7 @@ export function openOverlay(name: string, panel: HTMLElement, close: () => void,
 
   const s = scrimEl();
   if (s) s.hidden = false;
+  if (isCompact()) attachGrip(panel, gripLabel);
   setInert(panel);
   lockScroll();
   bindViewport();
@@ -135,11 +226,24 @@ export function currentOverlay(): string | null {
 }
 
 /** Wire the shared scrim, Escape, and resize-to-desktop closers. Idempotent. */
-export function initShell(): void {
+export function initShell(label?: string): void {
+  if (label) gripLabel = label;
   if (initialized) return;
   initialized = true;
 
-  scrimEl()?.addEventListener("click", () => closeOverlay());
+  // Dismiss only when the WHOLE gesture happened on the scrim. A sheet opened from a tap
+  // in the article (openView runs on `pointerup`) shows the scrim before the browser
+  // dispatches that tap's `click` — and the click then hit-tests onto the freshly shown
+  // scrim, closing what the same gesture just opened. That is the open-then-instantly-
+  // close flicker on touch. Requiring the press to have started here fixes it without
+  // weakening a genuine scrim tap.
+  let pressTarget: EventTarget | null = null;
+  document.addEventListener("pointerdown", (e) => {
+    pressTarget = e.target;
+  });
+  scrimEl()?.addEventListener("click", (e) => {
+    if (pressTarget === e.target) closeOverlay();
+  });
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && current) {

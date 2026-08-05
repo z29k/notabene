@@ -284,6 +284,14 @@ export async function buildReport({ repoRoot, configPath }) {
     review: cfg.reviewMode,
     // Public publish target (additive; absent site → not configured for publishing).
     publish: { site: cfg.publish.site ?? null, base: cfg.publish.base, excluded: cfg.publish.exclude.length },
+    // In-page editor. `requireGit` only bites outside a repo, so surface both together:
+    // "enabled but this isn't a git repo" is the one combination that silently refuses
+    // every save, and `git.isRepo` above is what explains it.
+    edit: {
+      enabled: cfg.edit.enabled,
+      requireGit: cfg.edit.requireGit,
+      readOnlySpaces: cfg.roots.filter((r) => r.edit === false).map((r) => r.key),
+    },
   });
 
   report.store = { ...readStoreState(cfg.storeAbs), openComments: countOpenComments(cfg.storeAbs) };

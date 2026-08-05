@@ -8,7 +8,9 @@ sidebar:
 
 # Safety model
 
-The comments API writes into your git — so it's fenced in, by construction:
+The write APIs touch your git — so they're fenced in, by construction. Two of them exist:
+the **comments API**, which writes the store, and the **[in-page editor](../guide/editor.md)**,
+which writes your Markdown source. The rules below cover both; the editor adds one of its own.
 
 - **Dev-only.** The write path only exists under `notabene dev`. In `build`/`preview`
   mutations return `403`, and a [public build](../guide/publish/index.md) doesn't contain
@@ -20,6 +22,10 @@ The comments API writes into your git — so it's fenced in, by construction:
   (anti-CSRF), a non-loopback `Host` header is refused in loopback mode
   (anti-DNS-rebinding), and — when you set `NOTABENE_TOKEN` — each write must carry a
   matching `x-notabene-token`. Setting a token is **recommended with `--host`**.
+- **The editor refuses to write untracked files.** It edits your *content*, not just the
+  store, so git is the only undo it can offer — and `notabene dev` does not require a
+  repository. A file git isn't tracking is refused, loudly, with the remedy. Opt out with
+  `edit: { requireGit: false }`, or turn the editor off entirely with `edit: { enabled: false }`.
 - **Identity per person.** On a non-loopback host, each visitor is asked to set their
   name (+ optional email) before browsing, so comments attribute to real people rather
   than the repo owner's git default.
