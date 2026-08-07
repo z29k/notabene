@@ -54,7 +54,18 @@ function unlockScroll(): void {
   b.top = "";
   b.left = "";
   b.right = "";
+  // The restore MUST be instant. Fixing the body takes it out of flow, so the document
+  // collapses to one viewport and the real scroll position is already 0 while a sheet is
+  // open — this call is what puts it back. But `html { scroll-behavior: smooth }` applies
+  // to programmatic scrolling too, so it was ANIMATED: closing a sheet threw you to the
+  // top of the page and then scrolled you back down to what you were reading. Suppress the
+  // page's own smoothness for this one call (inline `auto` wins over the sheet rule, and
+  // `scrollTo` is synchronous so restoring right after is safe).
+  const root = document.documentElement.style;
+  const prev = root.scrollBehavior;
+  root.scrollBehavior = "auto";
   window.scrollTo(0, savedScrollY);
+  root.scrollBehavior = prev;
 }
 
 function setInert(panel: Element | null): void {
