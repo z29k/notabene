@@ -67,6 +67,14 @@ Assume **no** path, port or label. Do not require a live server or a port.
   (edit its page file), never the folder.
 - **Ignore `hold: true`** ("⏸ on hold") and `status` ≠ `open` (`addressed`/`resolved`
   already handled): only process `open` **and not on hold**.
+- **Account for EVERY comment in the roster** (step 1). A pass is not "some of the
+  comments" — each id ends the pass either handled (`resolved`/`addressed`) or
+  **explicitly declined**, with the reason posted as a `thread` reply so the human sees
+  it. Leaving one silently untouched is a **failed pass**, not a partial success: an
+  untouched comment is indistinguishable from one the human wrote a minute ago, so
+  nothing downstream can flag it — not `/review`, which only ever shows what you DID,
+  and not `comments verify`, for which an `open` comment is perfectly legal. You are the
+  only check. A long roster is a reason to work in batches, never a reason to stop early.
 - **MDX-safety** (format `"mdx"` only): when editing a **`.mdx`** file, don't introduce
   stray `{` or `<` outside code fences (MDX parses them as expression/JSX). **`.md`**
   files (CommonMark/GFM) are lenient — no such constraint. Validated by the renderer build.
@@ -83,6 +91,17 @@ reimplement, no `python3`):
 npx -y @z29k/notabene@latest comments ls --open --json   # open AND not-on-hold, machine-readable
 npx -y @z29k/notabene@latest comments ls --open          # …or human-readable
 ```
+
+**That list is the pass's roster. Take it ONCE, whole, and write the ids down** — into
+your task list, a scratch file, whatever survives the pass. Every later step is measured
+against it, and step 6 reconciles with it. Neither the CLI nor the HTTP API paginates,
+truncates or caps: one call returns every eligible comment, however many there are (the
+only ellipsis anywhere is the 100-character quote preview in the *human-readable*
+listing — use `--json` and you get the full text). So a short roster means a short store,
+never a partial read. **Count the ids and state the number before you start** — a pass
+that never named its own size cannot notice it dropped half of it, which is exactly how
+a real store ended up with fifteen comments handled and six untouched, in a run that
+reported success.
 
 If the CLI isn't available (offline, no Node, a policy against `npx`), read the store with
 your file tools directly: each `<store>/**/*.json` (except `journal.json`/`meta.json`) is
@@ -162,8 +181,7 @@ inverting the journal — a page you don't record there won't be shown.
 ## Step 6 — Verify
 
 1. **ALWAYS: build the renderer** — a broken doc file breaks the tool itself
-   (`npx -y @z29k/notabene@latest build`, or the project's renderer build). Confirm
-   **0 remaining `open` non-held comments**.
+   (`npx -y @z29k/notabene@latest build`, or the project's renderer build).
 2. **Lint the inter-doc links** — `npx -y @z29k/notabene@latest lint`. It validates every
    relative `.md` link against the routes the build just emitted (with did-you-mean
    suggestions; `--json` for machine reading). A broken link is a **failed verification** —
@@ -173,17 +191,28 @@ inverting the journal — a page you don't record there won't be shown.
    and dangling pages. The one to care about: a comment whose journal entry doesn't list
    it back in `changes[]` makes `/review` show the human an **empty diff**. Exit 1 = fix
    it before reporting.
-4. **`config.verify[]`** — the project's own checks (build/lint/memory update).
-5. **Project memory** — if the project keeps a memory doc (`CLAUDE.md`/`AGENTS.md`),
+4. **Reconcile the roster** — re-run `comments ls --open --json` and subtract: **no id
+   from step 1's roster may still be there.** Any that is was silently dropped — go back
+   and handle it, or decline it with a reply; it is a defect to fix, not a result to
+   report. Do not simply check that the list is empty: a comment written *during* your
+   pass is legitimately open and must be left alone, which is precisely why the
+   comparison is against the roster and not against zero.
+5. **`config.verify[]`** — the project's own checks (build/lint/memory update).
+6. **Project memory** — if the project keeps a memory doc (`CLAUDE.md`/`AGENTS.md`),
    update it for any public-behavior change.
 
-> Steps 4–5 are the **project extension point**. The core loop is generic; a consumer
+> Steps 5–6 are the **project extension point**. The core loop is generic; a consumer
 > declares its post-edit steps via `verify[]` and its memory conventions. The core
 > does not know any specific project.
 
 ## Step 7 — Report (without committing)
 
-Summarize as a **table**: per comment → the change made (section) + the why. Point to
+**Open with the arithmetic of the pass: `N eligible → N handled + N declined`, and make
+the three numbers add up.** Say it even when nothing was skipped — a report that cannot
+be wrong about its own coverage is what turns "I think it's done" into something the
+human can check at a glance. If a comment was declined, name it and say why.
+
+Then summarize as a **table**: per comment → the change made (section) + the why. Point to
 `/journal` (and, in **approve** mode, to **`/review`** — the human validates each edit
 against its diff there, then approves → resolved or rejects → reopened). Then **ask**
 whether to commit, and **what** (doc edits only / + resolved store + journal / + project
