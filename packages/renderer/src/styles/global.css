@@ -1535,11 +1535,12 @@ button.topbar-me:hover {
   }
 }
 
-/* Force unified diffs on narrow screens (JS coerces the mode; hide the toggle). */
+/* Force unified diffs on narrow screens. The toggle is NOT hidden here: this rule sits
+   before `.diff-toggle { display: inline-flex }` and has the same specificity (a media
+   query adds none), so source order won and the button stayed visible while the mode was
+   coerced. review-card.ts now paints the toggle only when the same 640px predicate is
+   false — one source of truth instead of two. */
 @media (max-width: 640px) {
-  .diff-toggle {
-    display: none;
-  }
   .nb-diff {
     font-size: 0.75rem;
   }
@@ -2127,6 +2128,11 @@ button.topbar-me:hover {
   display: flex;
   justify-content: flex-end;
   margin: 12px 0;
+}
+/* No cards in the queue → review-card.ts empties the toggle rather than leaving an inert
+   control that highlights a mode and changes nothing. */
+.diff-toggle:empty {
+  display: none;
 }
 .diff-toggle {
   display: inline-flex;
