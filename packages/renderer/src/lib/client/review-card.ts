@@ -137,8 +137,8 @@ export async function mountReviewList(
   const api = createApi(); // PATCH carries the token from localStorage
   const meCfg = JSON.parse(document.getElementById("notabene-me")?.textContent || "{}");
 
-  // Side-by-side is unreadable on phones → coerce to unified below 640px (the toggle is
-  // CSS-hidden there); the stored preference is preserved for wider screens.
+  // Side-by-side is unreadable on phones → coerce to unified below 640px; the stored
+  // preference is preserved for wider screens.
   const narrowMQ = typeof matchMedia === "function" ? matchMedia("(max-width: 640px)") : null;
   const mode = (): DiffMode => effectiveDiffMode(stored, narrowMQ?.matches ?? false);
 
@@ -146,6 +146,16 @@ export async function mountReviewList(
     const addressed = comments
       .filter((c) => c.status === "addressed")
       .sort((a, b) => (a.page < b.page ? -1 : a.page > b.page ? 1 : a.createdAt < b.createdAt ? -1 : 1));
+    // The toggle exists only where it can actually do something: cards to switch AND a
+    // screen the coercion above won't override. Deriving it from that very predicate is
+    // the point — hiding it with a CSS breakpoint duplicated the 640px truth in a rule a
+    // LATER `.diff-toggle { display }` silently won over, leaving a button that
+    // highlighted "side by side" and rendered unified. Emptied rather than hidden: the
+    // click listener is delegated to the container, and `.diff-toggle:empty` collapses it.
+    if (toggleEl) {
+      if (addressed.length && !(narrowMQ?.matches ?? false)) renderToggle(toggleEl, m, stored);
+      else toggleEl.innerHTML = "";
+    }
     listEl.innerHTML = addressed.length
       ? addressed
           .map((c) => renderReviewCard(c, changesForComment(c, journal), diffs, byId, m, mode(), routeFor))
@@ -175,7 +185,8 @@ export async function mountReviewList(
   }
 
   if (toggleEl) {
-    renderToggle(toggleEl, m, stored);
+    // Buttons are painted by render() (once the queue is known to be non-empty); the
+    // listener is delegated, so it survives every re-render.
     toggleEl.addEventListener("click", (e) => {
       const b = (e.target as HTMLElement).closest("button[data-mode]") as HTMLElement | null;
       if (!b) return;
