@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { APIRoute } from "astro";
 import { edit, extensions, storeAbs, verify } from "../../config.mjs";
+import { resyncContent } from "../../integrations/content-resync.mjs";
 import { listComments, patchComment } from "../../lib/comments";
 import { appendEntry, newEntryId, normalizeEntry } from "../../lib/journal-write.mjs";
 import { blockRanges, spliceBlock } from "../../lib/md-splice";
@@ -85,7 +86,16 @@ export const GET: APIRoute = async ({ request, url }) => {
   const blocks = blockRanges(src.body);
   const first = blocks.findIndex((b) => b.start === start);
   const last = blocks.findIndex((b) => b.end === end);
-  if (first === -1 || last < first) return json({ ...base, error: "stale" }, 409);
+  if (first === -1 || last < first) {
+    // We read the source from DISK, so a range that no longer lands on a block frontier
+    // means the HTML that carried it predates the file. Usually the browser is simply
+    // behind and a reload is enough — but when the dev server itself is serving a stale
+    // render, reloading returns the same dangling stamps forever (see
+    // integrations/content-resync.mjs). Heal the server before answering, and tell the
+    // client which of the two it was, so the message can promise something that works.
+    const resynced = resyncContent();
+    return json({ ...base, error: "stale", resynced }, 409);
+  }
 
   // `style` travels with the block so the rich editor serializes it the way the REST of
   // this file is written (lib/md-style.ts) — the difference between an invisible edit and

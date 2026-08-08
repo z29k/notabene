@@ -195,6 +195,8 @@ const MESSAGES = {
     blockDuplicate: "Duplicate this block",
     editErrorStale:
       "This page changed on disk. Reload to edit the current source — and if reloading keeps showing this, restart the dev server: it is still rendering an older version of the file.",
+    editErrorStaleResynced:
+      "The dev server was rendering an older version of this page. It has been resynchronised — reload and your edit will work.",
     editErrorMoved: "This block moved or no longer exists. Reload to pick up the current source.",
     editErrorContainment: "Refused: this change would alter the surrounding blocks.",
     editErrorUntracked:
@@ -410,6 +412,8 @@ const MESSAGES = {
     blockDuplicate: "Dupliquer ce bloc",
     editErrorStale:
       "Cette page a changé sur le disque. Rechargez pour éditer la source actuelle — et si le rechargement n'y change rien, redémarrez le serveur de dev : il rend encore une version antérieure du fichier.",
+    editErrorStaleResynced:
+      "Le serveur de dev rendait une version antérieure de cette page. Il vient d'être resynchronisé — rechargez et votre édition fonctionnera.",
     editErrorMoved: "Ce bloc a bougé ou n'existe plus. Recharger pour reprendre la source actuelle.",
     editErrorContainment: "Refusé : ce changement modifierait les blocs voisins.",
     editErrorUntracked:

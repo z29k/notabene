@@ -70,6 +70,9 @@ export interface ApiError {
   detail?: string;
   /** The offending path, sent alongside `untracked` so the sentence can be localized. */
   file?: string;
+  /** `stale` only: the server found its own render out of date and resynchronised it, so
+   *  a reload now really does fix it — say so rather than repeating generic advice. */
+  resynced?: boolean;
 }
 
 /**
@@ -84,7 +87,11 @@ export function editorMessage(status: number, payload: ApiError, m: Record<strin
       : payload.error === "moved"
         ? "editErrorMoved"
         : payload.error === "stale"
-          ? "editErrorStale"
+          ? // The server tells us whether it was the one that was behind. When it was, it
+            // has just resynchronised itself, so "reload" is now a promise it can keep.
+            payload.resynced
+            ? "editErrorStaleResynced"
+            : "editErrorStale"
           : payload.error === "untracked"
             ? "editErrorUntracked"
             : "editErrorGeneric";
