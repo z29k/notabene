@@ -68,6 +68,8 @@ export function draftKey(page: string, s: Stamp): string {
 export interface ApiError {
   error?: string;
   detail?: string;
+  /** The offending path, sent alongside `untracked` so the sentence can be localized. */
+  file?: string;
 }
 
 /**
@@ -87,8 +89,13 @@ export function editorMessage(status: number, payload: ApiError, m: Record<strin
             ? "editErrorUntracked"
             : "editErrorGeneric";
   const base = m[key] ?? m.editErrorGeneric ?? "Could not save.";
-  if (payload.detail && key !== "editErrorUntracked") return `${base} ${payload.detail}`;
-  if (payload.detail) return payload.detail;
+  // `untracked` names the file and the remedy in the catalog, so it stays in the reader's
+  // language; the server's English `detail` is only the fallback when no path came with it.
+  if (key === "editErrorUntracked") {
+    if (payload.file) return base.replace("{file}", payload.file);
+    return payload.detail ?? base.replace("{file}", "this file");
+  }
+  if (payload.detail) return `${base} ${payload.detail}`;
   return status >= 500 ? `${base} (HTTP ${status})` : base;
 }
 

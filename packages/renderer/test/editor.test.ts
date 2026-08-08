@@ -242,7 +242,14 @@ describe("editorMessage", () => {
     );
   });
 
-  it("prefers the untracked remedy verbatim — the sentence alone is not actionable", () => {
+  it("names the untracked file IN the catalog sentence, so the remedy stays localized", () => {
+    const cat = { ...m, editErrorUntracked: "git ne suit pas {file}." };
+    expect(editorMessage(403, { error: "untracked", file: "docs/new.md", detail: "run git add" }, cat)).toBe(
+      "git ne suit pas docs/new.md.",
+    );
+  });
+
+  it("falls back to the server's detail when no path came with the refusal", () => {
     expect(editorMessage(403, { error: "untracked", detail: "run git add x.md" }, m)).toBe("run git add x.md");
   });
 
