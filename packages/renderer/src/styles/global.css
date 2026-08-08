@@ -2911,10 +2911,26 @@ button.nb-scheme-toggle:hover {
 .nb-edit-note:focus {
   border-color: var(--accent);
 }
+/* A refusal BLOCKS the save — it cannot read like a caption. Coloured text alone was
+   missed entirely on a card the eye already scanned, so it gets a surface of its own.
+   Same literals as .nb-edit-act--armed above: there is no danger token, and inventing one
+   here would put a colour outside the documented --nb-* surface. `.nb-edit-warn` stays
+   text-only — it annotates a link inline, it is not an alert. */
+.nb-edit-msg {
+  margin: 0 0 0.4rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 5px;
+  border-left: 3px solid currentColor;
+  font-weight: 500;
+}
 .nb-edit-msg[data-kind="error"] {
   color: #c0392b;
+  background: color-mix(in srgb, #c0392b 13%, transparent);
 }
-.nb-edit-msg[data-kind="warn"],
+.nb-edit-msg[data-kind="warn"] {
+  color: #b9770e;
+  background: color-mix(in srgb, #b9770e 15%, transparent);
+}
 .nb-edit-warn {
   color: #b9770e;
 }

@@ -139,6 +139,9 @@ export const PUT: APIRoute = async ({ request }) => {
     return json(
       {
         error: "untracked",
+        // `file` so the client can say it in the reader's language; `detail` kept for any
+        // consumer reading the API directly.
+        file: src.rel,
         detail:
           `${src.rel} is not tracked by git, so this edit could not be undone. ` +
           "Run `git add` on it first, or set `edit: { requireGit: false }` in notabene.config.mjs.",

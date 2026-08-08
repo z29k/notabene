@@ -193,10 +193,12 @@ const MESSAGES = {
     blockImage: "Image…",
     blockImageDesc: "Written into the repo, beside the page",
     blockDuplicate: "Duplicate this block",
-    editErrorStale: "This page changed on disk. Reload to edit the current source.",
+    editErrorStale:
+      "This page changed on disk. Reload to edit the current source — and if reloading keeps showing this, restart the dev server: it is still rendering an older version of the file.",
     editErrorMoved: "This block moved or no longer exists. Reload to pick up the current source.",
     editErrorContainment: "Refused: this change would alter the surrounding blocks.",
-    editErrorUntracked: "Refused: git isn't tracking this file, so the edit could not be undone.",
+    editErrorUntracked:
+      "Refused: git isn't tracking {file}, so this edit could not be undone. Run `git add` on it, or set edit: { requireGit: false } in notabene.config.mjs.",
     editErrorGeneric: "Could not save.",
     editSaved: "Saved",
     editUnsavedAsk: "Unsaved changes — Done writes them, Cancel discards them.",
@@ -406,10 +408,12 @@ const MESSAGES = {
     blockImage: "Image…",
     blockImageDesc: "Écrite dans le dépôt, à côté de la page",
     blockDuplicate: "Dupliquer ce bloc",
-    editErrorStale: "Cette page a changé sur le disque. Recharger pour éditer la source actuelle.",
+    editErrorStale:
+      "Cette page a changé sur le disque. Rechargez pour éditer la source actuelle — et si le rechargement n'y change rien, redémarrez le serveur de dev : il rend encore une version antérieure du fichier.",
     editErrorMoved: "Ce bloc a bougé ou n'existe plus. Recharger pour reprendre la source actuelle.",
     editErrorContainment: "Refusé : ce changement modifierait les blocs voisins.",
-    editErrorUntracked: "Refusé : git ne suit pas ce fichier, l'édition ne pourrait pas être annulée.",
+    editErrorUntracked:
+      "Refusé : git ne suit pas {file}, cette édition ne pourrait pas être annulée. Faites `git add` dessus, ou mettez edit: { requireGit: false } dans notabene.config.mjs.",
     editErrorGeneric: "Enregistrement impossible.",
     editSaved: "Enregistré",
     editUnsavedAsk: "Modifications non enregistrées — Terminer les écrit, Annuler les abandonne.",
