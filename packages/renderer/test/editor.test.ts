@@ -236,6 +236,13 @@ describe("editorMessage", () => {
     expect(editorMessage(422, { error: "containment" }, m)).toBe("Refused.");
   });
 
+  it("promises a working reload only when the SERVER was the stale one", () => {
+    const cat = { ...m, editErrorStaleResynced: "Resynced — reload." };
+    expect(editorMessage(409, { error: "stale", resynced: true }, cat)).toBe("Resynced — reload.");
+    expect(editorMessage(409, { error: "stale", resynced: false }, cat)).toBe("Stale.");
+    expect(editorMessage(409, { error: "stale" }, cat)).toBe("Stale.");
+  });
+
   it("appends the server's detail, which carries the actual explanation", () => {
     expect(editorMessage(422, { error: "containment", detail: "would merge lists" }, m)).toBe(
       "Refused. would merge lists",
