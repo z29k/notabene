@@ -153,6 +153,10 @@ like the rest of the doc.
 - Don't leave a bare `{` or `<` **outside** a code fence — MDX reads them as expression/JSX.
   Escape as `\{` / `\<`, wrap in `` `code` ``, or put it in a fence.
 - `.md` files are always lenient — no such constraint. When unsure, prefer `.md`.
+- **Components**: a repo may declare a `mdxComponents` module in `notabene.config.mjs` (globally
+  and/or per `roots[]` entry). Its default export lists the component names usable in that space's
+  `.mdx` pages — **read that file before writing a tag**; a name it doesn't define is a build
+  error. Never invent one, and never delete a tag you don't understand.
 
 ## Not available (don't write it — it degrades to plain text)
 
@@ -160,7 +164,8 @@ like the rest of the doc.
   renders as a plain blockquote with the literal text. Use a normal `> blockquote` (or **bold** lead-in).
 - **Math** — no KaTeX/MathJax; `$…$` renders literally.
 - Custom components in `.md` — only `.mdx` (in `mdx` format) can use JSX/expressions, and only for
-  components that resolve in the repo. Keep to the portable palette above unless you know a component exists.
+  components the repo actually declares (see `mdxComponents` above). Keep to the portable palette
+  unless you have READ the map and know the component exists.
 
 ## Working with the other skills
 

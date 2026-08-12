@@ -52,7 +52,7 @@ review protocol is **file-I/O-first** (no server, no port, no MCP required).
 - [Install](./install.md) — the npm renderer, the Claude Code plugin, or both.
 - [Your first review](./first-review.md) — from a comment to a journaled edit.
 - [Configuration](./configuration.md) — the one config file, by example: spaces,
-  branding, navigation links and footer, custom home page.
+  MDX components, branding, navigation links and footer, custom home page.
 - [Customize the look](./customize.md) — branding, design tokens, fonts, code theme,
   your own stylesheet.
 - [The review loop](./review-loop.md) — auto vs. approve (human-in-the-loop diffs).

@@ -11,6 +11,7 @@ import { notabeneContentResync } from "./src/integrations/content-resync.mjs";
 import { notabeneDevAssets } from "./src/integrations/dev-assets.mjs";
 import { notabeneDevSearch } from "./src/integrations/dev-search.mjs";
 import { notabeneEditor } from "./src/integrations/editor.mjs";
+import { notabeneMdxComponents } from "./src/integrations/mdx-components.mjs";
 import { notabeneRouteTruth } from "./src/integrations/route-truth.mjs";
 import { notabenePublicRoutes } from "./src/integrations/public-routes.mjs";
 import { rehypeMermaid } from "./src/remark/mermaid.mjs";
@@ -81,6 +82,10 @@ export default defineConfig({
   integrations: [
     ...(mdxEnabled ? [mdx()] : []),
     notabeneAssetRoutes(),
+    // Always on (in every mode): the render sites import its virtual module statically,
+    // so it must resolve even with no `mdxComponents` configured — it then generates a
+    // no-op and nothing changes in the output.
+    notabeneMdxComponents(),
     notabeneRouteTruth(),
     ...(publicMode
       ? [...(publish.site ? [sitemap()] : []), notabenePublicRoutes()]

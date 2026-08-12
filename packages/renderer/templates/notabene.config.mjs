@@ -14,6 +14,12 @@ export default {
   // extension). "commonmark": everything CommonMark/GFM, no MDX dependency/strictness.
   format: "commonmark",
 
+  // Components available to every .mdx page (needs format: "mdx"). A repo-relative
+  // JS/TS module whose DEFAULT EXPORT is a { Name: Component } map — a path, not the map
+  // itself, because this file is also read by plain Node. Per space: put the same key on
+  // a roots[] entry to give that space its own palette (it replaces this one).
+  // mdxComponents: "site/src/nb-components.ts",
+
   // Doc spaces. Each: { key (url slug + store `space`), label, path (repo-relative),
   // exclude (globs), description (optional home-card text) }.
   // With i18n on (below), `label` and `description` may be a per-locale map instead of a

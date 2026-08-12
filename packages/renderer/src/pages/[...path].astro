@@ -5,6 +5,7 @@
 // no `[locale]`/`[space]` ambiguity. With i18n disabled every entry stays at `/<space>/<id>`
 // exactly as before (parity). The `page` (store key) stays the RAW locale-encoded id.
 import { getCollection, render } from "astro:content";
+import { componentsFor } from "virtual:notabene-mdx-components";
 import DocLayout from "../layouts/DocLayout.astro";
 import SpaceIndex from "../components/SpaceIndex.astro";
 import SiteHome from "../components/SiteHome.astro";
@@ -87,6 +88,13 @@ export async function getStaticPaths() {
 }
 
 const { spaceKey, entry, locale, canonicalId, isHome, alternates, isSiteHome = false } = Astro.props;
+
+// Config `mdxComponents` (this space's, else the global one). SPREAD, never passed as
+// `components={undefined}`: Astro's MDX runtime injects the module's own components then
+// lets our prop override it, so an explicit undefined would ERASE them. Unset → `{}`, i.e.
+// the exact markup of a build without this feature.
+const mdxComponents = componentsFor(spaceKey);
+const contentProps = mdxComponents ? { components: mdxComponents } : {};
 
 // Everything below computes the DOC/space page. The site-home branch (a non-default-locale
 // `/en`) renders the self-contained <SiteHome> instead (see template) and needs none of it.
@@ -196,7 +204,7 @@ if (!isSiteHome) {
       indexable={!!entry && !isHome}
       description={typeof entry?.data?.description === "string" ? entry.data.description : undefined}
     >
-      {Content ? <Content /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
+      {Content ? <Content {...contentProps} /> : <SpaceIndex nodes={nodes} space={spaceKey} locale={locale} />}
     </DocLayout>
   )
 }

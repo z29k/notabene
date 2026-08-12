@@ -94,6 +94,12 @@ has **`docs.detected`** instead.
    - `format`: **`commonmark`** by default (lighter, no MDX-safety traps). Write it
      **explicitly** — the renderer's *code* default is `mdx`. Use `mdx` only if `.mdx`
      files exist or the user asks.
+   - `mdxComponents` (mdx only): if those `.mdx` files USE components (`<Something/>` they
+     don't import), the build fails without it — *"Expected component `X` to be defined"*.
+     Grep the pages for such tags, then point the key at a repo-relative JS/TS module whose
+     **default export** is a `{ Name: Component }` map. The repo often has one already
+     (a site's component folder); if not, say so and let the user write it — never invent
+     components. Per space: the same key on a `roots[]` entry replaces the global map.
 3. **Write `notabene.config.mjs`** at the repo root — **show the diff and confirm first**.
    Keep the safety default `host: false`. Shape:
 
@@ -105,6 +111,7 @@ has **`docs.detected`** instead.
      tagline: "docs",
      locale: "en",              // UI language + nav sort collation
      format: "commonmark",      // "mdx" only if you have .mdx files
+     // mdxComponents: "site/src/nb-components.ts",  // mdx only: default-exports { Name: Component }
      roots: [
        { key: "docs", label: "Docs", path: "docs", exclude: [".notabene/**"] },
      ],
@@ -175,7 +182,8 @@ regenerate from the template.
      **re-anchoring breaks**. Warn; offer to migrate the affected `page` values, or advise
      against it.
    - **`format` mdx ↔ commonmark** → different globbing + MDX strictness. Flag the
-     MDX-safety implications.
+     MDX-safety implications. Moving to `commonmark` with `mdxComponents` set makes the
+     config **refuse to load** — drop that key in the same edit.
 4. **Re-run `init`** after any config edit — it's idempotent and it **refreshes the agent
    entry point** (`<store>/protocol.md` + the `AGENTS.md` block), which otherwise still
    points at the old store path or space keys. `doctor` reports the drift

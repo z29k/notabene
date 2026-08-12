@@ -4,6 +4,7 @@
 // (`/print/fr/space/docs`) filters doc/space/folder to one locale; page scopes carry the
 // locale in their raw id. `/print` = the default locale's whole doc. Static/prerendered.
 import { getCollection, render } from "astro:content";
+import { componentsFor } from "virtual:notabene-mdx-components";
 import PrintLayout from "../../layouts/PrintLayout.astro";
 import { buildNav, folderLabels, humanize, pageTitle } from "../../lib/nav";
 import {
@@ -70,6 +71,10 @@ interface LeafBlock {
   title: string;
   Content: Rendered["Content"];
   headings: Rendered["headings"];
+  /** Config `mdxComponents` for the OWNING space — a PDF must render what the screen
+   *  renders, so the map is resolved per leaf, not once per bundle (a doc-wide scope
+   *  concatenates several spaces, each with its own palette). */
+  components?: Record<string, unknown>;
 }
 type Block = PartBlock | LeafBlock;
 interface TocEntry {
@@ -88,7 +93,7 @@ async function addLeaf(space: string, canonicalId: string, entry: any, depth: nu
   const { Content, headings } = await render(entry);
   const title = pageTitle(entry.body, canonicalId, entry.data);
   const anchorId = sectionId(space, canonicalId);
-  blocks.push({ kind: "leaf", anchorId, title, Content, headings });
+  blocks.push({ kind: "leaf", anchorId, title, Content, headings, components: componentsFor(space) });
   toc.push({ kind: "leaf", label: title, depth, anchor: anchorId });
 }
 
@@ -201,13 +206,15 @@ const pageTitleStr = parsed && parsed.kind !== "doc" ? cover.title : siteName;
         );
       }
       const Content = b.Content;
+      // Spread, never `components={undefined}` — see the note in pages/[...path].astro.
+      const contentProps = b.components ? { components: b.components } : {};
       return (
         <section class="pg-doc">
           <h1 class="pg-doc-title" id={b.anchorId}>
             {b.title}
           </h1>
           <div class="prose">
-            <Content />
+            <Content {...contentProps} />
           </div>
         </section>
       );

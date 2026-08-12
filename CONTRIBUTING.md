@@ -46,6 +46,9 @@ node scripts/gen-fixture.mjs --format mdx --locale fr --review approve \
 # site-chrome seeds — branding assets, the theme contract (tokens + stylesheet + asset
 # folder + dual code theme) and nav links (topbar icon, sidebar block, footer):
 node scripts/gen-fixture.mjs --chrome
+# `mdxComponents` seeds — implies --format mdx: a component module in the fixture's OWN
+# repo (Callout + Chip), plus one that replaces it for the second space (Spec):
+node scripts/gen-fixture.mjs --components
 # public-scoping seeds (a private space, a publish.exclude'd wip/ sub-tree, a
 # frontmatter publish:false page, `description` frontmatter, a `publish` block):
 node scripts/gen-fixture.mjs --publish --i18n directory
@@ -59,7 +62,11 @@ nav link (`NAV-PRIVATE`) on top of the non-asset file already sitting in the ass
 demo-clean — it also feeds the customization GIFs (below).
 
 The demo lands in a gitignored `.demo/` at the repo root (a nested git repo when `--git`),
-so it's easy to browse and never gets committed.
+so it's easy to browse and never gets committed. **Keep it there** rather than in `/tmp`:
+an `.astro` component with a `<style>` only compiles when the consumer and the renderer
+share a parent folder (see `src/lib/mdx-components.mjs`), which `/tmp` breaks and a real
+`npm i` never does — you'd be debugging a layout no user has. notabene warns when it sees
+one.
 
 ### Demo GIFs
 

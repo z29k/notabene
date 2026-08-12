@@ -704,9 +704,20 @@ async function doDoctor() {
     return;
   }
   console.log(`  config: ${c.path}`);
+  // `mdxComponents` only when set: "my component is undefined" is otherwise a mystery,
+  // and the per-space overrides are the half nobody remembers declaring.
+  const spaceMaps = Object.keys(c.mdxComponentsSpaces ?? {});
+  const components = c.mdxComponents
+    ? ` · components ${c.mdxComponents}`
+    : spaceMaps.length
+      ? " · components per space"
+      : "";
   console.log(
-    `    roots: ${c.roots.map((r) => r.path).join(", ")} · format ${c.format} · review ${c.review} · host ${c.host}`,
+    `    roots: ${c.roots.map((r) => r.path).join(", ")} · format ${c.format}${components} · review ${c.review} · host ${c.host}`,
   );
+  if (spaceMaps.length) {
+    console.log(`      ${spaceMaps.map((k) => `${k} → ${c.mdxComponentsSpaces[k]}`).join(" · ")}`);
+  }
   console.log(
     `    store ${c.store} — ${
       report.store.exists

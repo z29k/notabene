@@ -106,6 +106,47 @@ jobs:
       - name: Smoke-build the scratch consumer
         run: node packages/renderer/bin/notabene.mjs build --root /tmp/consumer
 
+      # `mdxComponents` end to end, on its own consumer (the one above is commonmark):
+      # a components module living in the CONSUMER's repo, importing an .astro component
+      # AND a package only the consumer has — the run-from-package resolution question.
+      # The component carries a <style>: an .astro sub-request (?astro&type=style) is
+      # resolved against ASTRO's root, so it is the case that breaks when the repo and the
+      # renderer share no ancestor. Hence a consumer INSIDE the workspace — the layout a
+      # real `npm i @z29k/notabene` always produces (see lib/mdx-components.mjs).
+      - name: MDX components (config `mdxComponents`)
+        run: |
+          set -e
+          C="$GITHUB_WORKSPACE/mdxc-consumer"
+          mkdir -p "$C/docs" "$C/nb" "$C/node_modules/nb-ci-dep"
+          printf '# Page\n\n<Accroche kicker="CI">MDXCOMPONENT-rendered</Accroche>\n' > "$C/docs/index.mdx"
+          printf '{ "name": "nb-ci-dep", "version": "1.0.0", "type": "module", "exports": "./index.js" }\n' > "$C/node_modules/nb-ci-dep/package.json"
+          printf 'export const mark = "CONSUMERDEP";\n' > "$C/node_modules/nb-ci-dep/index.js"
+          printf -- '---\nimport { mark } from "nb-ci-dep";\nconst { kicker } = Astro.props;\n---\n<aside class="accroche" data-dep={mark}><b>{kicker}</b><slot /></aside>\n<style>.accroche { border-left: 3px solid var(--nb-accent); }</style>\n' > "$C/nb/Accroche.astro"
+          printf 'import Accroche from "./Accroche.astro";\nexport default { Accroche };\n' > "$C/nb/components.ts"
+          node packages/renderer/bin/notabene.mjs init --root "$C"
+          sed -i 's|format: "commonmark",|format: "mdx",\n  mdxComponents: "nb/components.ts",|' "$C/notabene.config.mjs"
+          node packages/renderer/bin/notabene.mjs build --root "$C" --public --out /tmp/mdxc-public
+          # Rendered by the component — and the consumer's OWN dependency resolved.
+          grep -q 'class="accroche"' /tmp/mdxc-public/docs/index/index.html
+          grep -q 'data-dep="CONSUMERDEP"' /tmp/mdxc-public/docs/index/index.html
+          grep -q 'MDXCOMPONENT-rendered' /tmp/mdxc-public/docs/index/index.html
+          # The component's scoped <style> survived the .astro sub-request path.
+          grep -q 'astro-cid' /tmp/mdxc-public/docs/index/index.html
+          # The PDF route must render what the screen renders, never a degraded copy.
+          grep -q 'class="accroche"' /tmp/mdxc-public/print/index.html
+          # Refused at CONFIG LOAD (doctor reports config.valid=false), not at render.
+          sed -i 's|format: "mdx",|format: "commonmark",|' "$C/notabene.config.mjs"
+          node packages/renderer/bin/notabene.mjs doctor --root "$C" --json > /tmp/mdxc-doctor.json
+          node -e "
+            const d = require('/tmp/mdxc-doctor.json');
+            if (d.config.valid !== false || !/requires format: \"mdx\"/.test(d.config.error)) { console.error(d.config); process.exit(1); }"
+          sed -i 's|mdxComponents: "nb/components.ts",|mdxComponents: "nb/Accroche.astro",|; s|format: "commonmark",|format: "mdx",|' "$C/notabene.config.mjs"
+          node packages/renderer/bin/notabene.mjs doctor --root "$C" --json > /tmp/mdxc-doctor.json
+          node -e "
+            const d = require('/tmp/mdxc-doctor.json');
+            if (d.config.valid !== false || !/must point at a JS\/TS module/.test(d.config.error)) { console.error(d.config); process.exit(1); }"
+          rm -rf "$C"
+
       # PUBLIC build contract: seed a comment first, then assert the artifact is
       # pure-static + leak-free (no store data, no identity/review chrome, no /api
       # surface) and carries the agent surface (llms.txt, .md twins, robots, sitemap)

@@ -14,6 +14,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { contains } from "./lib/asset-dir.mjs";
 import { decode as decodeLocale, routeFor as i18nRouteFor, localizeField } from "./lib/i18n-content.mjs";
+import { assertMdxFormat, assertMdxModule } from "./lib/mdx-components.mjs";
 import { filterPublicNav, hasFooter, navClientLabels, normalizeNav } from "./lib/nav-links.mjs";
 import { codeThemeCss, normalizeCodeTheme } from "./lib/shiki-themes.mjs";
 import { tokensToCss, validateTokens } from "./lib/theme-tokens.mjs";
@@ -288,10 +289,40 @@ export const i18n = {
 export const storeRel = (userConfig.store ?? "docs/.notabene").replace(/\\/g, "/").replace(/\/+$/, "");
 export const storeAbs = path.resolve(REPO_ROOT, storeRel);
 
+const rawRoots = userConfig.roots ?? [{ label: "Docs", path: "docs" }];
+
 /** @type {Root[]} — `userConfig` is untyped (loaded dynamically), so annotate the
  *  resolved shape here; importers (nav, pages, remark) rely on this being typed. */
-export const roots = (userConfig.roots ?? [{ label: "Docs", path: "docs" }]).map((r) =>
-  normalizeRoot(r, i18n.defaultLocale, storeRel),
+export const roots = rawRoots.map((r) => normalizeRoot(r, i18n.defaultLocale, storeRel));
+
+// MDX component map (§ mdxComponents). `format: "mdx"` parses components; this is what
+// DEFINES them. A repo-relative module whose default export is `{ Name: Component }`,
+// handed to every `<Content components={…} />` (doc page, print/PDF, custom home).
+// A path, not the map itself: this file is loaded by raw Node (the CLI's `doctor`), which
+// cannot import a .astro/.tsx component — only Vite can, hence the virtual-module bridge
+// (integrations/mdx-components.mjs). Per space: `roots[].mdxComponents` overrides the
+// global one for that space (a plain-Markdown space and a component-heavy one rarely want
+// the same palette). Unset → nothing is generated and no prop is passed anywhere.
+function mdxComponentsFile(raw, what) {
+  assertMdxFormat(format, what);
+  const rel = normalizeRepoFile(raw, what);
+  assertMdxModule(rel, what);
+  return { rel, abs: path.resolve(REPO_ROOT, rel) };
+}
+const mdxComponentsGlobal =
+  userConfig.mdxComponents == null ? null : mdxComponentsFile(userConfig.mdxComponents, "mdxComponents");
+/** @type {Record<string, { rel: string, abs: string }>} */
+const mdxComponentsBySpace = {};
+rawRoots.forEach((r, i) => {
+  if (r?.mdxComponents == null) return;
+  mdxComponentsBySpace[roots[i].key] = mdxComponentsFile(r.mdxComponents, `roots[${i}].mdxComponents`);
+});
+/** Resolved module paths for the virtual module (integrations/mdx-components.mjs). */
+export const mdxComponentEntries = { global: mdxComponentsGlobal, bySpace: mdxComponentsBySpace };
+/** Repo-relative paths, for reporting (`doctor`). */
+export const mdxComponents = mdxComponentsGlobal?.rel ?? null;
+export const mdxComponentsSpaces = Object.fromEntries(
+  Object.entries(mdxComponentsBySpace).map(([key, f]) => [key, f.rel]),
 );
 
 // A locale key must never collide with a space key (both occupy the URL's first segment).
@@ -466,6 +497,9 @@ export default {
   locale,
   format,
   mdxEnabled,
+  mdxComponents,
+  mdxComponentsSpaces,
+  mdxComponentEntries,
   extensions,
   port,
   host,

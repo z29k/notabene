@@ -77,7 +77,8 @@ c'est utile :
   sidebar pilotée par frontmatter, recherche, diagrammes **Mermaid** commentables avec
   lightbox pan/zoom, sélecteur clair/sombre, responsive.
 - **[MDX *et* CommonMark/GFM](https://z29k.github.io/notabene/guide/configuration)** -
-  `.md` tolérant, `.mdx` strict, mélangeables par extension.
+  `.md` tolérant, `.mdx` strict, mélangeables par extension - et `mdxComponents` publie
+  **vos propres composants** dans ces pages, globalement ou par espace.
 - **[Doc multilingue](https://z29k.github.io/notabene/guide/multilingual)** - URL propres
   préfixées, sélecteur de langue, commentaires par langue, EN/FR/… .
 - **[Export PDF](https://z29k.github.io/notabene/guide/pdf-export)** - page, dossier,

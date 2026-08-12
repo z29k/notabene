@@ -23,7 +23,7 @@
  *  NOT the package version: the generated files are committed and diff-gated in CI, so
  *  interpolating a version that moves on every release would break the gate on every
  *  release commit. Consumers see it in the banner of `<store>/protocol.md`. */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Store schema this revision of the protocol describes (comment-types.ts SCHEMA_VERSION). */
 export const PROTOCOL_STORE_SCHEMA = 3;

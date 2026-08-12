@@ -135,6 +135,12 @@ repeated blocks with the same key). `kind: "image"` → find the
 ` ```mermaid ` fence for that diagram (its source hashes to `key`; `label` = the diagram
 type + first line) and edit the **diagram source**. `anchor.section` narrows the search.
 
+**Text a component rendered** (`.mdx` pages in a repo with `mdxComponents`): the quote may
+come from a component's own output, so it is nowhere in the page source. Search the page
+first; if the words genuinely aren't there, act on the **tag** the comment sits in (its
+props or children) — and if that isn't it either, leave the comment `open` and say so in
+the report. Never edit a component module to satisfy a comment on a doc page.
+
 ## Step 4 — Edit the docs (faithfully)
 
 Apply each piece of feedback **faithfully** at the right spot. A comment is a user
