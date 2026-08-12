@@ -54,6 +54,86 @@ The renderer picks the processor **by file extension**:
 `format: "commonmark"` (what `init` scaffolds) drops the MDX dependency entirely — the
 safe, most-lenient starting point for a plain-Markdown repo.
 
+## Components in MDX (`mdxComponents`)
+
+Strict MDX *without* components is only Markdown with a harsher parser. `mdxComponents`
+is what makes `<Accroche>` mean something — a repo-relative module whose **default
+export** maps names to components:
+
+```js
+// notabene.config.mjs
+format: "mdx",
+mdxComponents: "site/src/nb-components.ts",
+```
+
+```ts
+// site/src/nb-components.ts
+import Accroche from "./components/Accroche.astro";
+import Registre from "./components/Registre.astro";
+
+export default { Accroche, Registre };
+```
+
+```mdx
+<!-- docs/index.mdx — no import needed, the map provides them -->
+<Accroche kicker="Review">A lede rendered by your own component.</Accroche>
+```
+
+A **path**, not the map itself: `notabene.config.mjs` is also read by plain Node (that is
+how `notabene doctor` resolves your setup), and plain Node cannot import a `.astro` or
+`.tsx` file. The renderer compiles the module through its own Vite pipeline instead —
+with two consequences worth knowing:
+
+- the module's own imports resolve **from where the module lives**, so it may use your
+  repo's own dependencies (its `node_modules`), not the renderer's;
+- editing a component while `notabene dev` runs updates the page, no restart.
+
+The map is applied at **every** render site — doc pages, the [print and PDF
+views](./pdf-export.md), [public builds](./publish/configuration.md) — so a PDF can never
+show something the screen didn't.
+
+### One palette per space
+
+`mdxComponents` on a `roots[]` entry **replaces** the global map for that space (it does
+not merge with it). A plain-Markdown handbook and a copy of your marketing site rarely
+want the same components:
+
+```js
+mdxComponents: "site/src/nb-components.ts",     // the default, for every space
+roots: [
+  { key: "guide", label: "Guide", path: "docs" },
+  { key: "site", label: "Site", path: "site/src/content/pages",
+    mdxComponents: "site/src/nb-site.ts" },     // this space only
+],
+```
+
+The [custom home page](#custom-home-page) belongs to no space, so it always uses the
+global map. A per-space palette scopes which components a page may *use*, not which
+component CSS ships — every configured module is compiled once for the whole site.
+
+### When it goes wrong
+
+| What | Where it fails |
+| --- | --- |
+| `mdxComponents` with `format: "commonmark"` | config load — a silently ignored option is worse than a missing one |
+| the file is missing, escapes the repo, or isn't a JS/TS module | config load |
+| the module's default export isn't an object | first import, before any page renders |
+| a page uses a component the map doesn't define | that page's render, naming the component |
+
+One layout is worth knowing about: an `.astro` component carrying a `<style>` or
+`<script>` only compiles when the renderer and the repo it renders **share a parent
+folder** — always true of an installed `@z29k/notabene` (it lives in the repo's
+`node_modules`), but not of, say, a scratch repo in `/tmp` reviewed from a checkout
+elsewhere. notabene warns at startup when it sees that layout.
+
+### What components cost the review loop
+
+A comment anchors on the **text of the source file**. Words a component *produces* —
+hard-coded in the component, or pulled from your own data — are nowhere in the `.mdx`
+page, so a comment left on them has nothing to anchor to and the agent can only change
+the tag's props or children. Keep the prose you expect to be reviewed **in the page**,
+and leave presentation to the component.
+
 ## Branding
 
 Point the header, browser tab and social cards at your own assets — repo-relative files,

@@ -28,6 +28,10 @@
 //                                      `description` frontmatter, and a `publish` config
 //                                      block — then `build --public` exercises them all
 //                                      (the *-PRIVATE markers must not reach the artifact)
+//        [--components]              ← `mdxComponents` seeds (implies --format mdx): a
+//                                      component module in the FIXTURE's own repo, used
+//                                      by every page, plus a second module overriding it
+//                                      for one space (roots[].mdxComponents)
 //   Defaults: outDir=<repo>/.demo (gitignored), commonmark, en, approve, 2 spaces,
 //             4 pages/space, seed=42, git off.
 import { execFileSync } from "node:child_process";
@@ -58,7 +62,15 @@ const has = (name) => argv.includes(`--${name}`);
 // Default: a gitignored `.demo/` inside the repo (browsable, persistent), resolved from
 // the repo root so it works regardless of cwd. An explicit path overrides it.
 const OUT = positional[0] ? path.resolve(positional[0]) : path.join(REPO_ROOT, ".demo");
-const FORMAT = flag("format", "commonmark");
+// --components seeds config `mdxComponents`, which only exists in MDX — so it flips the
+// default format rather than silently doing nothing. An explicit contradictory --format
+// is an error, never an override (a demo that quietly ignores your flag is a bug report).
+const COMPONENTS = has("components");
+const FORMAT = flag("format", COMPONENTS ? "mdx" : "commonmark");
+if (COMPONENTS && FORMAT !== "mdx") {
+  console.error('gen-fixture: --components requires --format mdx (components do not exist in CommonMark).');
+  process.exit(1);
+}
 const LOCALE = flag("locale", "en");
 const REVIEW = flag("review", "approve");
 const N_SPACES = Math.max(1, Number(flag("spaces", 2)));
@@ -173,6 +185,9 @@ function translate(body, locale) {
         inFence = !inFence;
         return line;
       }
+      // A JSX block tag is markup, not prose (`--components`): translating it would rename
+      // the component or its props. Its CHILDREN sit on their own lines and are translated.
+      if (!inFence && /^<\/?[A-Z]/.test(line)) return line;
       return inFence ? line : frLine(line);
     })
     .join("\n");
@@ -208,6 +223,113 @@ const cap = (w) => w[0].toUpperCase() + w.slice(1);
 const sentence = () => `${cap(pick(WORDS))} ${Array.from({ length: int(5, 11) }, () => pick(WORDS)).join(" ")}.`;
 const paragraph = () => Array.from({ length: int(2, 4) }, sentence).join(" ");
 
+// ---- --components: the `mdxComponents` extension point ----
+// Two modules in the FIXTURE's own repo (the renderer compiles them through Vite —
+// nothing is scaffolded): a global palette every space gets, and one that REPLACES it for
+// a single space, so the demo shows both halves of the config. The children of each tag
+// are ordinary prose, deliberately: words a component *produces* would have nothing for a
+// comment to anchor to, words kept in the page stay reviewable (see the config guide).
+const COMPONENT_SPACE = COMPONENTS && N_SPACES >= 2 ? SPACES[1].key : null;
+const COMPONENT_MAP = "nb/components.ts";
+const COMPONENT_MAP_SPACE = COMPONENT_SPACE ? `nb/components-${COMPONENT_SPACE}.ts` : null;
+
+/** The component block a page of `spaceKey` may use — its space's map, and only that. */
+function componentBlock(spaceKey) {
+  if (!COMPONENTS) return null;
+  if (spaceKey === COMPONENT_SPACE) {
+    return {
+      prose: "This paragraph lives in the page, not in the component — so it stays reviewable.",
+      wrap: (prose) => `<Spec name="ttl" value="60s">\n\n${prose}\n\n</Spec>\n\n`,
+      inline: null,
+    };
+  }
+  return {
+    prose: "Callouts are the classic reason to reach for MDX: plain Markdown has no admonitions.",
+    wrap: (prose) => `<Callout kind="note">\n\n${prose}\n\n</Callout>\n\n`,
+    inline: 'Status: <Chip label="beta" /> — an inline component inside a sentence.\n\n',
+  };
+}
+
+const componentFiles = !COMPONENTS
+  ? []
+  : [
+      {
+        rel: "nb/Callout.astro",
+        content:
+          "---\n// A demo component of the FIXTURE repo, published to .mdx pages by\n" +
+          "// `mdxComponents` in notabene.config.mjs. Styled with the renderer's public\n" +
+          "// --nb-* tokens, so it follows the theme and the light/dark toggle.\n" +
+          'const { kind = "note" } = Astro.props;\n---\n\n' +
+          '<aside class="demo-callout">\n  <p class="demo-callout-kind">{kind}</p>\n  <slot />\n</aside>\n\n' +
+          "<style>\n" +
+          "  .demo-callout {\n" +
+          "    border-left: 3px solid var(--nb-accent);\n" +
+          "    background: var(--nb-accent-soft);\n" +
+          "    border-radius: var(--nb-radius);\n" +
+          "    padding: 0.2rem 1rem;\n" +
+          "    margin: 1.2rem 0;\n" +
+          "  }\n" +
+          "  .demo-callout-kind {\n" +
+          "    text-transform: uppercase;\n" +
+          "    letter-spacing: 0.08em;\n" +
+          "    font-size: 0.74rem;\n" +
+          "    color: var(--nb-accent);\n" +
+          "  }\n" +
+          "</style>\n",
+      },
+      {
+        rel: "nb/Chip.astro",
+        content:
+          "---\nconst { label } = Astro.props;\n---\n\n" +
+          '<span class="demo-chip">{label}</span>\n\n' +
+          "<style>\n" +
+          "  .demo-chip {\n" +
+          "    border: 1px solid var(--nb-border);\n" +
+          "    border-radius: 999px;\n" +
+          "    padding: 0.05rem 0.5rem;\n" +
+          "    font-size: 0.8em;\n" +
+          "  }\n" +
+          "</style>\n",
+      },
+      ...(COMPONENT_SPACE
+        ? [
+            {
+              rel: "nb/Spec.astro",
+              content:
+                "---\n// Only reachable from the space whose roots[] entry names the module\n" +
+                "// below — a per-space map REPLACES the global one, it does not merge.\n" +
+                "const { name, value } = Astro.props;\n---\n\n" +
+                '<section class="demo-spec">\n' +
+                '  <p><code>{name}</code> = <b>{value}</b></p>\n  <slot />\n</section>\n\n' +
+                "<style>\n" +
+                "  .demo-spec {\n" +
+                "    border: 1px dashed var(--nb-border);\n" +
+                "    border-radius: var(--nb-radius);\n" +
+                "    padding: 0.2rem 1rem;\n" +
+                "    margin: 1.2rem 0;\n" +
+                "  }\n" +
+                "</style>\n",
+            },
+            {
+              rel: COMPONENT_MAP_SPACE,
+              content:
+                "// Config `roots[].mdxComponents` for one space. The DEFAULT EXPORT is the map;\n" +
+                "// a name missing from it is a build error on the page that uses it.\n" +
+                'import Spec from "./Spec.astro";\n\nexport default { Spec };\n',
+            },
+          ]
+        : []),
+      {
+        rel: COMPONENT_MAP,
+        content:
+          "// Config `mdxComponents`: the global palette, available to every space that does\n" +
+          "// not declare its own. A path is configured (not the map itself) because\n" +
+          "// notabene.config.mjs is also read by plain Node, which cannot import .astro.\n" +
+          'import Callout from "./Callout.astro";\nimport Chip from "./Chip.astro";\n\n' +
+          "export default { Callout, Chip };\n",
+      },
+    ];
+
 /** Build a page: returns { rel, page, title, body, plainSentences }. */
 function makePage(space, slugParts, i, linkTarget) {
   const rel = slugParts.join("/");
@@ -222,6 +344,13 @@ function makePage(space, slugParts, i, linkTarget) {
     body += `${p}\n\n`;
     if (s === 0) {
       body += `- ${sentence()}\n- ${sentence()}\n- ${sentence()}\n\n`;
+      // --components: one tag per page, from THIS space's map (see componentBlock).
+      const comp = componentBlock(space.key);
+      if (comp) {
+        plain.push({ text: comp.prose, section: SECTIONS[s % SECTIONS.length] });
+        body += comp.wrap(comp.prose);
+        if (comp.inline) body += comp.inline;
+      }
     }
     if (s === 1) {
       body += "```js\nconst x = compute(input); // deterministic sample\n```\n\n";
@@ -770,17 +899,17 @@ const cfg = `export default {
   locale: ${JSON.stringify(LOCALE)},
   format: ${JSON.stringify(FORMAT)},
   roots: [
-${spaces.map((s) => `    { key: "${s.key}", label: "${s.label}", path: "${s.path}", exclude: [".notabene/**"]${s.publish === false ? ", publish: false" : ""} },`).join("\n")}
+${spaces.map((s) => `    { key: "${s.key}", label: "${s.label}", path: "${s.path}", exclude: [".notabene/**"]${s.publish === false ? ", publish: false" : ""}${s.key === COMPONENT_SPACE ? `, mdxComponents: ${JSON.stringify(COMPONENT_MAP_SPACE)}` : ""} },`).join("\n")}
   ],
-  store: "docs/.notabene",
+${COMPONENTS ? `  mdxComponents: ${JSON.stringify(COMPONENT_MAP)},\n` : ""}  store: "docs/.notabene",
   review: ${JSON.stringify(REVIEW)},
 ${chromeCfg}${I18N_ON ? `  i18n: { locales: ${JSON.stringify(LOCALES)}, defaultLocale: ${JSON.stringify(DEFAULT_LOCALE)}, strategy: ${JSON.stringify(STRATEGY)} },\n` : ""}${PUBLISH ? `  publish: { site: "https://demo.example.com", exclude: ${JSON.stringify(publishExclude)} },\n` : ""}};
 `;
 fs.writeFileSync(path.join(OUT, "notabene.config.mjs"), cfg);
 
-// branding / theme files (--chrome). Repo-relative, pointed at by the config and served
-// by the renderer at /_nb/… — nothing is scaffolded into the consumer's tree by notabene.
-for (const f of chromeFiles) {
+// branding / theme files (--chrome) + component modules (--components). Repo-relative,
+// pointed at by the config — nothing is scaffolded into the consumer's tree by notabene.
+for (const f of [...chromeFiles, ...componentFiles]) {
   const abs = path.join(OUT, f.rel);
   fs.mkdirSync(path.dirname(abs), { recursive: true });
   fs.writeFileSync(abs, f.content);
@@ -861,6 +990,13 @@ if (CHROME) {
   console.log(
     "  chrome seeds: branding (logo/dark/favicon/og) · theme (tokens + css + assets folder + dual code theme) · " +
       "nav (topbar icon, Resources block, footer)",
+  );
+}
+if (COMPONENTS) {
+  console.log(
+    `  component seeds: ${COMPONENT_MAP} (Callout + Chip, global)` +
+      (COMPONENT_SPACE ? ` · ${COMPONENT_MAP_SPACE} (Spec — replaces it for "${COMPONENT_SPACE}")` : "") +
+      "\n  every .mdx page uses its own space's map; a name outside it is a build error",
   );
 }
 if (PUBLISH) {

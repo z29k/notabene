@@ -7,6 +7,7 @@
 // branch of `[...path].astro` (other locales). Card labels/descriptions follow the per-locale
 // `roots[].label`/`description` (localizeField).
 import { getCollection, render } from "astro:content";
+import { componentsFor } from "virtual:notabene-mdx-components";
 import { withBase } from "../lib/base";
 import DocLayout from "../layouts/DocLayout.astro";
 import { home, i18n, roots, siteName } from "../config.mjs";
@@ -45,13 +46,19 @@ if (homePath) {
   const entry = entries.find((e) => e.id === id);
   if (entry) HomeContent = (await render(entry)).Content;
 }
+// The custom home belongs to no space (its collection is based at the repo root), so it
+// gets the GLOBAL `mdxComponents` map — a per-space override never applies here, even
+// when the file happens to sit inside that space's folder. Spread, never
+// `components={undefined}` (see the note in pages/[...path].astro).
+const homeComponents = componentsFor(null);
+const contentProps = homeComponents ? { components: homeComponents } : {};
 ---
 
 <DocLayout title="Home" locale={locale} current={current} alternates={alternates}>
   {
     HomeContent ? (
       <>
-        <HomeContent />
+        <HomeContent {...contentProps} />
         <h2 class="home-spaces-title">{m.homeSpacesTitle}</h2>
       </>
     ) : (

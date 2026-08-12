@@ -17,7 +17,8 @@ le [guide de configuration](../guide/configuration.md).
 | `siteName` / `tagline` | `"Docs"` / `"docs"` | Marque de l'en-tête |
 | `locale` | `"en"` | Langue de l'UI + collation du tri de la nav |
 | `format` | `"mdx"` | `"mdx"` (.mdx strict + .md tolérant) ou `"commonmark"` (pas de MDX du tout). `init` génère `"commonmark"` |
-| `roots[]` | `[{docs}]` | Espaces de doc : `{ key, label, path, exclude, description, publish }`. `label`/`description` acceptent une map par locale avec l'i18n ; `publish: false` garde l'espace hors des [builds publics](../guide/publish/private-content.md) |
+| `mdxComponents` | — | [Composants des pages `.mdx`](../guide/configuration.md#composants-mdx-mdxcomponents) : un module JS/TS relatif au repo dont l'**export par défaut** associe des noms à des composants, passé à chaque rendu (page, print/PDF, build public). Exige `format: "mdx"` — validé au chargement, comme l'existence et l'extension du fichier |
+| `roots[]` | `[{docs}]` | Espaces de doc : `{ key, label, path, exclude, description, publish, edit, mdxComponents }`. `label`/`description` acceptent une map par locale avec l'i18n ; `publish: false` garde l'espace hors des [builds publics](../guide/publish/private-content.md) ; `mdxComponents` remplace la carte globale pour cet espace |
 | `store` | `"docs/.notabene"` | Dossier commentaires + journal — committez-le ([contrat](./store-contract.md)) |
 | `home` | — | [Page d'accueil personnalisée](../guide/configuration.md) : un fichier Markdown relatif au repo (ou une map par locale) rendu au-dessus des cartes d'espaces sur `/` |
 | `branding` | — | [Assets d'identité](../guide/configuration.md) : `{ logo, logoDark, favicon, socialImage }`, fichiers relatifs au repo servis sous `/_nb/…`. Favicon non défini → une marque par défaut intégrée |

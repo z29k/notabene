@@ -90,6 +90,51 @@ the consumer: `notabene.config.mjs` + the `.notabene/` store + the docs themselv
   consumer repo. Vite's `server.fs.allow` is widened to `REPO_ROOT` so it can serve that
   external content.
 
+## Architecture: MDX components (`mdxComponents`)
+
+`format: "mdx"` PARSES components; this is what DEFINES them (without it, strict MDX is
+just Markdown with a harsher parser — `<Accroche/>` dies with *"Expected component … to
+be defined"*). Config `mdxComponents` = a repo-relative JS/TS module whose **default
+export** is a `{ Name: Component }` map; `roots[].mdxComponents` REPLACES it for one
+space (never merges). A **path**, not the map: `config.mjs` is loaded by raw Node
+(`doctor`), which cannot import `.astro`/`.tsx` — only Vite can.
+
+- The bridge is a **virtual module**, `src/integrations/mdx-components.mjs`:
+  `virtual:notabene-mdx-components` → generated source (pure `planMdxComponents` in
+  `lib/mdx-components.mjs`, unit-tested by EVALUATING it through data-URL stubs);
+  `…/<n>` → the consumer file's ABSOLUTE path, so Vite compiles it normally and its bare
+  imports resolve from ITS folder — i.e. the **consumer's own `node_modules`**, not the
+  renderer's (verified end to end in CI). Registered in EVERY mode: the render sites
+  import it statically, so it must always resolve; unconfigured → `componentsFor()`
+  returns undefined.
+- Applied at all three render sites — `pages/[...path].astro`, `print/[...scope].astro`
+  (per LEAF: a doc-wide PDF concatenates spaces with different palettes) and
+  `SiteHome.astro` (space-less → the GLOBAL map). Always **spread**
+  (`<Content {...contentProps} />`), NEVER `components={undefined}`: Astro's MDX runtime
+  does `{ components: mod.components ?? {}, ...baseProps }`, so an explicit undefined
+  ERASES the module's own. Unset → no prop at all → output byte-identical (checked by
+  diffing a full build against the pre-feature one).
+- Refusals happen at CONFIG LOAD (`assertMdxFormat` on `format: "commonmark"`,
+  `normalizeRepoFile` for missing/escaping, `assertMdxModule` for a non-JS/TS extension —
+  `.astro` default-exports a component, not a map); a non-object default export throws at
+  the virtual module's IMPORT, before any page renders; a component missing from the map
+  keeps Astro's own render error, which names it. Reported by `doctor`.
+- **Trap — an `.astro` component with a `<style>`/`<script>`** emits an
+  `X.astro?astro&type=style` sub-request whose id Astro RESOLVES AGAINST ITS OWN ROOT
+  (`vite-plugin-utils` `normalizeFilename` rewrites any absolute path sharing no ancestor
+  with it, while the transform that filled the compile cache used the real one) → *"No
+  cached compile metadata found"*. Impossible with an installed renderer (it sits in the
+  consumer's `node_modules`); routine with a scratch consumer in `/tmp` reviewed from a
+  checkout under `/Users`. `sharesAncestor` (unit-tested) WARNS at startup — not a
+  refusal, since component modules with no styles are fine. Keep fixtures IN-TREE
+  (`gen-fixture --components` defaults to `<repo>/.demo`) and the CI consumer inside the
+  workspace, or you are testing a layout no user has.
+- **Review-loop cost** (documented in the guide + the protocol): a comment anchors on the
+  SOURCE text, so prose a component *produces* has nothing to anchor to — the agent can
+  only touch the tag's props/children.
+- A per-space palette scopes what a page may USE, not what CSS ships: one static virtual
+  module means every configured component module is in every page's graph.
+
 ## Architecture: the `.notabene` store is a public data contract
 
 The store (comments + journal, **one file per comment** at `<store>/<page>/<id>.json`

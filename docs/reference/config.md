@@ -17,7 +17,8 @@ optional. The narrative version with examples is in the
 | `siteName` / `tagline` | `"Docs"` / `"docs"` | Header brand |
 | `locale` | `"en"` | UI language + nav sort collation |
 | `format` | `"mdx"` | `"mdx"` (.mdx strict + .md lenient) or `"commonmark"` (no MDX at all). `init` scaffolds `"commonmark"` |
-| `roots[]` | `[{docs}]` | Doc spaces: `{ key, label, path, exclude, description, publish }`. `label`/`description` accept a per-locale map with i18n; `publish: false` keeps the space out of [public builds](../guide/publish/private-content.md) |
+| `mdxComponents` | — | [Components for `.mdx` pages](../guide/configuration.md#components-in-mdx-mdxcomponents): a repo-relative JS/TS module whose **default export** maps names to components, handed to every render (page, print/PDF, public build). Requires `format: "mdx"` — validated at load, like the file's existence and extension |
+| `roots[]` | `[{docs}]` | Doc spaces: `{ key, label, path, exclude, description, publish, edit, mdxComponents }`. `label`/`description` accept a per-locale map with i18n; `publish: false` keeps the space out of [public builds](../guide/publish/private-content.md); `mdxComponents` replaces the global map for this space |
 | `store` | `"docs/.notabene"` | Comments + journal folder — commit it ([contract](./store-contract.md)) |
 | `home` | — | [Custom landing page](../guide/configuration.md#custom-home-page): a repo-relative Markdown file (or per-locale map) rendered above the space cards on `/` |
 | `branding` | — | [Identity assets](../guide/configuration.md#branding): `{ logo, logoDark, favicon, socialImage }`, repo-relative files served at `/_nb/…`. Unset favicon → a built-in default mark |

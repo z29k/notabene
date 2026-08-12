@@ -56,6 +56,88 @@ Le renderer choisit le processeur **selon l'extension du fichier** :
 `format: "commonmark"` (ce que `init` scaffolde) supprime entièrement la dépendance MDX —
 le point de départ sûr et le plus tolérant pour un repo en Markdown pur.
 
+## Composants MDX (`mdxComponents`)
+
+Du MDX strict *sans* composants, ce n'est que du Markdown avec un parseur plus sévère.
+`mdxComponents` est ce qui donne un sens à `<Accroche>` — un module relatif au repo dont
+l'**export par défaut** associe des noms à des composants :
+
+```js
+// notabene.config.mjs
+format: "mdx",
+mdxComponents: "site/src/nb-components.ts",
+```
+
+```ts
+// site/src/nb-components.ts
+import Accroche from "./components/Accroche.astro";
+import Registre from "./components/Registre.astro";
+
+export default { Accroche, Registre };
+```
+
+```mdx
+<!-- docs/index.mdx — aucun import nécessaire, la carte les fournit -->
+<Accroche kicker="Relecture">Un chapô rendu par votre propre composant.</Accroche>
+```
+
+Un **chemin**, pas la carte elle-même : `notabene.config.mjs` est aussi lu par Node nu
+(c'est ainsi que `notabene doctor` résout votre installation), et Node nu ne sait pas
+importer un fichier `.astro` ou `.tsx`. Le renderer compile donc le module par son propre
+pipeline Vite — avec deux conséquences à connaître :
+
+- les imports du module se résolvent **depuis l'endroit où il vit**, donc il peut utiliser
+  les dépendances de votre repo (son `node_modules`), pas celles du renderer ;
+- modifier un composant pendant que `notabene dev` tourne met la page à jour, sans
+  redémarrage.
+
+La carte s'applique à **tous** les rendus — pages de doc, [vues print et
+PDF](./pdf-export.md), [builds publics](./publish/configuration.md) — pour qu'un PDF ne
+puisse jamais montrer autre chose que l'écran.
+
+### Une palette par espace
+
+`mdxComponents` sur une entrée `roots[]` **remplace** la carte globale pour cet espace
+(elle ne fusionne pas). Un manuel en Markdown simple et une copie de votre site vitrine
+veulent rarement les mêmes composants :
+
+```js
+mdxComponents: "site/src/nb-components.ts",     // le défaut, pour tous les espaces
+roots: [
+  { key: "guide", label: "Guide", path: "docs" },
+  { key: "site", label: "Site", path: "site/src/content/pages",
+    mdxComponents: "site/src/nb-site.ts" },     // cet espace uniquement
+],
+```
+
+La [page d'accueil personnalisée](#page-daccueil-personnalisée) n'appartient à aucun
+espace : elle utilise toujours la carte globale. Une palette par espace délimite les
+composants qu'une page peut *employer*, pas le CSS qui part : chaque module configuré est
+compilé une fois pour tout le site.
+
+### Quand ça casse
+
+| Quoi | Où ça échoue |
+| --- | --- |
+| `mdxComponents` avec `format: "commonmark"` | chargement de la config — une option ignorée en silence est pire qu'une option absente |
+| le fichier est absent, sort du repo, ou n'est pas un module JS/TS | chargement de la config |
+| l'export par défaut du module n'est pas un objet | premier import, avant le rendu de la moindre page |
+| une page emploie un composant absent de la carte | au rendu de cette page, en le nommant |
+
+Une topologie mérite d'être connue : un composant `.astro` portant un `<style>` ou un
+`<script>` ne compile que si le renderer et le dépôt qu'il rend **partagent un dossier
+parent** — toujours vrai d'un `@z29k/notabene` installé (il vit dans le `node_modules` du
+dépôt), pas d'un dépôt jetable dans `/tmp` relu depuis un checkout ailleurs. notabene
+avertit au démarrage quand il voit cette topologie.
+
+### Ce que les composants coûtent à la boucle de relecture
+
+Un commentaire s'ancre sur le **texte du fichier source**. Les mots qu'un composant
+*produit* — écrits en dur dans le composant, ou tirés de vos propres données — ne sont
+nulle part dans la page `.mdx` : un commentaire posé dessus n'a rien où s'ancrer, et
+l'agent ne peut agir que sur les props ou le contenu de la balise. Gardez **dans la
+page** la prose destinée à être relue, et laissez la présentation au composant.
+
 ## Branding
 
 Pointez l'en-tête, l'onglet du navigateur et les cartes sociales vers vos propres

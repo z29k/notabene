@@ -53,7 +53,7 @@ Every entry links into the [documentation](https://z29k.github.io/notabene/):
 - [A real doc site](https://z29k.github.io/notabene/guide/configuration) - spaces,
   frontmatter sidebar, search, commentable Mermaid, light/dark toggle, responsive.
 - [MDX and CommonMark/GFM](https://z29k.github.io/notabene/guide/configuration) - lenient
-  `.md`, strict `.mdx`, mixable.
+  `.md`, strict `.mdx`, mixable - plus `mdxComponents` for your own components.
 - [Multi-language docs](https://z29k.github.io/notabene/guide/multilingual) - clean
   prefixed URLs, switcher, per-language comments.
 - [PDF export](https://z29k.github.io/notabene/guide/pdf-export) - print views in the

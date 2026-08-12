@@ -279,6 +279,10 @@ export async function buildReport({ repoRoot, configPath }) {
     store: cfg.storeRel,
     roots: projectRoots(cfg.roots),
     format: cfg.format,
+    // Component map for MDX pages (config `mdxComponents`, + per-space overrides). Null
+    // when unconfigured — "my component isn't defined" is otherwise a silent mystery.
+    mdxComponents: cfg.mdxComponents ?? null,
+    mdxComponentsSpaces: cfg.mdxComponentsSpaces ?? {},
     port: cfg.port,
     host: cfg.host,
     review: cfg.reviewMode,
