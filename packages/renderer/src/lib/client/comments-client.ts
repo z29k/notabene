@@ -176,3 +176,18 @@ export function setAuthor(name: string): void {
     /* localStorage unavailable */
   }
 }
+
+/**
+ * Shrink a flat-text span `[start, end)` past the whitespace at either edge. A
+ * block-level selection — triple-click, or a double-click on a heading — ends at the
+ * START of the next block, so it drags the inter-block newline along; the quote is the
+ * text the reader picked, not the layout between blocks. An invalid span (a boundary
+ * the caller could not place: -1, or end before start) comes back EMPTY rather than
+ * being sliced: `text.slice(start, -1)` is the rest of the page.
+ */
+export function trimSpan(text: string, start: number, end: number): [number, number] {
+  if (start < 0 || end < start || end > text.length) return [0, 0];
+  while (start < end && /\s/.test(text[start])) start++;
+  while (end > start && /\s/.test(text[end - 1])) end--;
+  return [start, end];
+}

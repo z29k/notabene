@@ -829,11 +829,10 @@ export function mountEditor({ page, article, messages: m }: EditorOptions): void
       const select = () => {
         const sel = window.getSelection();
         if (!sel) return;
-        // Boundaries on TEXT nodes, exactly like a hand-made selection.
-        // `selectNodeContents(el)` was tried and produced an EMPTY anchor: the comment
-        // code maps Range containers through a flat map of the article's text nodes,
-        // and a container that is the element itself resolves to -1 — the composer
-        // opened over a quote of "".
+        // Boundaries on TEXT nodes, exactly like a hand-made selection. (Born of a bug
+        // since fixed in Comments.astro — an element boundary used to resolve to -1 and
+        // `selectNodeContents(el)` opened the composer over a quote of "" — and kept:
+        // the visible selection hugs the text instead of the whole block box.)
         const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
         let first: Text | null = null;
         let last: Text | null = null;
