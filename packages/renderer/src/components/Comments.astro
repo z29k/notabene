@@ -56,6 +56,7 @@ const m = t(locale);
     esc,
     fmt,
     getAuthor,
+    trimSpan,
     type BlockAnchor,
     type Comment,
     type CommentAnchor,
@@ -144,9 +145,20 @@ const m = t(locale);
       flat = { text, map };
       return flat;
     }
-    function pointToOffset(map: { node: Node; start: number }[], node: Node, off: number) {
-      for (const m of map) if (m.node === node) return m.start + off;
-      return -1;
+    // A Range boundary is not always on a text node: triple-click — and a double-click on a
+    // heading — ends the selection at `(nextBlock, 0)`, an ELEMENT. Looking the container up
+    // in the text-node map answered -1 there, and `text.slice(start, -1)` made the quote the
+    // whole rest of the page. Measuring a Range from the article's start places any boundary
+    // exactly: its string is the same text nodes, in the same order, that buildFlat joins.
+    function pointToOffset(node: Node, off: number) {
+      const r = document.createRange();
+      try {
+        r.setStart(article!, 0);
+        r.setEnd(node, off);
+      } catch {
+        return -1;
+      }
+      return r.toString().length;
     }
     function offsetToPoint(map: { node: Node; start: number; end: number }[], offset: number) {
       for (const m of map) if (offset <= m.end) return { node: m.node, offset: offset - m.start };
@@ -162,13 +174,19 @@ const m = t(locale);
     }
     function computeAnchor(range: Range): Anchor {
       const { text, map } = buildFlat();
-      const start = pointToOffset(map, range.startContainer, range.startOffset);
-      const end = pointToOffset(map, range.endContainer, range.endOffset);
+      const [start, end] = trimSpan(
+        text,
+        pointToOffset(range.startContainer, range.startOffset),
+        pointToOffset(range.endContainer, range.endOffset),
+      );
+      // The section is read off the text node holding the quote's first character: the
+      // range's own start may be an element (the heading itself, which no heading precedes).
+      const first = map.find((m) => start < m.end)?.node ?? range.startContainer;
       return {
         quote: text.slice(start, end),
         prefix: text.slice(Math.max(0, start - 40), start),
         suffix: text.slice(end, end + 40),
-        section: nearestSection(range.startContainer),
+        section: nearestSection(first),
       };
     }
     function findRange(anchor: Anchor): Range | null {
@@ -697,6 +715,13 @@ const m = t(locale);
       if (!savedRange) return;
       pendingBlock = null;
       pendingAnchor = computeAnchor(savedRange);
+      // Nothing placeable to anchor on: open no composer rather than save a comment the
+      // agent cannot find.
+      if (!pendingAnchor.quote) {
+        pendingAnchor = null;
+        floatBtn.hidden = true;
+        return;
+      }
       popQuote.textContent = `“${pendingAnchor.quote.slice(0, 120)}”`;
       popInput.value = "";
       floatBtn.hidden = true;
