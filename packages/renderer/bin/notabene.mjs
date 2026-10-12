@@ -1063,6 +1063,12 @@ async function runAstro(astroCmd) {
   }
 
   const args = [astroBin, astroCmd, "--root", APP_DIR];
+  // Astro ≥7 servers keep a lock file per ASTRO ROOT, and detach themselves when they
+  // detect an AI agent. Both break run-from-package: the root is the shared package dir
+  // (a second consumer repo's server would be refused as "already running"), and a server
+  // that forks itself away leaves our pidfile on a dead launcher. notabene owns the server
+  // lifecycle (`--detach`, `status`, `stop`) — opt out of Astro's.
+  if (astroCmd === "dev" || astroCmd === "preview") args.push("--ignore-lock");
   // `dev` gets a DETERMINISTIC port: honor an explicit --port, else pre-probe a free one,
   // so Astro doesn't silently auto-increment and the pidfile's port stays authoritative.
   let devPort;

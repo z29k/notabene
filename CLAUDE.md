@@ -80,8 +80,12 @@ the consumer: `notabene.config.mjs` + the `.notabene/` store + the docs themselv
 
 - `bin/notabene.mjs` resolves `--root` (consumer repo, default cwd) and `--config`, then
   spawns Astro with `--root <package dir>` while setting env vars `NOTABENE_ROOT` and
-  `NOTABENE_CONFIG` (+ `NOTABENE_HOST` for `--host`). Build output goes to a gitignored
-  `dist/` **inside the installed package**, not the consumer's tree.
+  `NOTABENE_CONFIG` (+ `NOTABENE_HOST` for `--host`). `dev`/`preview` always get
+  `--ignore-lock`: Astro ≥7 keeps a server lock PER ASTRO ROOT (= the package dir, shared
+  by every consumer → a 2nd repo's server refused) and self-detaches under an AI agent
+  (our pidfile would point at a dead launcher) — notabene owns the server lifecycle.
+  Build output goes to a gitignored `dist/` **inside the installed package**, not the
+  consumer's tree.
 - `src/config.mjs` is the **single source of file-layout truth** — the only place that
   knows the layout. It reads those env vars, loads the consumer's `notabene.config.mjs`
   by absolute path (top-level await), and resolves every path. **No hardcoded paths

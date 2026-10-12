@@ -32,7 +32,7 @@ export function notabeneEditor() {
         if (!editorEnabled(command)) return;
         // Push onto the markdown processor's own lists. `updateConfig({ markdown: {…} })`
         // is NOT the way any more: the legacy `markdown.remarkPlugins`/`rehypePlugins`
-        // keys are deprecated in Astro 6 (they get coerced into the processor, with a
+        // keys are deprecated since Astro 6 (they get coerced into the processor, with a
         // warning), and `mergeConfig` REPLACES `markdown.processor` rather than merging
         // into it — so a plugin passed that way would either warn or be dropped.
         const options = config.markdown?.processor?.options;

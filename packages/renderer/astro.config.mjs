@@ -58,6 +58,10 @@ export default defineConfig({
   // desktop and actively harmful on mobile: it docks to the same bottom edge as the
   // editor's keyboard bar and the comment sheets. Never shown, dev included.
   devToolbar: { enabled: false },
+  // Astro 7's default ('jsx') strips the whitespace BETWEEN inline elements — every
+  // `<span>EN</span> <span>English</span>` of the chrome would render glued together.
+  // `true` is the Astro ≤6 behavior the templates were written for.
+  compressHTML: true,
   // outDir/cacheDir default under the app root (= the installed package), which may
   // be read-only. The CLI (bin/notabene.mjs) points these at a writable per-consumer
   // temp dir. Absolute paths are used as-is; undefined = Astro's default.
@@ -107,10 +111,10 @@ export default defineConfig({
     // theme.codeCss feeds to light-dark() → the scheme toggle recolors code instantly.
     // Unset → the single built-in theme, i.e. the exact output of every prior version.
     shikiConfig: codeThemes ? { themes: codeThemes, defaultColor: false, wrap: true } : { theme: "github-dark", wrap: true },
-    // Astro 6 moved the plugin lists off `markdown.*` and onto a PROCESSOR object;
-    // `markdown.remarkPlugins`/`rehypePlugins` still work (they are coerced into the
-    // default processor) but warn on every run. `unified()` IS that default processor,
-    // taking the lists directly — same pipeline, no deprecation.
+    // The plugin lists live on a PROCESSOR object (Astro 6 moved them off `markdown.*`),
+    // and since Astro 7 the DEFAULT processor is Sätteri, which runs no remark/rehype
+    // plugin at all: `unified()` (from @astrojs/markdown-remark, a direct dependency)
+    // is the remark/rehype pipeline every plugin below — and the editor's — is written for.
     //   · remarkRewriteLinks: inter-doc .md links → site routes (see src/remark/). Tuple
     //     form [attacher, options]; the base is passed explicitly (remark runs outside
     //     Vite → no BASE_URL there).
