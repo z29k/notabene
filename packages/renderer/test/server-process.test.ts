@@ -43,6 +43,13 @@ describe("pidfile round-trip", () => {
     expect(readPidfile(wd, me)).toEqual({ pid: 4242, port: 3009 });
     expect(readPidfile(wd, me + 1)).toBeNull();
   });
+  it.skipIf(process.platform === "win32")("refuses a pidfile that is a symlink, even to a file of ours", () => {
+    const wd = tmpdir();
+    const real = path.join(tmpdir(), "elsewhere.json");
+    fs.writeFileSync(real, JSON.stringify({ pid: 4242, port: 3009 }));
+    fs.symlinkSync(real, pidfilePath(wd));
+    expect(readPidfile(wd)).toBeNull();
+  });
   it("returns null for a missing/corrupt pidfile", () => {
     const wd = tmpdir();
     expect(readPidfile(wd)).toBeNull();
