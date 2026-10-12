@@ -58,8 +58,11 @@ node bin/notabene.mjs build --root /tmp/nb-scratch --public --site https://examp
   consumer config or `astro:content` are covered via a fixture + stub wired in
   `vitest.config.ts`. Run a single file with `npx vitest run test/write-guard.test.ts`.
 - **`build` output goes to a writable temp dir** (`os.tmpdir()/notabene/<hash>`), not the
-  installed package — with a `node_modules` symlink beside it so the bundled server
-  resolves deps (see `bin/notabene.mjs`). Nothing is written into the package.
+  installed package — with a `node_modules` beside it so the bundled server resolves
+  deps: a dir of links rebuilt per run from astro's OWN lookup chain then the renderer's
+  (`lib/resolution-view.mjs`) — one symlink to "the dir holding astro" broke as soon as
+  the package manager nested astro (its deps then sit on other levels). Nothing is
+  written into the package.
 - **CI** (`.github/workflows/ci.yml`, Node 22 + 24): lint → test → `astro check` → smoke
   `build` of a consumer whose `index.md` is deliberately GFM-hostile-to-MDX
   (`Promise<T>`, `<a@b.com>`, `{x}`, GFM table) to prove the lenient CommonMark path.

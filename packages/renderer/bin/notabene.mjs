@@ -41,6 +41,7 @@ import {
   isGeneratedProtocol,
   parseProtocolVersion,
 } from "../src/lib/protocol-gen.mjs";
+import { linkResolutionView, lookupChain } from "../src/lib/resolution-view.mjs";
 import { verifyExitCode, verifyStore } from "../src/lib/store-verify.mjs";
 import {
   canConnect,
@@ -869,7 +870,7 @@ async function doLint() {
 
 // Shared Astro launch prep (used by `runAstro` and `buildForPdf`): resolve the Astro CLI
 // entry, prepare a writable per-consumer outDir/cacheDir off the (possibly read-only)
-// package, symlink node_modules beside it so the bundled server resolves deps, and build
+// package, link the deps it needs beside it so the bundled server resolves them, and build
 // the env the app reads. See the long-form comments in the original `runAstro`.
 function astroSetup() {
   // Astro's `exports` blocks deep subpaths → resolve the bin via package.json + `bin`.
@@ -879,20 +880,18 @@ function astroSetup() {
   const astroBin = path.join(path.dirname(astroPkgPath), binRel);
   const workDir = workDirFor(repoRoot);
   fs.mkdirSync(workDir, { recursive: true });
-  // Expose the real node_modules (the one holding astro) as a sibling of outDir so the
-  // Node adapter's prerender step can resolve runtime deps by bare specifier. "junction"
-  // works on Windows too.
-  const realNodeModules = path.dirname(path.dirname(astroPkgPath));
-  const nmLink = path.join(workDir, "node_modules");
+  // Beside outDir, a node_modules that resolves like astro itself does, then like the
+  // renderer: the prerender chunks import astro AND its runtime deps by bare specifier,
+  // and a nested astro keeps those deps on other levels (see lib/resolution-view.mjs).
   try {
-    fs.unlinkSync(nmLink);
-  } catch {
-    /* not present yet */
-  }
-  try {
-    fs.symlinkSync(realNodeModules, nmLink, "junction");
-  } catch {
-    /* best-effort: if it fails, Astro falls back to its default resolution */
+    linkResolutionView(path.join(workDir, "node_modules"), [
+      ...lookupChain(path.dirname(astroPkgPath)),
+      ...lookupChain(APP_DIR),
+    ]);
+  } catch (err) {
+    console.warn(
+      `notabene: could not prepare ${workDir}/node_modules (${err.message}) — the build may not resolve its deps.`,
+    );
   }
   const gitAuthor = process.env.NOTABENE_AUTHOR || gitUserName(repoRoot);
   const gitEmail = process.env.NOTABENE_AUTHOR_EMAIL || gitUserEmail(repoRoot);
