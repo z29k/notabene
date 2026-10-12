@@ -23,14 +23,21 @@ export function writePidfile(workDir, info) {
  * workDir sits under the SHARED /tmp: a pidfile planted by another local user could
  * aim that signal at any of our processes. One we did not write is ignored.
  * `uid` defaults to the current user's; no uid (Windows, per-user temp) → no check.
+ *
+ * ONE open, then check and read through that descriptor: a stat-then-read on the path
+ * could be raced (the file swapped in between), and a stat follows symlinks — a link to
+ * a file of ours would pass for ours. O_NOFOLLOW refuses a symlink outright.
  */
 export function readPidfile(workDir, uid = process.getuid?.()) {
+  let fd;
   try {
-    const file = pidfilePath(workDir);
-    if (uid !== undefined && fs.statSync(file).uid !== uid) return null;
-    return JSON.parse(fs.readFileSync(file, "utf8"));
+    fd = fs.openSync(pidfilePath(workDir), fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    if (uid !== undefined && fs.fstatSync(fd).uid !== uid) return null;
+    return JSON.parse(fs.readFileSync(fd, "utf8"));
   } catch {
     return null;
+  } finally {
+    if (fd !== undefined) fs.closeSync(fd);
   }
 }
 
