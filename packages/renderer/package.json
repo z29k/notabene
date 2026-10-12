@@ -38,12 +38,12 @@
     "format": "biome format --write bin src test"
   },
   "dependencies": {
-    "@astrojs/markdown-remark": "^7.2.0",
-    "@astrojs/mdx": "^6.0.3",
-    "@astrojs/node": "^10.1.4",
-    "@astrojs/sitemap": "^3.6.0",
+    "@astrojs/markdown-remark": "^7.3.2",
+    "@astrojs/mdx": "^8.0.3",
+    "@astrojs/node": "^11.1.7",
+    "@astrojs/sitemap": "^3.7.4",
     "@milkdown/kit": "^7.21.3",
-    "astro": "^6.4.8",
+    "astro": "^7.3.8",
     "github-slugger": "^2.0.0",
     "mermaid": "^11.16.1",
     "remark-gfm": "^4.0.1",
@@ -68,7 +68,7 @@
     "@biomejs/biome": "^2.0.0",
     "@types/node": "^22.10.0",
     "typescript": "^5.6.0",
-    "vitest": "^3.0.0"
+    "vitest": "^4.1.11"
   },
   "keywords": [
     "docs",
