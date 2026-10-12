@@ -434,8 +434,11 @@ function authHeaders(): Record<string, string> {
   return headers;
 }
 
-/** Gutter geometry: ✎ nearest the block, then ⋮⋮, then + — reach order matches use order. */
-const HANDLE_GAP = 30;
+/** Gutter geometry: ✎ nearest the block, then ⋮⋮, then + — reach order matches use order.
+ *  The ✎ (28px) ends 12px short of the text: a press just left of a line's first word
+ *  starts a SELECTION — at 2px, with a hit area bridging into the block, it landed on
+ *  the button and selecting the start of a paragraph was impossible. */
+const HANDLE_GAP = 40;
 const HANDLE_STEP = 30;
 const session = {
   get(key: string): string | null {
