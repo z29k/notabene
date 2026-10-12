@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import net from "node:net";
 import os from "node:os";
@@ -48,6 +49,11 @@ describe("pidfile round-trip", () => {
     const real = path.join(tmpdir(), "elsewhere.json");
     fs.writeFileSync(real, JSON.stringify({ pid: 4242, port: 3009 }));
     fs.symlinkSync(real, pidfilePath(wd));
+    expect(readPidfile(wd)).toBeNull();
+  });
+  it.skipIf(process.platform === "win32")("ignores a FIFO planted as the pidfile, without blocking", () => {
+    const wd = tmpdir();
+    expect(spawnSync("mkfifo", [pidfilePath(wd)]).status).toBe(0);
     expect(readPidfile(wd)).toBeNull();
   });
   it("returns null for a missing/corrupt pidfile", () => {

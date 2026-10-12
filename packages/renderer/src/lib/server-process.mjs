@@ -26,13 +26,17 @@ export function writePidfile(workDir, info) {
  *
  * ONE open, then check and read through that descriptor: a stat-then-read on the path
  * could be raced (the file swapped in between), and a stat follows symlinks — a link to
- * a file of ours would pass for ours. O_NOFOLLOW refuses a symlink outright.
+ * a file of ours would pass for ours. O_NOFOLLOW refuses a symlink outright; O_NONBLOCK
+ * keeps a FIFO planted there from hanging the open (it waits for a writer otherwise),
+ * and anything but a regular file is ignored.
  */
 export function readPidfile(workDir, uid = process.getuid?.()) {
+  const { O_RDONLY, O_NOFOLLOW = 0, O_NONBLOCK = 0 } = fs.constants;
   let fd;
   try {
-    fd = fs.openSync(pidfilePath(workDir), fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-    if (uid !== undefined && fs.fstatSync(fd).uid !== uid) return null;
+    fd = fs.openSync(pidfilePath(workDir), O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
+    const st = fs.fstatSync(fd);
+    if (!st.isFile() || (uid !== undefined && st.uid !== uid)) return null;
     return JSON.parse(fs.readFileSync(fd, "utf8"));
   } catch {
     return null;
