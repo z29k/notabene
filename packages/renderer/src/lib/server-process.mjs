@@ -72,6 +72,33 @@ export async function waitForPort(port, { host = "127.0.0.1", timeoutMs = 20000,
   return false;
 }
 
+/**
+ * What `dev --detach` does with the daemon on record. A live daemon is reused only when
+ * it runs the SAME renderer version as the CLI asking: the plugin pins the renderer, so
+ * after a plugin update `dev --detach` is the new version asking — reusing the old
+ * daemon kept serving the old renderer (and every fix since) under "already running".
+ * A pidfile with no `version` predates this check, so it is replaced too.
+ *
+ * @param {{ version?: string } | null} info  the parsed pidfile
+ * @param {{ alive: boolean, answering: boolean, version: string }} state
+ * @returns {"start" | "reuse" | "replace"}  start = nothing live (a stale pidfile is
+ *   just dropped); replace = stop the live daemon, then start.
+ */
+export function daemonVerdict(info, { alive, answering, version }) {
+  if (!info || !alive || !answering) return "start";
+  return info.version === version ? "reuse" : "replace";
+}
+
+/** Poll until the process is gone — so a replacement daemon can take its port back. */
+export async function waitForExit(pid, { timeoutMs = 5000, intervalMs = 100 } = {}) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (!isAlive(pid)) return true;
+    await new Promise((r) => setTimeout(r, intervalMs));
+  }
+  return !isAlive(pid);
+}
+
 /** Stop a DETACHED daemon and its workers. The daemon is a process-group leader
  *  (spawned `detached: true`), so on POSIX the negative pid signals the whole group
  *  (Astro + its Vite/esbuild children); on Windows `taskkill /T` kills the tree.

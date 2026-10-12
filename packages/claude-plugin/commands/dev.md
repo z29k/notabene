@@ -5,7 +5,8 @@ allowed-tools: Bash(node:*)
 ---
 
 Start the notabene review server for this repo as a **detached daemon** and report the
-URL. Idempotent — if one is already running for this repo it just prints the existing URL.
+URL. Idempotent — if one of the same renderer version is already running for this repo it
+just prints the existing URL; one left by an older plugin version is restarted on this one.
 The first run fetches the renderer (~30 s); after that it's fast. Then it returns (the
 server keeps running in the background).
 
