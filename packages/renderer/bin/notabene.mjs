@@ -44,10 +44,12 @@ import {
 import { verifyExitCode, verifyStore } from "../src/lib/store-verify.mjs";
 import {
   canConnect,
+  daemonVerdict,
   isAlive,
   readPidfile,
   removePidfile,
   stopGroup,
+  waitForExit,
   waitForPort,
   writePidfile,
 } from "../src/lib/server-process.mjs";
@@ -55,6 +57,8 @@ import {
 const require = createRequire(import.meta.url);
 // bin/ is at <package>/bin → the Astro app root is the package root.
 const APP_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// Stamped into the daemon's pidfile: `dev --detach` reuses only a daemon of this version.
+const PKG_VERSION = JSON.parse(fs.readFileSync(path.join(APP_DIR, "package.json"), "utf8")).version;
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
@@ -1035,6 +1039,30 @@ async function runAstro(astroCmd) {
   }
   // Shared prep: Astro bin + writable outDir/cacheDir + node_modules symlink + env.
   const { astroBin, workDir, env } = astroSetup();
+  const detach = astroCmd === "dev" && argv.includes("--detach");
+
+  // Detached daemon (`dev --detach`) — survives this process so `status`/`stop` work
+  // across sessions. Idempotent: reuse a live daemon of THIS version rather than start a
+  // second one; replace one of another version. Settled BEFORE the port probe, so the
+  // replacement takes the old daemon's port back instead of the next free one.
+  if (detach) {
+    const existing = readPidfile(workDir);
+    const alive = !!existing && isAlive(existing.pid);
+    const answering = alive && (await canConnect(existing.port));
+    const verdict = daemonVerdict(existing, { alive, answering, version: PKG_VERSION });
+    if (verdict === "reuse") {
+      console.log(`notabene: already running on http://127.0.0.1:${existing.port} (pid ${existing.pid}).`);
+      process.exit(0);
+    }
+    if (verdict === "replace") {
+      const was = existing.version ? `renderer ${existing.version}` : "an older renderer";
+      console.log(`notabene: replacing the running server (${was}, pid ${existing.pid}) with renderer ${PKG_VERSION}.`);
+      stopGroup(existing.pid);
+      await waitForExit(existing.pid);
+    }
+    if (existing) removePidfile(workDir);
+  }
+
   const args = [astroBin, astroCmd, "--root", APP_DIR];
   // `dev` gets a DETERMINISTIC port: honor an explicit --port, else pre-probe a free one,
   // so Astro doesn't silently auto-increment and the pidfile's port stays authoritative.
@@ -1046,22 +1074,20 @@ async function runAstro(astroCmd) {
   }
   if (exposeHost) args.push("--host");
 
-  // Detached daemon (`dev --detach`) — survives this process so `status`/`stop` work
-  // across sessions. Idempotent: reuse a live daemon rather than starting a second one.
-  if (astroCmd === "dev" && argv.includes("--detach")) {
-    const existing = readPidfile(workDir);
-    if (existing && isAlive(existing.pid) && (await canConnect(existing.port))) {
-      console.log(`notabene: already running on http://127.0.0.1:${existing.port} (pid ${existing.pid}).`);
-      process.exit(0);
-    }
-    if (existing) removePidfile(workDir);
+  if (detach) {
     const logPath = path.join(workDir, "notabene.log");
     const out = fs.openSync(logPath, "a");
     // Own process group (`detached`) so `stop` can kill Astro + its Vite/esbuild workers;
     // stdio → a log file (a silent daemon leaves no trace if it crashes).
     const child = spawn(process.execPath, args, { detached: true, stdio: ["ignore", out, out], cwd: repoRoot, env });
     child.unref();
-    writePidfile(workDir, { pid: child.pid, port: devPort, root: repoRoot, startedAt: new Date().toISOString() });
+    writePidfile(workDir, {
+      pid: child.pid,
+      port: devPort,
+      root: repoRoot,
+      version: PKG_VERSION,
+      startedAt: new Date().toISOString(),
+    });
     const ready = await waitForPort(devPort);
     console.log(
       ready
@@ -1090,21 +1116,36 @@ async function runAstro(astroCmd) {
 }
 
 // `notabene status [--json]` — is the detached daemon for this repo alive AND answering?
-// Reaps a stale pidfile (process gone). Returns `{ running, pid?, port?, url? }`.
+// Reaps a stale pidfile (process gone). Returns `{ running, pid?, port?, url?, version? }`.
 async function doStatus() {
   const workDir = workDirFor(repoRoot);
   const info = readPidfile(workDir);
   const alive = !!info && isAlive(info.pid);
   if (info && !alive) removePidfile(workDir);
   const running = alive && (await canConnect(info.port));
+  // `version` = the renderer the DAEMON runs (null: started before it was recorded).
   const out = running
-    ? { running: true, pid: info.pid, port: info.port, url: `http://127.0.0.1:${info.port}`, root: info.root }
+    ? {
+        running: true,
+        pid: info.pid,
+        port: info.port,
+        url: `http://127.0.0.1:${info.port}`,
+        root: info.root,
+        version: info.version ?? null,
+      }
     : { running: false };
   if (argv.includes("--json")) {
     process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
     return;
   }
-  console.log(out.running ? `notabene: running (pid ${out.pid}) on ${out.url}` : "notabene: not running.");
+  if (!out.running) {
+    console.log("notabene: not running.");
+    return;
+  }
+  console.log(`notabene: running (pid ${out.pid}, renderer ${out.version ?? "unknown"}) on ${out.url}`);
+  if (out.version !== PKG_VERSION) {
+    console.log(`notabene: this CLI is ${PKG_VERSION} — \`dev --detach\` restarts the server on it.`);
+  }
 }
 
 // `notabene stop` — SIGTERM the detached daemon's process group, clear the pidfile.

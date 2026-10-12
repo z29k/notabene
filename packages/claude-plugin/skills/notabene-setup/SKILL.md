@@ -212,8 +212,9 @@ and `rm` stay explicit.
 ## Launch & handoff
 
 1. **Launch a detached daemon.** `dev --detach` **self-selects a free port**, starts a real
-   background server that **survives this session**, is **idempotent** (reuses a live one
-   instead of starting a second), and **prints the URL itself** once the port answers — so
+   background server that **survives this session**, is **idempotent** (reuses a live one of
+   the same renderer version instead of starting a second; restarts one of another version,
+   e.g. after a plugin update), and **prints the URL itself** once the port answers — so
    run it as a normal Bash call (not `run_in_background`); it returns on its own:
 
    ```bash
@@ -225,7 +226,7 @@ and `rm` stay explicit.
    fetch, so this call can take a bit — say so. Give the user the `http://localhost:<port>`
    URL from its output.
 2. **Lifecycle** (managed across sessions):
-   - `node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" status --json` → `{ running, pid, port, url }`
+   - `node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" status --json` → `{ running, pid, port, url, version }`
      (or `/notabene:status`).
    - `node "${CLAUDE_PLUGIN_ROOT}/bin/nb.mjs" stop` → stop it (or `/notabene:stop`).
 3. **On Branch B**, most changes take effect only after a restart: **`stop` then

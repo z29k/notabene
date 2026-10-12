@@ -17,8 +17,8 @@ une dépendance de votre repo**. Sans installation locale, utilisez toujours le 
 | --- | --- |
 | `notabene doctor` | État en lecture seule au format JSON : config/store/port/éditeur + dossiers de doc détectés — `--json` |
 | `notabene init` | Écrit `notabene.config.mjs` + crée le store (sans effet s'il existe déjà) ; `--detect` auto-détecte les dossiers de doc. Écrit aussi le [point d'entrée agent](./agent-protocol.md) : `<store>/protocol.md` + un bloc borné dans `AGENTS.md` — désactivables via `--no-protocol` / `--no-agents-md`. Idempotent : relancez-le pour rafraîchir les deux |
-| `notabene dev` | Démarre le serveur de revue sur les docs de ce repo (rechargement à chaud) ; `--detach` le lance en démon d'arrière-plan. Avec la dépendance de dev optionnelle `pagefind`, sa recherche devient [plein texte](../guide/publish/index.md#recherche-plein-texte-optionnelle) aussi |
-| `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL) — `--json` |
+| `notabene dev` | Démarre le serveur de revue sur les docs de ce repo (rechargement à chaud) ; `--detach` le lance en démon d'arrière-plan — réutilisé si un démon de la même version tourne déjà, relancé sur cette version sinon (par exemple après une mise à jour du plugin). Avec la dépendance de dev optionnelle `pagefind`, sa recherche devient [plein texte](../guide/publish/index.md#recherche-plein-texte-optionnelle) aussi |
+| `notabene status` | Le serveur détaché tourne-t-il ? (pid, port, URL, version du renderer) — `--json` |
 | `notabene stop` | Arrête le serveur détaché |
 | `notabene build` | Construit le site (Node standalone ; docs prérendues, pas d'API d'écriture dans l'artefact) |
 | `notabene build --public` | Site **statique** en lecture seule pour hébergement public — [voir le guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]`. Avec la dépendance de dev optionnelle `pagefind`, l'artefact gagne une [recherche plein texte statique](../guide/publish/index.md#recherche-plein-texte-optionnelle) |

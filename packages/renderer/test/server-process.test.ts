@@ -5,11 +5,13 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import {
   canConnect,
+  daemonVerdict,
   isAlive,
   pidfilePath,
   readPidfile,
   removePidfile,
   stopGroup,
+  waitForExit,
   waitForPort,
   writePidfile,
 } from "../src/lib/server-process.mjs";
@@ -78,5 +80,33 @@ describe("canConnect / waitForPort", () => {
 describe("stopGroup", () => {
   it("returns false when the target is already gone (no throw)", () => {
     expect(stopGroup(1073741823)).toBe(false);
+  });
+});
+
+describe("daemonVerdict", () => {
+  const live = { alive: true, answering: true, version: "0.16.1" };
+  it("starts when nothing live is on record", () => {
+    expect(daemonVerdict(null, live)).toBe("start");
+    expect(daemonVerdict({ version: "0.16.1" }, { ...live, alive: false, answering: false })).toBe("start");
+    expect(daemonVerdict({ version: "0.16.1" }, { ...live, answering: false })).toBe("start");
+  });
+  it("reuses a live daemon of the same version", () => {
+    expect(daemonVerdict({ version: "0.16.1" }, live)).toBe("reuse");
+  });
+  it("replaces a live daemon of another version — older OR newer", () => {
+    expect(daemonVerdict({ version: "0.15.3" }, live)).toBe("replace");
+    expect(daemonVerdict({ version: "0.17.0" }, live)).toBe("replace");
+  });
+  it("replaces a live daemon whose pidfile predates the version stamp", () => {
+    expect(daemonVerdict({}, live)).toBe("replace");
+  });
+});
+
+describe("waitForExit", () => {
+  it("resolves true at once for a gone process", async () => {
+    expect(await waitForExit(1073741823, { timeoutMs: 200 })).toBe(true);
+  });
+  it("gives up (false) on a process that stays alive", async () => {
+    expect(await waitForExit(process.pid, { timeoutMs: 250, intervalMs: 50 })).toBe(false);
   });
 });

@@ -17,8 +17,8 @@ your repo**. Without a local install, always use the scoped name —
 | --- | --- |
 | `notabene doctor` | Read-only state as JSON: config/store/port/editor + detected doc folders — `--json` |
 | `notabene init` | Write `notabene.config.mjs` + create the store (no-op if present); `--detect` auto-detects doc folders. Also writes the [agent entry point](./agent-protocol.md): `<store>/protocol.md` + a bounded block in `AGENTS.md` — opt out with `--no-protocol` / `--no-agents-md`. Idempotent: re-run it to refresh both |
-| `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon. With the optional `pagefind` dev dep, its search is [full-text](../guide/publish/index.md#full-text-search-optional) too |
-| `notabene status` | Is the detached server running? (pid, port, URL) — `--json` |
+| `notabene dev` | Start the review server over this repo's docs (live-reload); `--detach` runs it as a background daemon — reused when one of the same version is already up, restarted on this version otherwise (e.g. after a plugin update). With the optional `pagefind` dev dep, its search is [full-text](../guide/publish/index.md#full-text-search-optional) too |
+| `notabene status` | Is the detached server running? (pid, port, URL, renderer version) — `--json` |
 | `notabene stop` | Stop the detached server |
 | `notabene build` | Build the site (Node standalone; docs prerendered, no write API in the artifact) |
 | `notabene build --public` | Read-only **static** site for public hosting — [see the guide](../guide/publish/index.md). `[--site URL] [--base /sub] [--out DIR]`. With the optional `pagefind` dev dep installed, the artifact gets [static full-text search](../guide/publish/index.md#full-text-search-optional) |
