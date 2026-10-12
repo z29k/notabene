@@ -36,6 +36,13 @@ describe("pidfile round-trip", () => {
     removePidfile(wd);
     expect(readPidfile(wd)).toBeNull();
   });
+  it.skipIf(!process.getuid)("ignores a pidfile owned by another user", () => {
+    const wd = tmpdir();
+    writePidfile(wd, { pid: 4242, port: 3009 });
+    const me = (process.getuid as () => number)();
+    expect(readPidfile(wd, me)).toEqual({ pid: 4242, port: 3009 });
+    expect(readPidfile(wd, me + 1)).toBeNull();
+  });
   it("returns null for a missing/corrupt pidfile", () => {
     const wd = tmpdir();
     expect(readPidfile(wd)).toBeNull();

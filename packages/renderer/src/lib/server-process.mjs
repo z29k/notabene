@@ -17,10 +17,18 @@ export function writePidfile(workDir, info) {
   fs.writeFileSync(pidfilePath(workDir), `${JSON.stringify(info, null, 2)}\n`);
 }
 
-/** Parsed pidfile, or null if absent/corrupt. */
-export function readPidfile(workDir) {
+/**
+ * Parsed pidfile, or null if absent/corrupt — or not OURS. Its pid gets signalled
+ * (`stop`, and `dev --detach` replacing a daemon of another version), and on Linux the
+ * workDir sits under the SHARED /tmp: a pidfile planted by another local user could
+ * aim that signal at any of our processes. One we did not write is ignored.
+ * `uid` defaults to the current user's; no uid (Windows, per-user temp) → no check.
+ */
+export function readPidfile(workDir, uid = process.getuid?.()) {
   try {
-    return JSON.parse(fs.readFileSync(pidfilePath(workDir), "utf8"));
+    const file = pidfilePath(workDir);
+    if (uid !== undefined && fs.statSync(file).uid !== uid) return null;
+    return JSON.parse(fs.readFileSync(file, "utf8"));
   } catch {
     return null;
   }
